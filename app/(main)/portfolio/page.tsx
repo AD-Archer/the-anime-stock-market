@@ -1,7 +1,8 @@
 "use client";
 
+import { useUser } from "@stackframe/stack";
 import { useStore } from "@/lib/store";
-import { PortfolioCard } from "@/app/portfolio/components/portfolio-card";
+import { PortfolioCard } from "@/app/(main)/portfolio/components/portfolio-card";
 import { TransactionHistory } from "@/components/transaction-history";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { TrendingUp, Wallet, TrendingDown, Activity } from "lucide-react";
 import Link from "next/link";
 
 export default function PortfolioPage() {
+  const user = useUser({ or: "redirect" });
   const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
   const portfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
   const userTransactions = transactions

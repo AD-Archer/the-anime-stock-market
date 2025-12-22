@@ -30,8 +30,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { BuyDialog } from "@/app/character/components/buy-dialog";
-import { ComparisonChart } from "@/app/character/components/comparison-chart";
+import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
+import { ComparisonChart } from "@/app/(main)/character/components/comparison-chart";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 

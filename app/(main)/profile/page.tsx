@@ -1,6 +1,8 @@
 "use client";
 
+import { useUser } from "@stackframe/stack";
 import { useStore } from "@/lib/store";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -21,22 +23,22 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function ProfilePage() {
+  const user = useUser({ or: "redirect" });
   const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
+  const [displayName, setDisplayName] = useState(user.displayName || "");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
-  if (!currentUser) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-center text-muted-foreground">
-          Please log in to view your profile
-        </p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setDisplayName(user.displayName || "");
+  }, [user.displayName]);
 
-  const portfolio = getUserPortfolio(currentUser.id);
-  const userTransactions = transactions
-    .filter((t) => t.userId === currentUser.id)
-    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  const portfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
+  const userTransactions = currentUser
+    ? transactions
+        .filter((t) => t.userId === currentUser.id)
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    : [];
 
   // Calculate portfolio stats
   const portfolioStats = portfolio.reduce(
@@ -84,23 +86,140 @@ export default function ProfilePage() {
       <div className="container mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <User className="h-10 w-10" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <User className="h-10 w-10" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-foreground">
+                  {user.displayName || user.primaryEmail}
+                </h1>
+                <p className="text-muted-foreground">{user.primaryEmail}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Member since {new Date(user.createdAt).toLocaleDateString()}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-foreground">
-                {currentUser.username}
-              </h1>
-              <p className="text-muted-foreground">{currentUser.email}</p>
-              {currentUser.isAdmin && (
-                <Badge variant="default" className="mt-2">
-                  Admin
-                </Badge>
-              )}
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                {isSettingsExpanded ? "Hide Settings" : "Edit Profile"}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Collapsible Settings */}
+        <div
+          className={`mb-8 overflow-hidden transition-all duration-300 ease-in-out ${
+            isSettingsExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Display Name</label>
+              <div className="flex items-center gap-2">
+                {isEditingName ? (
+                  <>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      onBlur={async (e) => {
+                        const newName = e.target.value.trim();
+                        if (newName && newName !== user.displayName) {
+                          await user.update({ displayName: newName });
+                          setDisplayName(newName);
+                        } else if (!newName) {
+                          setDisplayName(user.displayName || "");
+                        }
+                        setIsEditingName(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur();
+                        } else if (e.key === "Escape") {
+                          setDisplayName(user.displayName || "");
+                          setIsEditingName(false);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Enter your display name"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        setDisplayName(user.displayName || "");
+                        setIsEditingName(false);
+                      }}
+                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 py-2 text-foreground">
+                      {user.displayName || "No display name set"}
+                    </span>
+                    <button
+                      onClick={() => setIsEditingName(true)}
+                      className="px-3 py-2 text-sm text-primary hover:text-primary/80 transition-colors"
+                    >
+                      Edit
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <p className="text-sm text-muted-foreground">
+                {user.primaryEmail}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed here. Contact support if needed.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Passkeys</label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Add a passkey for passwordless authentication. Passkeys provide
+                secure, passwordless login.
+              </p>
+              {user.passkeys && user.passkeys.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-sm font-medium mb-1">
+                    Registered Passkeys:
+                  </p>
+                  <ul className="text-sm text-muted-foreground">
+                    {user.passkeys.map((passkey, index) => (
+                      <li key={index}>• Passkey {index + 1}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  try {
+                    await user.addPasskey();
+                  } catch (error) {
+                    console.error("Failed to add passkey:", error);
+                    alert("Failed to add passkey. Please try again.");
+                  }
+                }}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Add Passkey
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Overview */}
 
         {/* Stats Overview */}
         <div className="mb-8 grid gap-6 md:grid-cols-4">

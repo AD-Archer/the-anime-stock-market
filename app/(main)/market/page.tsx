@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { StockCard } from "@/components/stock-card";
-import { BuyDialog } from "@/app/character/components/buy-dialog";
+import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketChart } from "@/components/market-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

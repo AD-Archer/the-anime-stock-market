@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Image from "next/image";
-import { SellDialog } from "../../../components/sell-dialog";
+import { SellDialog } from "../../../../components/sell-dialog";
 
 interface PortfolioCardProps {
   portfolio: Portfolio;

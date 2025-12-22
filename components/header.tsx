@@ -5,10 +5,12 @@ import { TrendingUp, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useState } from "react";
+import { useUser } from "@stackframe/stack";
 
 export function Header() {
   const { currentUser } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const user = useUser();
 
   return (
     <header className="border-b border-border bg-card">
@@ -38,7 +40,7 @@ export function Header() {
             <Link href="/profile">
               <Button variant="ghost">Profile</Button>
             </Link>
-            {currentUser?.isAdmin && (
+            {user && (
               <Link href="/admin">
                 <Button variant="ghost">Admin</Button>
               </Link>
@@ -49,6 +51,31 @@ export function Header() {
                 ${currentUser?.balance.toFixed(2)}
               </span>
             </div>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {user.displayName || user.primaryEmail}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await user.signOut();
+                    window.location.href = "/";
+                  }}
+                >
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => (window.location.href = "/handler/sign-in")}
+              >
+                Sign In
+              </Button>
+            )}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -102,13 +129,42 @@ export function Header() {
                   Profile
                 </Button>
               </Link>
-              {currentUser?.isAdmin && (
+              {user && (
                 <Link href="/admin" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start">
                     Admin
                   </Button>
                 </Link>
               )}
+              <div className="border-t border-border pt-2 mt-2">
+                {user ? (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm text-muted-foreground px-3">
+                      {user.displayName || user.primaryEmail}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        await user.signOut();
+                        window.location.href = "/";
+                      }}
+                      className="w-full"
+                    >
+                      Sign Out
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => (window.location.href = "/handler/sign-in")}
+                    className="w-full"
+                  >
+                    Sign In
+                  </Button>
+                )}
+              </div>
             </nav>
           </div>
         )}

@@ -1,8 +1,8 @@
 "use client";
 
+import { useUser } from "@stackframe/stack";
 import { useStore } from "@/lib/store";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp } from "lucide-react";
@@ -12,19 +12,9 @@ import { UserManagement } from "@/components/admin/user-management";
 import { CreateStockDialog } from "@/components/admin/create-stock-dialog";
 
 export default function AdminPage() {
+  const user = useUser({ or: "redirect" });
   const { currentUser } = useStore();
-  const router = useRouter();
   const [showCreateStock, setShowCreateStock] = useState(false);
-
-  useEffect(() => {
-    if (currentUser && !currentUser.isAdmin) {
-      router.push("/");
-    }
-  }, [currentUser, router]);
-
-  if (!currentUser?.isAdmin) {
-    return null;
-  }
 
   return (
     <div className="bg-background">
