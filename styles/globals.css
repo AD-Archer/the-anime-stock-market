@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -75,8 +75,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,4 +122,47 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* StackAuth spacing tweaks — add comfortable vertical rhythm inside the StackAuth card */
+.stackauth * + * {
+  /* add vertical spacing between stacked elements inside the component */
+  @apply mt-3;
+}
+
+/* Make common form controls fill the card width for a clean stacked layout */
+.stackauth input[type="text"],
+.stackauth input[type="email"],
+.stackauth input[type="password"],
+.stackauth textarea {
+  @apply block w-full;
+}
+
+/* Make the primary submit button full-width to align with inputs */
+.stackauth button[type="submit"] {
+  @apply w-full;
+}
+
+/* Slightly reduce spacing for grouped provider buttons if present */
+.stackauth .providers > * + * {
+  @apply mt-2;
+}
+
+/* Improve spacing for Stack's internal layout: target their .stack-scope containers which often
+   control the internal layout using flex/grid + gap utilities. These more specific rules should
+   reliably increase vertical rhythm inside the card. */
+.stackauth :where(.stack-scope).flex,
+.stackauth :where(.stack-scope).flex.flex-col,
+.stackauth :where(.stack-scope).flex.flex-col.items-stretch {
+  @apply gap-3;
+}
+
+/* Fallback: increase gap for elements that already use a gap- utility */
+.stackauth :where(.stack-scope)[class*="gap-"] {
+  @apply gap-3;
+}
+
+/* Make provider groups a bit more spacious */
+.stackauth .stack-scope .gap-4 {
+  @apply gap-6;
 }

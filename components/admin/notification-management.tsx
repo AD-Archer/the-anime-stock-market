@@ -17,7 +17,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Send, Users, User, MessageSquare } from "lucide-react";
+import {
+  Bell,
+  Send,
+  Users,
+  User,
+  MessageSquare,
+  Megaphone,
+  X,
+} from "lucide-react";
 
 export function NotificationManagement() {
   const { users, sendNotification } = useStore();
@@ -96,7 +104,7 @@ export function NotificationManagement() {
       <Tabs defaultValue="broadcast" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="broadcast">
-            <Users className="h-4 w-4 mr-2" />
+            <Megaphone className="h-4 w-4 mr-2" />
             Broadcast
           </TabsTrigger>
           <TabsTrigger value="individual">
@@ -109,7 +117,7 @@ export function NotificationManagement() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
+                <Megaphone className="h-5 w-5" />
                 Broadcast Message
               </CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -248,7 +256,7 @@ export function NotificationManagement() {
                                 onClick={() => removeUser(userId)}
                                 className="ml-1 text-xs hover:text-destructive"
                               >
-                                ×
+                                <X className="h-3 w-3" />
                               </button>
                             </Badge>
                           );

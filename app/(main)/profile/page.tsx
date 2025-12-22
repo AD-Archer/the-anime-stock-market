@@ -1,8 +1,9 @@
 "use client";
 
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -21,13 +23,39 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { account } from "@/lib/appwrite";
 
 export default function ProfilePage() {
-  const user = useUser({ or: "redirect" });
+  const { user, updateName } = useAuth();
   const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
-  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const router = useRouter();
+  const [displayName, setDisplayName] = useState(user?.name || "");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
+  const [jwt, setJwt] = useState<string | null>(null);
+  const [jwtStatus, setJwtStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/auth/signin");
+    }
+  }, [user, router]);
+
+  const fetchJwt = async () => {
+    setJwtStatus(null);
+    try {
+      const token = await account.createJWT();
+      setJwt(token.jwt);
+      setJwtStatus("JWT generated (valid 15 minutes).");
+    } catch (err) {
+      console.error("Failed to create JWT", err);
+      setJwtStatus("Failed to create JWT. Are you signed in?");
+    }
+  };
+
+  if (!user || !currentUser) {
+    return <div>Loading...</div>;
+  }
 
   const portfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
   const userTransactions = currentUser
@@ -78,7 +106,7 @@ export default function ProfilePage() {
   const totalAssets = (currentUser?.balance || 0) + totalPortfolioValue;
 
   return (
-    <div className="bg-background">
+    <div className="bg-background" key={user?.id ?? "profile"}>
       <div className="container mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="mb-8">
@@ -89,9 +117,9 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-foreground">
-                  {user.displayName || user.primaryEmail}
+                  {user.name || user.email}
                 </h1>
-                <p className="text-muted-foreground">{user.primaryEmail}</p>
+                <p className="text-muted-foreground">{user.email}</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Member since{" "}
                   {currentUser
@@ -129,11 +157,11 @@ export default function ProfilePage() {
                       onChange={(e) => setDisplayName(e.target.value)}
                       onBlur={async (e) => {
                         const newName = e.target.value.trim();
-                        if (newName && newName !== user.displayName) {
-                          await user.update({ displayName: newName });
+                        if (newName && newName !== user.name) {
+                          await updateName(newName);
                           setDisplayName(newName);
                         } else if (!newName) {
-                          setDisplayName(user.displayName || "");
+                          setDisplayName(user.name || "");
                         }
                         setIsEditingName(false);
                       }}
@@ -141,7 +169,7 @@ export default function ProfilePage() {
                         if (e.key === "Enter") {
                           e.currentTarget.blur();
                         } else if (e.key === "Escape") {
-                          setDisplayName(user.displayName || "");
+                          setDisplayName(user.name || "");
                           setIsEditingName(false);
                         }
                       }}
@@ -151,7 +179,7 @@ export default function ProfilePage() {
                     />
                     <button
                       onClick={() => {
-                        setDisplayName(user.displayName || "");
+                        setDisplayName(user.name || "");
                         setIsEditingName(false);
                       }}
                       className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -162,7 +190,7 @@ export default function ProfilePage() {
                 ) : (
                   <>
                     <span className="flex-1 py-2 text-foreground">
-                      {user.displayName || "No display name set"}
+                      {user.name || "No display name set"}
                     </span>
                     <button
                       onClick={() => setIsEditingName(true)}
@@ -177,7 +205,7 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
               <p className="text-sm text-muted-foreground">
-                {user.primaryEmail}
+                {user.email}
               </p>
               <p className="text-xs text-muted-foreground">
                 Email cannot be changed here. Contact support if needed.
@@ -186,8 +214,24 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Account Security</label>
               <p className="text-sm text-muted-foreground">
-                Your account is secured with Stack authentication.
+                Your account is secured with Appwrite authentication.
               </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">JWT (15 min)</label>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={fetchJwt}>
+                  Generate JWT
+                </Button>
+                {jwtStatus && (
+                  <span className="text-xs text-muted-foreground">{jwtStatus}</span>
+                )}
+              </div>
+              {jwt && (
+                <p className="text-xs break-all rounded bg-muted p-2 font-mono">
+                  {jwt}
+                </p>
+              )}
             </div>
           </div>
         </div>

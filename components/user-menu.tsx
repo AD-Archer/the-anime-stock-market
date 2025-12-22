@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +24,7 @@ import {
 import { NotificationCenter } from "@/components/notifications/notification-center";
 
 export function UserMenu() {
-  const user = useUser();
+  const { user, signOut } = useAuth();
   const { currentUser } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -33,17 +33,17 @@ export function UserMenu() {
       <Button
         variant="default"
         size="sm"
-        onClick={() => (window.location.href = "/handler/sign-in")}
+        onClick={() => (window.location.href = "/auth/signin")}
       >
         Sign In
       </Button>
     );
   }
 
-  const displayName = user.displayName || user.primaryEmail || "User";
+  const displayName = user.name || user.email || "User";
   const initials = displayName
     .split(" ")
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
@@ -98,7 +98,7 @@ export function UserMenu() {
           <DropdownMenuItem
             className="text-red-600 focus:text-red-600"
             onClick={async () => {
-              await user.signOut();
+              await signOut();
               window.location.href = "/";
             }}
           >

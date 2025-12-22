@@ -1,7 +1,9 @@
 "use client";
 
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PortfolioCard } from "@/app/(main)/portfolio/components/portfolio-card";
 import { TransactionHistory } from "@/components/transaction-history";
 import { Button } from "@/components/ui/button";
@@ -10,8 +12,20 @@ import { TrendingUp, Wallet, TrendingDown, Activity } from "lucide-react";
 import Link from "next/link";
 
 export default function PortfolioPage() {
-  const user = useUser({ or: "redirect" });
+  const { user } = useAuth();
   const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/auth/signin");
+    }
+  }, [user, router]);
+
+  if (!user || !currentUser) {
+    return <div>Loading...</div>;
+  }
+
   const portfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
   const userTransactions = transactions
     .filter((t) => t.userId === currentUser?.id)

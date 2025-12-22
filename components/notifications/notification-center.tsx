@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,7 +23,7 @@ import { Bell, Check, X, Filter } from "lucide-react";
 import type { Notification } from "@/lib/types";
 
 export function NotificationCenter({ modal = false }: { modal?: boolean }) {
-  const user = useUser();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isOpen = searchParams.get("notifications") === "open";

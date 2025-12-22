@@ -1,11 +1,12 @@
 import type React from "react";
-import { StackProvider, StackTheme } from "@stackframe/stack";
-import { stackClientApp } from "../stack/client";
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { StoreProvider } from "@/lib/store";
 import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
+import { AuthProvider } from "@/lib/auth";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -39,16 +40,26 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
-        <StackProvider app={stackClientApp}>
-          <StackTheme>
-            <StoreProvider>
+        <TooltipProvider>
+          <AuthProvider>
+            <StackedProviders>
               {children}
               <Toaster />
-            </StoreProvider>
-            <Analytics />
-          </StackTheme>
-        </StackProvider>
+            </StackedProviders>
+          </AuthProvider>
+        </TooltipProvider>
       </body>
     </html>
+  );
+}
+
+function StackedProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StoreProvider>
+        {children}
+        <Analytics />
+      </StoreProvider>
+    </Suspense>
   );
 }

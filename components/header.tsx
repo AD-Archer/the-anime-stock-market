@@ -5,13 +5,13 @@ import { TrendingUp, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useState } from "react";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
 
 export function Header() {
   const { currentUser } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const user = useUser();
+  const { user } = useAuth();
 
   return (
     <header className="border-b border-border bg-card">

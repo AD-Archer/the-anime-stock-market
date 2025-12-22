@@ -7,6 +7,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { useAuth } from "./auth";
 import type {
   User,
   Stock,
@@ -28,6 +29,16 @@ import {
   initialBuybackOffers,
   initialNotifications,
 } from "./data";
+import {
+  userService,
+  stockService,
+  transactionService,
+  portfolioService,
+  priceHistoryService,
+  commentService,
+  buybackOfferService,
+  notificationService,
+} from "./database";
 
 interface StoreContextType {
   // Current user
@@ -90,21 +101,107 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(
-    initialUsers[0] || null
-  );
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [stocks, setStocks] = useState<Stock[]>(initialStocks);
-  const [transactions, setTransactions] =
-    useState<Transaction[]>(initialTransactions);
-  const [priceHistory, setPriceHistory] =
-    useState<PriceHistory[]>(initialPriceHistory);
-  const [portfolios, setPortfolios] = useState<Portfolio[]>(initialPortfolios);
-  const [comments, setComments] = useState<Comment[]>(initialComments);
-  const [buybackOffers, setBuybackOffers] =
-    useState<BuybackOffer[]>(initialBuybackOffers);
-  const [notifications, setNotifications] =
-    useState<Notification[]>(initialNotifications);
+  const { user, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [buybackOffers, setBuybackOffers] = useState<BuybackOffer[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Load data from database on mount
+  useEffect(() => {
+    if (authLoading) return;
+
+    const loadData = async () => {
+      try {
+        console.log("Loading data from Appwrite...");
+        const [usersData, stocksData, transactionsData, buybackOffersData] =
+          await Promise.all([
+            userService.getAll(),
+            stockService.getAll(),
+            transactionService.getAll(),
+            buybackOfferService.getAll(),
+          ]);
+
+        setUsers(usersData.length > 0 ? usersData : initialUsers);
+        setStocks(stocksData.length > 0 ? stocksData : initialStocks);
+        setTransactions(
+          transactionsData.length > 0 ? transactionsData : initialTransactions
+        );
+        setBuybackOffers(
+          buybackOffersData.length > 0
+            ? buybackOffersData
+            : initialBuybackOffers
+        );
+
+        // For now, keep initial data for other collections that need specific queries
+        setPriceHistory(initialPriceHistory);
+        setPortfolios(initialPortfolios);
+        setComments(initialComments);
+        setNotifications(initialNotifications);
+
+        // Set current user based on auth user (if sync didn't already set it)
+        if (user) {
+          let matchedUser =
+            usersData.find(
+              (u) =>
+                u.email === user.email ||
+                u.username === user.name ||
+                u.id === user.id
+            ) || null;
+
+          if (!matchedUser) {
+            try {
+              const created = await userService.create({
+                id: user.id,
+                username:
+                  user.name ||
+                  user.email.split("@")[0] ||
+                  `user-${Date.now().toString(36)}`,
+                email: user.email,
+                balance: 1000,
+                isAdmin: false,
+                createdAt: new Date(),
+                isBanned: false,
+              });
+              matchedUser = created;
+              setUsers((prev) => [...prev, created]);
+            } catch (e) {
+              console.warn("Failed to create user record for Appwrite account", e);
+            }
+          }
+
+          if (matchedUser) setCurrentUser(matchedUser);
+        } else if (initialUsers.length > 0) {
+          setCurrentUser(initialUsers[0]);
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to load from database, using initial data:",
+          error
+        );
+        // Fallback to initial data
+        setUsers(initialUsers);
+        setStocks(initialStocks);
+        setTransactions(initialTransactions);
+        setPriceHistory(initialPriceHistory);
+        setPortfolios(initialPortfolios);
+        setComments(initialComments);
+        setBuybackOffers(initialBuybackOffers);
+        setNotifications(initialNotifications);
+        setCurrentUser(initialUsers[0] || null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user, authLoading]);
 
   const buyStock = (stockId: string, shares: number): boolean => {
     if (!currentUser) return false;
@@ -496,10 +593,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     targetUsers?: string[],
     expiresInHours: number = 24
   ) => {
-    // eslint-disable-next-line react-hooks/purity
     const timestamp = Date.now();
     const newOffer: BuybackOffer = {
-      // eslint-disable-next-line react-hooks/purity
       id: `buyback-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
       stockId,
       offeredPrice,

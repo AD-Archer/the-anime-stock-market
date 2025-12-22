@@ -1,8 +1,8 @@
 "use client";
 
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,12 +16,22 @@ import { MarketManagement } from "@/components/admin/market-management";
 import { NotificationManagement } from "@/components/admin/notification-management";
 
 export default function AdminPage() {
-  const user = useUser({ or: "redirect" });
+  const { user } = useAuth();
   const { currentUser } = useStore();
   const [showCreateStock, setShowCreateStock] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "stocks";
+
+  useEffect(() => {
+    if (!user || !currentUser?.isAdmin) {
+      router.push("/auth/signin");
+    }
+  }, [user, currentUser, router]);
+
+  if (!user || !currentUser?.isAdmin) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="bg-background">
