@@ -15,6 +15,8 @@ import type {
   Portfolio,
   Comment,
   MarketDataPoint,
+  BuybackOffer,
+  Notification,
 } from "./types";
 import {
   initialUsers,
@@ -23,6 +25,8 @@ import {
   initialPriceHistory,
   initialPortfolios,
   initialComments,
+  initialBuybackOffers,
+  initialNotifications,
 } from "./data";
 
 interface StoreContextType {
@@ -37,6 +41,8 @@ interface StoreContextType {
   priceHistory: PriceHistory[];
   portfolios: Portfolio[];
   comments: Comment[];
+  buybackOffers: BuybackOffer[];
+  notifications: Notification[];
 
   // Actions
   buyStock: (stockId: string, shares: number) => boolean;
@@ -53,6 +59,32 @@ interface StoreContextType {
   addComment: (animeId: string, content: string, characterId?: string) => void;
   getAnimeComments: (animeId: string) => Comment[];
   getCharacterComments: (characterId: string) => Comment[];
+
+  // Admin Actions
+  makeUserAdmin: (userId: string) => void;
+  removeUserAdmin: (userId: string) => void;
+  giveUserMoney: (userId: string, amount: number) => void;
+  takeUserMoney: (userId: string, amount: number) => void;
+  giveUserStocks: (userId: string, stockId: string, shares: number) => void;
+  removeUserStocks: (userId: string, stockId: string, shares: number) => void;
+  inflateMarket: (percentage: number) => void;
+  createBuybackOffer: (
+    stockId: string,
+    offeredPrice: number,
+    targetUsers?: string[],
+    expiresInHours?: number
+  ) => void;
+  acceptBuybackOffer: (offerId: string, shares: number) => void;
+  declineBuybackOffer: (offerId: string) => void;
+  sendNotification: (
+    userId: string,
+    type: Notification["type"],
+    title: string,
+    message: string,
+    data?: any
+  ) => void;
+  getUserNotifications: (userId: string) => Notification[];
+  markNotificationRead: (notificationId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -69,6 +101,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     useState<PriceHistory[]>(initialPriceHistory);
   const [portfolios, setPortfolios] = useState<Portfolio[]>(initialPortfolios);
   const [comments, setComments] = useState<Comment[]>(initialComments);
+  const [buybackOffers, setBuybackOffers] =
+    useState<BuybackOffer[]>(initialBuybackOffers);
+  const [notifications, setNotifications] =
+    useState<Notification[]>(initialNotifications);
 
   const buyStock = (stockId: string, shares: number): boolean => {
     if (!currentUser) return false;
@@ -337,6 +373,267 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   };
 
+  // Admin Functions
+  const makeUserAdmin = (userId: string) => {
+    const updatedUsers = users.map((u) =>
+      u.id === userId ? { ...u, isAdmin: true } : u
+    );
+    setUsers(updatedUsers);
+  };
+
+  const removeUserAdmin = (userId: string) => {
+    const updatedUsers = users.map((u) =>
+      u.id === userId ? { ...u, isAdmin: false } : u
+    );
+    setUsers(updatedUsers);
+  };
+
+  const giveUserMoney = (userId: string, amount: number) => {
+    const updatedUsers = users.map((u) =>
+      u.id === userId ? { ...u, balance: u.balance + amount } : u
+    );
+    setUsers(updatedUsers);
+  };
+
+  const takeUserMoney = (userId: string, amount: number) => {
+    const updatedUsers = users.map((u) =>
+      u.id === userId ? { ...u, balance: Math.max(0, u.balance - amount) } : u
+    );
+    setUsers(updatedUsers);
+  };
+
+  const giveUserStocks = (userId: string, stockId: string, shares: number) => {
+    const stock = stocks.find((s) => s.id === stockId);
+    if (!stock) return;
+
+    const existingPortfolio = portfolios.find(
+      (p) => p.userId === userId && p.stockId === stockId
+    );
+
+    if (existingPortfolio) {
+      const totalShares = existingPortfolio.shares + shares;
+      const newAverageBuyPrice =
+        (existingPortfolio.averageBuyPrice * existingPortfolio.shares +
+          stock.currentPrice * shares) /
+        totalShares;
+
+      const updatedPortfolios = portfolios.map((p) =>
+        p.userId === userId && p.stockId === stockId
+          ? { ...p, shares: totalShares, averageBuyPrice: newAverageBuyPrice }
+          : p
+      );
+      setPortfolios(updatedPortfolios);
+    } else {
+      setPortfolios([
+        ...portfolios,
+        {
+          userId,
+          stockId,
+          shares,
+          averageBuyPrice: stock.currentPrice,
+        },
+      ]);
+    }
+
+    // Update available shares
+    const updatedStocks = stocks.map((s) =>
+      s.id === stockId
+        ? { ...s, availableShares: Math.max(0, s.availableShares - shares) }
+        : s
+    );
+    setStocks(updatedStocks);
+  };
+
+  const removeUserStocks = (
+    userId: string,
+    stockId: string,
+    shares: number
+  ) => {
+    const portfolio = portfolios.find(
+      (p) => p.userId === userId && p.stockId === stockId
+    );
+    if (!portfolio || portfolio.shares < shares) return;
+
+    const updatedPortfolios = portfolios
+      .map((p) =>
+        p.userId === userId && p.stockId === stockId
+          ? { ...p, shares: p.shares - shares }
+          : p
+      )
+      .filter((p) => p.shares > 0);
+    setPortfolios(updatedPortfolios);
+
+    // Update available shares
+    const updatedStocks = stocks.map((s) =>
+      s.id === stockId
+        ? { ...s, availableShares: s.availableShares + shares }
+        : s
+    );
+    setStocks(updatedStocks);
+  };
+
+  const inflateMarket = (percentage: number) => {
+    const multiplier = 1 + percentage / 100;
+    const updatedStocks = stocks.map((stock) => ({
+      ...stock,
+      currentPrice: stock.currentPrice * multiplier,
+    }));
+    setStocks(updatedStocks);
+
+    // Add price history for all stocks
+    const newPriceHistory = stocks.map((stock) => ({
+      id: `ph-${Date.now()}-${stock.id}`,
+      stockId: stock.id,
+      price: stock.currentPrice * multiplier,
+      timestamp: new Date(),
+    }));
+    setPriceHistory([...priceHistory, ...newPriceHistory]);
+  };
+
+  const createBuybackOffer = (
+    stockId: string,
+    offeredPrice: number,
+    targetUsers?: string[],
+    expiresInHours: number = 24
+  ) => {
+    // eslint-disable-next-line react-hooks/purity
+    const timestamp = Date.now();
+    const newOffer: BuybackOffer = {
+      // eslint-disable-next-line react-hooks/purity
+      id: `buyback-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+      stockId,
+      offeredPrice,
+      offeredBy: currentUser?.id || "admin",
+      targetUsers,
+      expiresAt: new Date(timestamp + expiresInHours * 60 * 60 * 1000),
+      status: "active",
+    };
+    setBuybackOffers([...buybackOffers, newOffer]);
+
+    // Send notifications to target users
+    const targetUserIds = targetUsers || users.map((u) => u.id);
+    targetUserIds.forEach((userId) => {
+      sendNotification(
+        userId,
+        "buyback_offer",
+        "Buyback Offer Available",
+        `A buyback offer is available for ${
+          stocks.find((s) => s.id === stockId)?.characterName
+        } at $${offeredPrice.toFixed(2)} per share.`,
+        { buybackOfferId: newOffer.id }
+      );
+    });
+  };
+
+  const acceptBuybackOffer = (offerId: string, shares: number) => {
+    if (!currentUser) return;
+
+    const offer = buybackOffers.find((o) => o.id === offerId);
+    if (!offer || offer.status !== "active" || offer.expiresAt < new Date())
+      return;
+
+    const userPortfolio = portfolios.find(
+      (p) => p.userId === currentUser.id && p.stockId === offer.stockId
+    );
+    if (!userPortfolio || userPortfolio.shares < shares) return;
+
+    const totalAmount = offer.offeredPrice * shares;
+
+    // Update user balance
+    const updatedUsers = users.map((u) =>
+      u.id === currentUser.id ? { ...u, balance: u.balance + totalAmount } : u
+    );
+    setUsers(updatedUsers);
+    setCurrentUser({
+      ...currentUser,
+      balance: currentUser.balance + totalAmount,
+    });
+
+    // Update portfolio
+    const updatedPortfolios = portfolios
+      .map((p) =>
+        p.userId === currentUser.id && p.stockId === offer.stockId
+          ? { ...p, shares: p.shares - shares }
+          : p
+      )
+      .filter((p) => p.shares > 0);
+    setPortfolios(updatedPortfolios);
+
+    // Update stock available shares
+    const updatedStocks = stocks.map((s) =>
+      s.id === offer.stockId
+        ? { ...s, availableShares: s.availableShares + shares }
+        : s
+    );
+    setStocks(updatedStocks);
+
+    // Update offer
+    const updatedOffers = buybackOffers.map((o) =>
+      o.id === offerId
+        ? {
+            ...o,
+            status: "accepted" as const,
+            acceptedBy: currentUser.id,
+            acceptedShares: shares,
+          }
+        : o
+    );
+    setBuybackOffers(updatedOffers);
+
+    // Add transaction
+    const newTransaction: Transaction = {
+      id: `tx-${Date.now()}`,
+      userId: currentUser.id,
+      stockId: offer.stockId,
+      type: "sell",
+      shares,
+      pricePerShare: offer.offeredPrice,
+      totalAmount,
+      timestamp: new Date(),
+    };
+    setTransactions([...transactions, newTransaction]);
+  };
+
+  const declineBuybackOffer = (offerId: string) => {
+    const updatedOffers = buybackOffers.map((o) =>
+      o.id === offerId ? { ...o, status: "declined" as const } : o
+    );
+    setBuybackOffers(updatedOffers);
+  };
+
+  const sendNotification = (
+    userId: string,
+    type: Notification["type"],
+    title: string,
+    message: string,
+    data?: any
+  ) => {
+    const newNotification: Notification = {
+      id: `notif-${Date.now()}`,
+      userId,
+      type,
+      title,
+      message,
+      data,
+      read: false,
+      createdAt: new Date(),
+    };
+    setNotifications([...notifications, newNotification]);
+  };
+
+  const getUserNotifications = (userId: string): Notification[] => {
+    return notifications
+      .filter((n) => n.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  };
+
+  const markNotificationRead = (notificationId: string) => {
+    const updatedNotifications = notifications.map((n) =>
+      n.id === notificationId ? { ...n, read: true } : n
+    );
+    setNotifications(updatedNotifications);
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -348,6 +645,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         priceHistory,
         portfolios,
         comments,
+        buybackOffers,
+        notifications,
         buyStock,
         sellStock,
         createStock,
@@ -362,6 +661,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addComment,
         getAnimeComments,
         getCharacterComments,
+        makeUserAdmin,
+        removeUserAdmin,
+        giveUserMoney,
+        takeUserMoney,
+        giveUserStocks,
+        removeUserStocks,
+        inflateMarket,
+        createBuybackOffer,
+        acceptBuybackOffer,
+        declineBuybackOffer,
+        sendNotification,
+        getUserNotifications,
+        markNotificationRead,
       }}
     >
       {children}

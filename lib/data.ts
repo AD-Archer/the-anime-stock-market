@@ -1,4 +1,11 @@
-import type { User, Stock, Transaction, PriceHistory, Portfolio, Comment } from "./types"
+import type {
+  User,
+  Stock,
+  Transaction,
+  PriceHistory,
+  Portfolio,
+  Comment,
+} from "./types";
 
 // Initial users with $1000 starting balance
 export const initialUsers: User[] = [
@@ -29,7 +36,7 @@ export const initialUsers: User[] = [
     createdAt: new Date("2024-01-01"),
     isBanned: false,
   },
-]
+];
 
 // Initial stocks
 export const initialStocks: Stock[] = [
@@ -77,7 +84,8 @@ export const initialStocks: Stock[] = [
     createdBy: "user-2",
     createdAt: new Date("2024-01-18T16:45:00"),
     imageUrl: "/levi-ackerman-attack-on-titan-anime-character.jpg",
-    description: "Humanity's strongest soldier and captain of the Survey Corps.",
+    description:
+      "Humanity's strongest soldier and captain of the Survey Corps.",
     totalShares: 6000,
     availableShares: 5400,
   },
@@ -89,11 +97,12 @@ export const initialStocks: Stock[] = [
     createdBy: "user-1",
     createdAt: new Date("2024-01-19T11:20:00"),
     imageUrl: "/edward-elric-fullmetal-alchemist-anime-character.jpg",
-    description: "The Fullmetal Alchemist searching for the Philosopher's Stone.",
+    description:
+      "The Fullmetal Alchemist searching for the Philosopher's Stone.",
     totalShares: 7000,
     availableShares: 6300,
   },
-]
+];
 
 // Initial transactions
 export const initialTransactions: Transaction[] = [
@@ -137,35 +146,110 @@ export const initialTransactions: Transaction[] = [
     totalAmount: 562.5,
     timestamp: new Date("2024-01-18T17:00:00"),
   },
-]
+];
 
 // Price history for tracking stock prices over time
 export const initialPriceHistory: PriceHistory[] = [
   // Luffy price history
-  { id: "ph-1", stockId: "stock-1", price: 1.0, timestamp: new Date("2024-01-15T10:00:00") },
-  { id: "ph-2", stockId: "stock-1", price: 1.05, timestamp: new Date("2024-01-16T10:00:00") },
-  { id: "ph-3", stockId: "stock-1", price: 1.02, timestamp: new Date("2024-01-17T10:00:00") },
-  { id: "ph-4", stockId: "stock-1", price: 1.08, timestamp: new Date("2024-01-18T10:00:00") },
-  { id: "ph-5", stockId: "stock-1", price: 1.0, timestamp: new Date("2024-01-19T10:00:00") },
+  {
+    id: "ph-1",
+    stockId: "stock-1",
+    price: 1.0,
+    timestamp: new Date("2024-01-15T10:00:00"),
+  },
+  {
+    id: "ph-2",
+    stockId: "stock-1",
+    price: 1.05,
+    timestamp: new Date("2024-01-16T10:00:00"),
+  },
+  {
+    id: "ph-3",
+    stockId: "stock-1",
+    price: 1.02,
+    timestamp: new Date("2024-01-17T10:00:00"),
+  },
+  {
+    id: "ph-4",
+    stockId: "stock-1",
+    price: 1.08,
+    timestamp: new Date("2024-01-18T10:00:00"),
+  },
+  {
+    id: "ph-5",
+    stockId: "stock-1",
+    price: 1.0,
+    timestamp: new Date("2024-01-19T10:00:00"),
+  },
 
   // Naruto price history
-  { id: "ph-6", stockId: "stock-2", price: 2.5, timestamp: new Date("2024-01-16T14:30:00") },
-  { id: "ph-7", stockId: "stock-2", price: 2.6, timestamp: new Date("2024-01-17T14:30:00") },
-  { id: "ph-8", stockId: "stock-2", price: 2.55, timestamp: new Date("2024-01-18T14:30:00") },
-  { id: "ph-9", stockId: "stock-2", price: 2.5, timestamp: new Date("2024-01-19T14:30:00") },
+  {
+    id: "ph-6",
+    stockId: "stock-2",
+    price: 2.5,
+    timestamp: new Date("2024-01-16T14:30:00"),
+  },
+  {
+    id: "ph-7",
+    stockId: "stock-2",
+    price: 2.6,
+    timestamp: new Date("2024-01-17T14:30:00"),
+  },
+  {
+    id: "ph-8",
+    stockId: "stock-2",
+    price: 2.55,
+    timestamp: new Date("2024-01-18T14:30:00"),
+  },
+  {
+    id: "ph-9",
+    stockId: "stock-2",
+    price: 2.5,
+    timestamp: new Date("2024-01-19T14:30:00"),
+  },
 
   // Goku price history
-  { id: "ph-10", stockId: "stock-3", price: 5.0, timestamp: new Date("2024-01-17T09:15:00") },
-  { id: "ph-11", stockId: "stock-3", price: 5.2, timestamp: new Date("2024-01-18T09:15:00") },
-  { id: "ph-12", stockId: "stock-3", price: 5.0, timestamp: new Date("2024-01-19T09:15:00") },
+  {
+    id: "ph-10",
+    stockId: "stock-3",
+    price: 5.0,
+    timestamp: new Date("2024-01-17T09:15:00"),
+  },
+  {
+    id: "ph-11",
+    stockId: "stock-3",
+    price: 5.2,
+    timestamp: new Date("2024-01-18T09:15:00"),
+  },
+  {
+    id: "ph-12",
+    stockId: "stock-3",
+    price: 5.0,
+    timestamp: new Date("2024-01-19T09:15:00"),
+  },
 
   // Levi price history
-  { id: "ph-13", stockId: "stock-4", price: 3.75, timestamp: new Date("2024-01-18T16:45:00") },
-  { id: "ph-14", stockId: "stock-4", price: 3.8, timestamp: new Date("2024-01-19T16:45:00") },
+  {
+    id: "ph-13",
+    stockId: "stock-4",
+    price: 3.75,
+    timestamp: new Date("2024-01-18T16:45:00"),
+  },
+  {
+    id: "ph-14",
+    stockId: "stock-4",
+    price: 3.8,
+    timestamp: new Date("2024-01-19T16:45:00"),
+  },
 
   // Edward price history
-  { id: "ph-15", stockId: "stock-5", price: 2.25, timestamp: new Date("2024-01-19T11:20:00") },
-]
+  {
+    id: "ph-15",
+    stockId: "stock-5",
+    price: 2.25,
+    timestamp: new Date("2024-01-19T11:20:00"),
+  },
+];
 
 // Initial portfolios
 export const initialPortfolios: Portfolio[] = [
@@ -193,7 +277,7 @@ export const initialPortfolios: Portfolio[] = [
     shares: 150,
     averageBuyPrice: 3.75,
   },
-]
+];
 
 export const initialComments: Comment[] = [
   {
@@ -211,4 +295,12 @@ export const initialComments: Comment[] = [
     content: "Naruto stocks are undervalued right now. Great time to buy!",
     timestamp: new Date("2024-01-16T15:30:00"),
   },
-]
+];
+
+import type { BuybackOffer, Notification } from "./types";
+
+// Initial buyback offers (empty)
+export const initialBuybackOffers: BuybackOffer[] = [];
+
+// Initial notifications (empty)
+export const initialNotifications: Notification[] = [];

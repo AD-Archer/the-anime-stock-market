@@ -25,13 +25,9 @@ import Image from "next/image";
 export default function ProfilePage() {
   const user = useUser({ or: "redirect" });
   const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
-  const [displayName, setDisplayName] = useState(user.displayName || "");
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
-
-  useEffect(() => {
-    setDisplayName(user.displayName || "");
-  }, [user.displayName]);
 
   const portfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
   const userTransactions = currentUser
@@ -79,7 +75,7 @@ export default function ProfilePage() {
   const totalProfitLoss = totalPortfolioValue - totalInvested;
   const totalProfitLossPercent =
     totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
-  const totalAssets = currentUser.balance + totalPortfolioValue;
+  const totalAssets = (currentUser?.balance || 0) + totalPortfolioValue;
 
   return (
     <div className="bg-background">
@@ -97,7 +93,10 @@ export default function ProfilePage() {
                 </h1>
                 <p className="text-muted-foreground">{user.primaryEmail}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Member since {new Date(user.createdAt).toLocaleDateString()}
+                  Member since{" "}
+                  {currentUser
+                    ? new Date(currentUser.createdAt).toLocaleDateString()
+                    : "Unknown"}
                 </p>
               </div>
             </div>
@@ -185,36 +184,10 @@ export default function ProfilePage() {
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Passkeys</label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Add a passkey for passwordless authentication. Passkeys provide
-                secure, passwordless login.
+              <label className="text-sm font-medium">Account Security</label>
+              <p className="text-sm text-muted-foreground">
+                Your account is secured with Stack authentication.
               </p>
-              {user.passkeys && user.passkeys.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-sm font-medium mb-1">
-                    Registered Passkeys:
-                  </p>
-                  <ul className="text-sm text-muted-foreground">
-                    {user.passkeys.map((passkey, index) => (
-                      <li key={index}>• Passkey {index + 1}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <button
-                onClick={async () => {
-                  try {
-                    await user.addPasskey();
-                  } catch (error) {
-                    console.error("Failed to add passkey:", error);
-                    alert("Failed to add passkey. Please try again.");
-                  }
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Add Passkey
-              </button>
             </div>
           </div>
         </div>
@@ -249,7 +222,7 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
-                ${currentUser.balance.toFixed(2)}
+                ${currentUser?.balance.toFixed(2) || "0.00"}
               </div>
               <p className="text-xs text-muted-foreground">
                 Available to trade
@@ -338,75 +311,82 @@ export default function ProfilePage() {
                           key={item.stockId}
                           href={`/character/${item.stockId}`}
                         >
-                          <div className="flex items-center gap-4 rounded-lg border p-4 transition-all hover:bg-muted">
-                            <div className="relative h-16 w-16 overflow-hidden rounded-lg">
-                              <Image
-                                src={item.stock.imageUrl || "/placeholder.svg"}
-                                alt={item.stock.characterName}
-                                fill
-                                className="object-cover"
-                              />
+                          <div className="flex flex-col gap-3 rounded-lg border p-4 transition-all hover:bg-muted">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="relative h-16 w-16 overflow-hidden rounded-lg">
+                                  <Image
+                                    src={
+                                      item.stock.imageUrl || "/placeholder.svg"
+                                    }
+                                    alt={item.stock.characterName}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-bold text-foreground truncate">
+                                    {item.stock.characterName}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {item.stock.anime}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.shares} shares
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-muted-foreground">
+                                  P/L
+                                </p>
+                                <p
+                                  className={`font-mono font-semibold ${
+                                    isProfit
+                                      ? "text-chart-4"
+                                      : "text-destructive"
+                                  }`}
+                                >
+                                  {isProfit ? "+" : ""}$
+                                  {item.profitLoss.toFixed(2)}
+                                </p>
+                                <p
+                                  className={`text-xs ${
+                                    isProfit
+                                      ? "text-chart-4"
+                                      : "text-destructive"
+                                  }`}
+                                >
+                                  {isProfit ? "+" : ""}
+                                  {item.profitLossPercent.toFixed(2)}%
+                                </p>
+                              </div>
                             </div>
-
-                            <div className="flex-1">
-                              <h3 className="font-bold text-foreground">
-                                {item.stock.characterName}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">
-                                {item.stock.anime}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.shares} shares
-                              </p>
-                            </div>
-
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">
-                                Avg Buy Price
-                              </p>
-                              <p className="font-mono text-foreground">
-                                ${item.averageBuyPrice.toFixed(2)}
-                              </p>
-                            </div>
-
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">
-                                Current Price
-                              </p>
-                              <p className="font-mono text-foreground">
-                                ${item.stock.currentPrice.toFixed(2)}
-                              </p>
-                            </div>
-
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">
-                                Market Value
-                              </p>
-                              <p className="font-mono font-semibold text-foreground">
-                                ${item.currentValue.toFixed(2)}
-                              </p>
-                            </div>
-
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">
-                                P/L
-                              </p>
-                              <p
-                                className={`font-mono font-semibold ${
-                                  isProfit ? "text-chart-4" : "text-destructive"
-                                }`}
-                              >
-                                {isProfit ? "+" : ""}$
-                                {item.profitLoss.toFixed(2)}
-                              </p>
-                              <p
-                                className={`text-xs ${
-                                  isProfit ? "text-chart-4" : "text-destructive"
-                                }`}
-                              >
-                                {isProfit ? "+" : ""}
-                                {item.profitLossPercent.toFixed(2)}%
-                              </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">
+                                  Avg Buy Price
+                                </p>
+                                <p className="font-mono text-foreground">
+                                  ${item.averageBuyPrice.toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  Current Price
+                                </p>
+                                <p className="font-mono text-foreground">
+                                  ${item.stock.currentPrice.toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  Market Value
+                                </p>
+                                <p className="font-mono font-semibold text-foreground">
+                                  ${item.currentValue.toFixed(2)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </Link>
@@ -430,50 +410,57 @@ export default function ProfilePage() {
                       return (
                         <div
                           key={tx.id}
-                          className="flex items-center justify-between rounded-lg border p-4"
+                          className="flex flex-col gap-2 rounded-lg border p-4"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="relative h-12 w-12 overflow-hidden rounded-lg">
-                              <Image
-                                src={stock.imageUrl || "/placeholder.svg"}
-                                alt={stock.characterName}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-semibold text-foreground">
-                                  {stock.characterName}
-                                </p>
-                                <Badge
-                                  variant={
-                                    tx.type === "buy" ? "default" : "secondary"
-                                  }
-                                >
-                                  {tx.type}
-                                </Badge>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="relative h-12 w-12 overflow-hidden rounded-lg">
+                                <Image
+                                  src={stock.imageUrl || "/placeholder.svg"}
+                                  alt={stock.characterName}
+                                  fill
+                                  className="object-cover"
+                                />
                               </div>
-                              <p className="text-sm text-muted-foreground">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-foreground truncate">
+                                    {stock.characterName}
+                                  </p>
+                                  <Badge
+                                    variant={
+                                      tx.type === "buy"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {tx.type}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="font-mono font-semibold text-foreground">
+                              ${tx.totalAmount.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                            <div>
+                              <p>
                                 {tx.shares} shares @ $
                                 {tx.pricePerShare.toFixed(2)}
                               </p>
                             </div>
-                          </div>
-
-                          <div className="text-right">
-                            <p className="font-mono font-semibold text-foreground">
-                              ${tx.totalAmount.toFixed(2)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {tx.timestamp.toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </p>
+                            <div className="text-right sm:text-left">
+                              <p>
+                                {tx.timestamp.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       );

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { useUser } from "@stackframe/stack";
+import { UserMenu } from "@/components/user-menu";
 
 export function Header() {
   const { currentUser } = useStore();
@@ -37,45 +38,12 @@ export function Header() {
             <Link href="/anime">
               <Button variant="ghost">Anime</Button>
             </Link>
-            <Link href="/profile">
-              <Button variant="ghost">Profile</Button>
-            </Link>
             {user && (
               <Link href="/admin">
                 <Button variant="ghost">Admin</Button>
               </Link>
             )}
-            <div className="flex items-center gap-2 rounded-lg bg-muted px-4 py-2">
-              <span className="text-sm text-muted-foreground">Balance:</span>
-              <span className="font-mono font-semibold text-foreground">
-                ${currentUser?.balance.toFixed(2)}
-              </span>
-            </div>
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {user.displayName || user.primaryEmail}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    await user.signOut();
-                    window.location.href = "/";
-                  }}
-                >
-                  Sign Out
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => (window.location.href = "/handler/sign-in")}
-              >
-                Sign In
-              </Button>
-            )}
+            <UserMenu />
           </nav>
 
           {/* Mobile Menu Button */}
@@ -124,11 +92,6 @@ export function Header() {
                   Anime
                 </Button>
               </Link>
-              <Link href="/profile" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start">
-                  Profile
-                </Button>
-              </Link>
               {user && (
                 <Link href="/admin" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start">
@@ -137,33 +100,9 @@ export function Header() {
                 </Link>
               )}
               <div className="border-t border-border pt-2 mt-2">
-                {user ? (
-                  <div className="flex flex-col gap-2">
-                    <span className="text-sm text-muted-foreground px-3">
-                      {user.displayName || user.primaryEmail}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        await user.signOut();
-                        window.location.href = "/";
-                      }}
-                      className="w-full"
-                    >
-                      Sign Out
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => (window.location.href = "/handler/sign-in")}
-                    className="w-full"
-                  >
-                    Sign In
-                  </Button>
-                )}
+                <div className="flex justify-center">
+                  <UserMenu />
+                </div>
               </div>
             </nav>
           </div>

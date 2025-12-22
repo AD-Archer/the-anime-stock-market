@@ -10,6 +10,9 @@ import Link from "next/link";
 import { StockManagement } from "@/components/admin/stock-management";
 import { UserManagement } from "@/components/admin/user-management";
 import { CreateStockDialog } from "@/components/admin/create-stock-dialog";
+import { BuybackManagement } from "@/components/admin/buyback-management";
+import { MarketManagement } from "@/components/admin/market-management";
+import { NotificationManagement } from "@/components/admin/notification-management";
 
 export default function AdminPage() {
   const user = useUser({ or: "redirect" });
@@ -30,15 +33,27 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="stocks" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="stocks">Stock Management</TabsTrigger>
-            <TabsTrigger value="users">User Management</TabsTrigger>
+          <TabsList className="grid w-full max-w-2xl grid-cols-5">
+            <TabsTrigger value="stocks">Stocks</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
+            <TabsTrigger value="market">Market</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
           <TabsContent value="stocks" className="mt-6">
             <StockManagement />
           </TabsContent>
           <TabsContent value="users" className="mt-6">
             <UserManagement />
+          </TabsContent>
+          <TabsContent value="buybacks" className="mt-6">
+            <BuybackManagement />
+          </TabsContent>
+          <TabsContent value="market" className="mt-6">
+            <MarketManagement />
+          </TabsContent>
+          <TabsContent value="notifications" className="mt-6">
+            <NotificationManagement />
           </TabsContent>
         </Tabs>
       </main>
