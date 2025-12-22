@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useUser } from "@stackframe/stack";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,9 @@ import type { Notification } from "@/lib/types";
 
 export function NotificationCenter({ modal = false }: { modal?: boolean }) {
   const user = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isOpen = searchParams.get("notifications") === "open";
   const {
     getUserNotifications,
     markNotificationRead,
@@ -185,7 +189,18 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu
+        open={isOpen}
+        onOpenChange={(open) => {
+          const newSearchParams = new URLSearchParams(searchParams);
+          if (open) {
+            newSearchParams.set("notifications", "open");
+          } else {
+            newSearchParams.delete("notifications");
+          }
+          router.replace(`?${newSearchParams.toString()}`);
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon" className="relative">
             <Bell className="h-4 w-4" />

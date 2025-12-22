@@ -159,7 +159,7 @@ export function MarketManagement() {
                 handleInflateMarket();
               }}
             >
-              +5% Inflation
+              Inflate 5%
             </Button>
             <Button
               variant="outline"
@@ -168,7 +168,7 @@ export function MarketManagement() {
                 handleInflateMarket();
               }}
             >
-              -5% Deflation
+              Deflate 5%
             </Button>
             <Button
               variant="outline"
@@ -177,7 +177,7 @@ export function MarketManagement() {
                 handleInflateMarket();
               }}
             >
-              +10% Boom
+              Boom 10%
             </Button>
             <Button
               variant="outline"
@@ -186,7 +186,7 @@ export function MarketManagement() {
                 handleInflateMarket();
               }}
             >
-              -10% Crash
+              Crash 10%
             </Button>
           </div>
         </CardContent>

@@ -95,15 +95,22 @@ export function NotificationManagement() {
 
       <Tabs defaultValue="broadcast" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="broadcast">📢 Broadcast</TabsTrigger>
-          <TabsTrigger value="individual">👤 Individual</TabsTrigger>
+          <TabsTrigger value="broadcast">
+            <Users className="h-4 w-4 mr-2" />
+            Broadcast
+          </TabsTrigger>
+          <TabsTrigger value="individual">
+            <User className="h-4 w-4 mr-2" />
+            Individual
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="broadcast" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                📢 Broadcast Message
+                <Users className="h-5 w-5" />
+                Broadcast Message
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Send an important message to all users that will appear
@@ -135,7 +142,8 @@ export function NotificationManagement() {
                 className="w-full"
                 disabled={!title.trim() || !message.trim()}
               >
-                📢 Send Broadcast Message
+                <Send className="h-4 w-4 mr-2" />
+                Send Broadcast Message
               </Button>
             </CardContent>
           </Card>

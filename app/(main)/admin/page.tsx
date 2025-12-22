@@ -3,6 +3,7 @@
 import { useUser } from "@stackframe/stack";
 import { useStore } from "@/lib/store";
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp } from "lucide-react";
@@ -18,6 +19,9 @@ export default function AdminPage() {
   const user = useUser({ or: "redirect" });
   const { currentUser } = useStore();
   const [showCreateStock, setShowCreateStock] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") || "stocks";
 
   return (
     <div className="bg-background">
@@ -32,7 +36,11 @@ export default function AdminPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="stocks" className="w-full">
+        <Tabs
+          defaultValue={tab}
+          onValueChange={(value) => router.push(`/admin?tab=${value}`)}
+          className="w-full"
+        >
           <TabsList className="grid w-full max-w-2xl grid-cols-5">
             <TabsTrigger value="stocks">Stocks</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
