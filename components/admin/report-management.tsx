@@ -98,7 +98,7 @@ export function ReportManagement() {
         snapshots.push({
           id: node.id,
           userId: node.userId,
-          animeId: node.animeId,
+          animeId: node.animeId ?? "",
           characterId: node.characterId,
           content: node.content,
           parentId: node.parentId,

@@ -51,11 +51,15 @@ import {
   messageService,
   DATABASE_ID,
   COMMENTS_COLLECTION,
+  STOCKS_COLLECTION,
+  PRICE_HISTORY_COLLECTION,
   mapComment,
+  mapStock,
+  mapPriceHistory,
 } from "./database";
 
 type AddCommentInput = {
-  animeId: string;
+  animeId?: string;
   content: string;
   characterId?: string;
   parentId?: string;
@@ -101,6 +105,7 @@ interface StoreContextType {
   deleteComment: (commentId: string) => Promise<void>;
   getAnimeComments: (animeId: string) => Comment[];
   getCharacterComments: (characterId: string) => Comment[];
+  getMarketComments: () => Comment[];
   toggleCommentReaction: (
     commentId: string,
     reaction: "like" | "dislike"
@@ -361,6 +366,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [isLoading]);
 
+
+
+  // Real-time subscription for stocks and price history so UI updates when database changes
+  useEffect(() => {
+    if (isLoading) return;
+
+    const stockUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${STOCKS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create")) {
+          const newStock = mapStock(document);
+          setStocks((prev) => [...prev, newStock]);
+        } else if (event.includes("update")) {
+          const updatedStock = mapStock(document);
+          setStocks((prev) => prev.map((s) => (s.id === updatedStock.id ? updatedStock : s)));
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          setStocks((prev) => prev.filter((s) => s.id !== deletedId));
+        }
+      }
+    );
+
+    const priceUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${PRICE_HISTORY_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create")) {
+          const newPH = mapPriceHistory(document);
+          setPriceHistory((prev) => [...prev, newPH]);
+
+          // Update current price on the corresponding stock for immediate UI reflection
+          setStocks((prev) =>
+            prev.map((s) => (s.id === newPH.stockId ? { ...s, currentPrice: newPH.price } : s))
+          );
+        }
+      }
+    );
+
+    return () => {
+      try { stockUnsub(); } catch {};
+      try { priceUnsub(); } catch {};
+    };
+  }, [isLoading]);
+
   const buyStock = (stockId: string, shares: number): boolean => {
     if (!currentUser) return false;
 
@@ -515,11 +569,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPriceHistory([...priceHistory, newPriceHistory]);
   };
 
-  const updateStockPrice = (stockId: string, newPrice: number) => {
-    const updatedStocks = stocks.map((s) =>
-      s.id === stockId ? { ...s, currentPrice: newPrice } : s
-    );
-    setStocks(updatedStocks);
+  const updateStockPrice = useCallback((stockId: string, newPrice: number) => {
+    setStocks((prev) => prev.map((s) => (s.id === stockId ? { ...s, currentPrice: newPrice } : s)));
 
     // Add price history entry
     const newPriceHistory: PriceHistory = {
@@ -528,8 +579,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       price: newPrice,
       timestamp: new Date(),
     };
-    setPriceHistory([...priceHistory, newPriceHistory]);
-  };
+    setPriceHistory((prev) => [...prev, newPriceHistory]);
+  }, []);
+
+  // Development-only market price simulator to create live ticks for the UI
+  // Disabled by default. Set NEXT_PUBLIC_ENABLE_MARKET_SIM=true to enable local simulated ticks.
+  useEffect(() => {
+    if (isLoading) return;
+    if (process.env.NEXT_PUBLIC_ENABLE_MARKET_SIM !== "true") return;
+
+    const interval = setInterval(() => {
+      if (stocks.length === 0) return;
+      const idx = Math.floor(Math.random() * stocks.length);
+      const stock = stocks[idx];
+      // Random percent change between -1% and +1%
+      const changePct = (Math.random() * 2 - 1) / 100;
+      const newPrice = Math.max(0.01, Number((stock.currentPrice * (1 + changePct)).toFixed(2)));
+      updateStockPrice(stock.id, newPrice);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isLoading, stocks, updateStockPrice]);
 
   const deleteStock = (stockId: string) => {
     setStocks(stocks.filter((s) => s.id !== stockId));
@@ -732,6 +802,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   };
 
+  const getMarketComments = (): Comment[] => {
+    return comments
+      .filter((c) => !c.animeId && !c.characterId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  };
+
   const toggleCommentReaction = async (
     commentId: string,
     reaction: "like" | "dislike"
@@ -840,7 +916,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       snapshots.push({
         id: node.id,
         userId: node.userId,
-        animeId: node.animeId,
+        animeId: node.animeId ?? "",
         characterId: node.characterId,
         content: node.content,
         parentId: node.parentId,
@@ -1186,9 +1262,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const threadContext = buildThreadContext(commentId);
     const commentLocation = {
-      animeId: comment.animeId,
+      animeId: comment.animeId ?? "",
       characterId: comment.characterId,
-    };
+    }; 
 
     try {
       const newReport = await reportService.create({
@@ -1265,7 +1341,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             );
             if (!comment) return undefined;
             return {
-              animeId: comment.animeId,
+              animeId: comment.animeId ?? "",
               characterId: comment.characterId,
             };
           })();
@@ -1473,6 +1549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteComment,
         getAnimeComments,
         getCharacterComments,
+        getMarketComments,
         toggleCommentReaction,
         updateContentPreferences,
         makeUserAdmin,

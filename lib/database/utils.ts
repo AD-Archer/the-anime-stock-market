@@ -153,7 +153,7 @@ export const mapPortfolio = (doc: AppwriteDocument): Portfolio => ({
 export const mapComment = (doc: AppwriteDocument): Comment => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
   userId: toStringOr(docValue(doc, "userId")),
-  animeId: toStringOr(docValue(doc, "animeId")),
+  animeId: toOptionalString(docValue(doc, "animeId")),
   characterId: toOptionalString(docValue(doc, "characterId")),
   content: toStringOr(docValue(doc, "content")),
   timestamp: toDate(docValue(doc, "timestamp") ?? doc.$createdAt),

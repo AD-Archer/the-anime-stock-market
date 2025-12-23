@@ -2,24 +2,60 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { StockCard } from "@/components/stock-card";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketChart } from "@/components/market-chart";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, TrendingUp } from "lucide-react";
-import Link from "next/link";
+import { TopStocksSection } from "./components/top-stocks-section";
+import { MarketDiscussion } from "./components/market-discussion";
+import { Comment, ContentTag } from "@/lib/types";
+import { StockCard } from "@/components/stock-card";
 
 export default function TradingPage() {
-  const { stocks, currentUser } = useStore();
+  const { stocks, currentUser, addComment, editComment, deleteComment, getMarketComments, users, reportComment, toggleCommentReaction } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
-  const filteredStocks = stocks.filter(
+  // Sort stocks by market cap (price * total shares) descending
+  const sortedStocks = [...stocks].sort((a, b) =>
+    (b.currentPrice * b.totalShares) - (a.currentPrice * a.totalShares)
+  );
+
+  // Top 10 best selling characters
+  const topStocks = sortedStocks.slice(0, 10);
+
+  const filteredStocks = sortedStocks.filter(
     (stock) =>
       stock.characterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const marketComments = getMarketComments();
+
+  const handleAddComment = async (content: string, tags: ContentTag[]) => {
+    await addComment({
+      content,
+      tags,
+    });
+  };
+
+  const handleAddReply = async (parentId: string, content: string, tags?: ContentTag[]) => {
+    await addComment({
+      content,
+      parentId,
+      tags,
+    });
+  };
+
+  const handleEditComment = async (commentId: string, content: string) => {
+    await editComment(commentId, content);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    await deleteComment(commentId);
+  };
+
+  const handleReportComment = async (commentId: string, reason: string, description?: string) => {
+    await reportComment(commentId, reason as any, description);
+  };
 
   return (
     <div className="bg-background">
@@ -31,38 +67,50 @@ export default function TradingPage() {
           <MarketChart />
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by character or anime..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        {/* Search Results or Top Characters */}
+        {searchQuery ? (
+          <div className="mb-8">
+            <h3 className="mb-4 text-xl font-semibold text-foreground">
+              Search Results ({filteredStocks.length})
+            </h3>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {filteredStocks.map((stock) => (
+                <StockCard
+                  key={stock.id}
+                  stock={stock}
+                  onBuy={() => setSelectedStockId(stock.id)}
+                />
+              ))}
+            </div>
 
-        {/* Stock Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredStocks.map((stock) => (
-            <StockCard
-              key={stock.id}
-              stock={stock}
-              onBuy={() => setSelectedStockId(stock.id)}
-            />
-          ))}
-        </div>
-
-        {filteredStocks.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="text-muted-foreground">
-              No stocks found matching your search.
-            </p>
+            {filteredStocks.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  No stocks found matching your search.
+                </p>
+              </div>
+            )}
           </div>
+        ) : (
+          <TopStocksSection
+            topStocks={topStocks}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onBuy={setSelectedStockId}
+          />
         )}
+
+        <MarketDiscussion
+          currentUser={currentUser}
+          marketComments={marketComments}
+          users={users}
+          onAddComment={handleAddComment}
+          onAddReply={handleAddReply}
+          onEditComment={handleEditComment}
+          onDeleteComment={handleDeleteComment}
+          onReportComment={handleReportComment}
+          onToggleReaction={toggleCommentReaction}
+        />
       </main>
 
       {/* Buy Dialog */}

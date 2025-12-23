@@ -65,7 +65,7 @@ export interface Portfolio {
 export interface Comment {
   id: string;
   userId: string;
-  animeId: string;
+  animeId?: string;
   characterId?: string;
   content: string;
   timestamp: Date;
@@ -73,6 +73,8 @@ export interface Comment {
   tags?: ContentTag[];
   likedBy: string[];
   dislikedBy: string[];
+  reactions?: Record<string, "like" | "dislike">;
+  userReactions?: Record<string, "like" | "dislike">;
 }
 
 export interface Message {

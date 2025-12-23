@@ -4,9 +4,11 @@
   "private": false,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "start": "infisical run pnpm run next:start",
+    "dev": "infisical run pnpm run next:dev",
+    "next:dev": "next dev",
     "lint": "eslint .",
-    "start": "next start",
+    "next:start": "next start",
     "typecheck": "tsc --noEmit",
     "appwrite:setup": "tsx lib/appwrite-setup.ts",
     "seed": "tsx lib/seed.ts"

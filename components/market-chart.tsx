@@ -25,7 +25,8 @@ const CHART_COLORS = [
   "hsl(var(--chart-1))",
   "hsl(var(--chart-2))",
   "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
+  // Use site primary color (blue) instead of chart-4 pink
+  "hsl(var(--primary))",
   "hsl(var(--chart-5))",
 ];
 

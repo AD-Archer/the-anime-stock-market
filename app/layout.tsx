@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { StoreProvider } from "@/lib/store";
+import { SiteStickyTicker } from "@/components/site-sticky-ticker";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AuthProvider } from "@/lib/auth";
@@ -38,14 +39,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
         <TooltipProvider>
           <AuthProvider>
-            <StackedProviders>
-              {children}
-              <Toaster />
-            </StackedProviders>
+            <div className="pt-10 md:pt-14">
+              <StackedProviders>
+                <SiteStickyTicker />
+                {children}
+                <Toaster />
+              </StackedProviders>
+            </div>
           </AuthProvider>
         </TooltipProvider>
       </body>

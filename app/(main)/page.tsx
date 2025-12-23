@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,9 +8,34 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { TrendingUp, Users, BarChart3, Shield, Zap, Star } from "lucide-react";
+import { TrendingUp, Users, BarChart3, Shield, Zap, Star, Search } from "lucide-react";
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { StockCard } from "@/components/stock-card";
+import { Input } from "@/components/ui/input";
+import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
+import { MarketChart } from "@/components/market-chart";
+
 
 export default function LandingPage() {
+  const { stocks } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
+
+  // Sort stocks by market cap (price * total shares) descending
+  const sortedStocks = [...stocks].sort((a, b) =>
+    (b.currentPrice * b.totalShares) - (a.currentPrice * a.totalShares)
+  );
+
+  // Top 100 characters
+  const top100Stocks = sortedStocks.slice(0, 100);
+
+  // Filter stocks based on search query
+  const filteredStocks = top100Stocks.filter(
+    (stock) =>
+      stock.characterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   return (
     <div className="bg-background">
       {/* Hero Section */}
@@ -48,6 +74,65 @@ export default function LandingPage() {
         {/* Floating elements for visual appeal */}
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary/20 rounded-full blur-xl"></div>
         <div className="absolute bottom-10 right-10 w-32 h-32 bg-secondary/20 rounded-full blur-xl"></div>
+      </section>
+
+      {/* Live Characters Section */}
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Live Market - Top 100 Characters
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+              Explore the most valuable anime characters in real-time. Search and discover your favorites.
+            </p>
+
+          </div>
+
+          <div className="space-y-6 mb-8">
+            <MarketChart />
+
+            <div className="max-w-md mx-auto">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search characters or anime..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 text-lg"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              {filteredStocks.map((stock) => (
+                <StockCard
+                  key={stock.id}
+                  stock={stock}
+                  onBuy={() => setSelectedStockId(stock.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {filteredStocks.length === 0 && searchQuery && (
+            <div className="text-center py-12">
+              <p className="text-lg text-muted-foreground">
+                No characters found matching &quot;{searchQuery}&quot;
+              </p>
+            </div>
+          )}
+
+          <div className="text-center mt-12">
+            <Link href="/market">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-3">
+                <TrendingUp className="mr-2 h-5 w-5" />
+                View Full Market
+              </Button>
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* Features Section */}
@@ -171,6 +256,13 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {selectedStockId && (
+        <BuyDialog
+          stockId={selectedStockId}
+          onClose={() => setSelectedStockId(null)}
+        />
+      )}
     </div>
   );
 }
