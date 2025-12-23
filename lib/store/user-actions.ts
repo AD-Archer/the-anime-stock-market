@@ -146,12 +146,32 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     await persistUserUpdate(userId, { bannedUntil: null });
   };
 
-  const deleteUser = (userId: string) => {
+  const deleteUser = async (userId: string) => {
+    const { portfolios, transactions } = getState();
+    const userPortfolios = portfolios.filter((p) => p.userId === userId);
+    const userTransactions = transactions.filter((t) => t.userId === userId);
+
+    // Optimistically update state
     setState((state) => ({
       users: state.users.filter((u) => u.id !== userId),
       portfolios: state.portfolios.filter((p) => p.userId !== userId),
       transactions: state.transactions.filter((t) => t.userId !== userId),
     }));
+
+    try {
+      // Delete portfolios first
+      for (const p of userPortfolios) {
+        await portfolioService.delete(`${p.userId}-${p.stockId}`);
+      }
+      // Delete transactions
+      for (const t of userTransactions) {
+        await transactionService.delete(t.id);
+      }
+      // Finally delete the user
+      await userService.delete(userId);
+    } catch (error) {
+      console.error("Failed to delete user from backend:", error);
+    }
   };
 
   const makeUserAdmin = async (userId: string) => {

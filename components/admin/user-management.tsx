@@ -165,7 +165,7 @@ export function UserManagement() {
     }
   };
 
-  const handleDelete = (userId: string) => {
+  const handleDelete = async (userId: string) => {
     // Prevent deleting yourself
     if (userId === currentUser?.id) {
       toast({
@@ -176,12 +176,20 @@ export function UserManagement() {
       return;
     }
 
-    deleteUser(userId);
-    toast({
-      title: "User Deleted",
-      description: "The user and all their data have been removed.",
-    });
-    setDeleteConfirm(null);
+    try {
+      await deleteUser(userId);
+      toast({
+        title: "User Deleted",
+        description: "The user and all their data have been removed.",
+      });
+      setDeleteConfirm(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAdminToggle = async (userId: string, isAdmin: boolean) => {

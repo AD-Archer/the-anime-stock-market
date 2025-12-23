@@ -82,15 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await account.get();
       await ensureUserDocument(response);
 
-      // Check if user is banned
-      const userDoc = await userService.getById(response.$id);
-      if (userDoc && userDoc.bannedUntil && userDoc.bannedUntil > new Date()) {
-        // User is banned, sign them out
-        await account.deleteSession("current");
-        setUser(null);
-        return;
-      }
-
       setUser(mapAccountUser(response));
     } catch {
       setUser(null);

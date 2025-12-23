@@ -49,7 +49,7 @@ export interface StoreContextType {
     duration: "week" | "month" | "year" | "forever" | Date
   ) => void;
   unbanUser: (userId: string) => void;
-  deleteUser: (userId: string) => void;
+  deleteUser: (userId: string) => Promise<void>;
   getUserPortfolio: (userId: string) => Portfolio[];
   getStockPriceHistory: (stockId: string) => PriceHistory[];
   getMarketData: () => MarketDataPoint[];

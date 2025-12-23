@@ -131,6 +131,7 @@ export function createMarketActions({
     const authUser = getState().authUser;
     const currentUser = getState().currentUser;
     if (!authUser || !currentUser) return false;
+    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date()) return false;
 
     const { stocks, users, portfolios, transactions } = getState();
     const stock = stocks.find((s) => s.id === stockId);
@@ -265,6 +266,7 @@ export function createMarketActions({
   const sellStock = async (stockId: string, shares: number): Promise<boolean> => {
     const currentUser = getState().currentUser;
     if (!currentUser) return false;
+    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date()) return false;
 
     const { portfolios, stocks, users, transactions } = getState();
     const portfolio = portfolios.find(
