@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import Link from "next/link";
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -51,14 +52,17 @@ export function TransactionHistory({ transactions }: TransactionHistoryProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <Link
+                      href={`/character/${stock.id}`}
+                      className="flex items-center gap-2 hover:underline"
+                    >
                       <p className="font-semibold text-foreground truncate">
                         {stock.characterName}
                       </p>
                       <Badge variant={isBuy ? "default" : "secondary"}>
                         {isBuy ? "Buy" : "Sell"}
                       </Badge>
-                    </div>
+                    </Link>
                     <p className="text-sm text-muted-foreground">
                       {transaction.shares.toLocaleString()} shares @ $
                       {transaction.pricePerShare.toFixed(2)}

@@ -123,8 +123,8 @@ importers:
         specifier: 1.4.1
         version: 1.4.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       lucide-react:
-        specifier: ^0.454.0
-        version: 0.454.0(react@19.2.0)
+        specifier: ^0.562.0
+        version: 0.562.0(react@19.2.0)
       next:
         specifier: 16.0.0
         version: 16.0.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -162,11 +162,14 @@ importers:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@4.1.9)
       vaul:
-        specifier: ^0.9.9
-        version: 0.9.9(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: ^1.1.2
+        version: 1.1.2(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       zod:
         specifier: 3.25.76
         version: 3.25.76
+      zustand:
+        specifier: ^5.0.9
+        version: 5.0.9(@types/react@19.0.0)(immer@10.2.0)(react@19.2.0)(use-sync-external-store@1.6.0(react@19.2.0))
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.1
@@ -3432,13 +3435,13 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0
 
-  lucide-react@0.454.0:
-    resolution: {integrity: sha512-hw7zMDwykCLnEzgncEEjHeA6+45aeEzRYuKHuyRSOPkhko+J3ySGjGIzu+mmMfDFG1vazHepMaYFYHbTFAZAAQ==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
-
   lucide-react@0.508.0:
     resolution: {integrity: sha512-gcP16PnexqtOFrTtv98kVsGzTfnbPekzZiQfByi2S89xfk7E/4uKE1USZqccIp58v42LqkO7MuwpCqshwSrJCg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide-react@0.562.0:
+    resolution: {integrity: sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -4124,11 +4127,11 @@ packages:
   uzip@0.20201231.0:
     resolution: {integrity: sha512-OZeJfZP+R0z9D6TmBgLq2LHzSSptGMGDGigGiEe0pr8UBe/7fdflgHlHBNDASTXB5jnFuxHpNaJywSg8YFeGng==}
 
-  vaul@0.9.9:
-    resolution: {integrity: sha512-7afKg48srluhZwIkaU+lgGtFCUsYBSGOl8vcc8N/M3YQlZFlynHD15AE+pwrYdc826o7nrIND4lL9Y6b9WWZZQ==}
+  vaul@1.1.2:
+    resolution: {integrity: sha512-ZFkClGpWyI2WUQjdLJ/BaGuV6AVQiJ3uELGk3OYtP+B6yCO7Cmn9vPFXVJkRaGkOJu3m8bQMgtyzNHixULceQA==}
     peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
-      react-dom: ^16.8 || ^17.0 || ^18.0
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc
 
   victory-vendor@37.3.6:
     resolution: {integrity: sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==}
@@ -4206,6 +4209,24 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zustand@5.0.9:
+    resolution: {integrity: sha512-ALBtUj0AfjJt3uNRQoL1tL2tMvj6Gp/6e39dnfT6uzpelGru8v1tPOGBzayOWbPJvujM8JojDk3E1LxeFisBNg==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
 
 snapshots:
 
@@ -7867,11 +7888,11 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  lucide-react@0.454.0(react@19.2.0):
+  lucide-react@0.508.0(react@19.2.0):
     dependencies:
       react: 19.2.0
 
-  lucide-react@0.508.0(react@19.2.0):
+  lucide-react@0.562.0(react@19.2.0):
     dependencies:
       react: 19.2.0
 
@@ -8638,7 +8659,7 @@ snapshots:
 
   uzip@0.20201231.0: {}
 
-  vaul@0.9.9(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  vaul@1.1.2(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       '@radix-ui/react-dialog': 1.1.15(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
@@ -8770,3 +8791,10 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
+
+  zustand@5.0.9(@types/react@19.0.0)(immer@10.2.0)(react@19.2.0)(use-sync-external-store@1.6.0(react@19.2.0)):
+    optionalDependencies:
+      '@types/react': 19.0.0
+      immer: 10.2.0
+      react: 19.2.0
+      use-sync-external-store: 1.6.0(react@19.2.0)

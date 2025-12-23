@@ -1,5 +1,5 @@
 import { ID, type Models } from "appwrite";
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type {
   User,
   Stock,
@@ -110,6 +110,8 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   showNsfw: toBooleanOr(docValue(doc, "showNsfw"), true),
   showSpoilers: toBooleanOr(docValue(doc, "showSpoilers"), true),
   isPortfolioPublic: toBooleanOr(docValue(doc, "isPortfolioPublic"), false),
+  hideTransactions: toBooleanOr(docValue(doc, "hideTransactions"), false),
+  anonymousTransactions: toBooleanOr(docValue(doc, "anonymousTransactions"), false),
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({
@@ -134,6 +136,7 @@ export const mapTransaction = (doc: AppwriteDocument): Transaction => ({
   pricePerShare: toNumberOr(docValue(doc, "pricePerShare")),
   totalAmount: toNumberOr(docValue(doc, "totalAmount")),
   timestamp: toDate(docValue(doc, "timestamp") ?? doc.$createdAt),
+  isAnonymous: toBooleanOr(docValue(doc, "isAnonymous"), false),
 });
 
 export const mapPriceHistory = (doc: AppwriteDocument): PriceHistory => ({

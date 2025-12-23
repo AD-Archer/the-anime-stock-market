@@ -1,5 +1,5 @@
 import { ID, Query } from "appwrite";
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type { Message, Conversation } from "../types";
 import {
   DATABASE_ID,

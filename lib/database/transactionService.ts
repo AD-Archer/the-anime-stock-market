@@ -1,5 +1,5 @@
 import { ID } from "appwrite";
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type { Transaction } from "../types";
 import {
   DATABASE_ID,
@@ -41,7 +41,7 @@ export const transactionService = {
   async create(transaction: Creatable<Transaction>): Promise<Transaction> {
     try {
       const documentId = transaction.id ?? ID.unique();
-      const { id: _ignored, ...data } = transaction as any;
+      const { id: _ignored, isAnonymous: _omitAnon, ...data } = transaction as any;
       const response = await databases.createDocument(
         DATABASE_ID,
         TRANSACTIONS_COLLECTION,

@@ -22,14 +22,21 @@ import {
 import { Bell, Check, X, Filter } from "lucide-react";
 import type { Notification } from "@/lib/types";
 
-export function NotificationCenter({ modal = false }: { modal?: boolean }) {
+export function NotificationCenter({
+  modal = false,
+}: {
+  modal?: boolean;
+}) {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isOpen = searchParams.get("notifications") === "open";
+  const queryToggleEnabled = !modal;
+  const isOpen = queryToggleEnabled && searchParams.get("notifications") === "open";
   const {
     getUserNotifications,
     markNotificationRead,
+    markAllNotificationsRead,
+    clearNotifications,
     buybackOffers,
     currentUser,
     sendNotification,
@@ -41,22 +48,22 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
   const [filterType, setFilterType] = useState<string>("all");
 
   useEffect(() => {
+    if (!modal) return;
+    // Ensure the notifications query param doesn't get stuck when used inside dialogs
+    if (isOpen) {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete("notifications");
+      router.replace(searchParams.toString() ? "?" + newSearchParams.toString() : "?");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal, isOpen]);
+
+  useEffect(() => {
     if (user?.id) {
       const userNotifications = getUserNotifications(user.id);
 
-      // Only update if notifications have actually changed
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNotifications((prev) => {
-        if (
-          prev.length !== userNotifications.length ||
-          prev.some((n, i) => n.id !== userNotifications[i]?.id)
-        ) {
-          return userNotifications;
-        }
-        return prev;
-      });
+      setNotifications(userNotifications);
 
-      // Check for active buyback offers and add them as notifications
       const activeBuyback = buybackOffers.find(
         (offer) =>
           offer.status === "active" &&
@@ -65,13 +72,11 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
       );
 
       if (activeBuyback) {
-        // Check if we already have a notification for this buyback
         const existingNotification = userNotifications.find(
           (n) => n.data?.buybackOfferId === activeBuyback.id
         );
 
         if (!existingNotification) {
-          // Create a notification for the buyback offer
           const stock = stocks.find((s) => s.id === activeBuyback.stockId);
           sendNotification(
             user.id,
@@ -95,14 +100,14 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkRead = (notificationId: string) => {
-    markNotificationRead(notificationId);
+  const handleMarkRead = async (notificationId: string) => {
+    await markNotificationRead(notificationId);
     setNotifications((prev) =>
       prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
     );
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     // For now, just mark as read. In the future, this could navigate to relevant pages
     // or show modals for specific notification types
     if (notification.type === "buyback_offer") {
@@ -112,7 +117,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
         notification.data?.buybackOfferId
       );
     }
-    handleMarkRead(notification.id);
+    await handleMarkRead(notification.id);
   };
 
   const notificationContent = (
@@ -130,11 +135,49 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               <SelectItem value="unread">Unread Only</SelectItem>
               <SelectItem value="admin_message">Admin Messages</SelectItem>
               <SelectItem value="buyback_offer">Buyback Offers</SelectItem>
+              <SelectItem value="liquidity_request">
+                Liquidity Requests
+              </SelectItem>
               <SelectItem value="system">System Notifications</SelectItem>
               <SelectItem value="moderation">Moderation</SelectItem>
               <SelectItem value="direct_message">Direct Messages</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="mt-3 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={async () => {
+                if (currentUser) {
+                  await markAllNotificationsRead(currentUser.id);
+                  setNotifications((prev) =>
+                    prev.map((n) =>
+                      n.userId === currentUser.id ? { ...n, read: true } : n
+                    )
+                  );
+                }
+              }}
+            >
+              Mark all read
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="flex-1"
+              onClick={async () => {
+                if (currentUser) {
+                  await clearNotifications(currentUser.id);
+                  setNotifications((prev) =>
+                    prev.filter((n) => n.userId !== currentUser.id)
+                  );
+                }
+              }}
+            >
+              Clear all
+            </Button>
+          </div>
         </div>
       )}
 
@@ -196,14 +239,17 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
     <>
       <DropdownMenu
         open={isOpen}
+        modal={false}
         onOpenChange={(open) => {
+          if (!queryToggleEnabled) return;
           const newSearchParams = new URLSearchParams(searchParams);
           if (open) {
             newSearchParams.set("notifications", "open");
           } else {
             newSearchParams.delete("notifications");
           }
-          router.replace(`?${newSearchParams.toString()}`);
+          const qs = newSearchParams.toString();
+          router.replace(qs ? `?${qs}` : "?");
         }}
       >
         <DropdownMenuTrigger asChild>

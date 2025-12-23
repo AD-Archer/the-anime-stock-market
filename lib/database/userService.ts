@@ -1,5 +1,5 @@
 import { ID } from "appwrite";
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type { User } from "../types";
 import {
   DATABASE_ID,
@@ -57,11 +57,12 @@ export const userService = {
 
   async update(id: string, user: Partial<User>): Promise<User> {
     try {
+      const { id: _ignored, ...data } = user as any;
       const response = await databases.updateDocument(
         DATABASE_ID,
         USERS_COLLECTION,
         id,
-        normalizePayload(user)
+        normalizePayload(data)
       );
       return mapUser(response);
     } catch (error) {

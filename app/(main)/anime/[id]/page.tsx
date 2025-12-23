@@ -34,6 +34,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
+import { SellDialog } from "@/components/sell-dialog";
 import {
   Line,
   LineChart,
@@ -456,10 +457,13 @@ export default function AnimeDetailPage({
     users,
     reportComment,
     toggleCommentReaction,
+    getUserPortfolio,
   } = useStore();
   const [comment, setComment] = useState("");
   const [commentTag, setCommentTag] = useState<"none" | ContentTag>("none");
   const [isMobile, setIsMobile] = useState(false);
+  const [showSellDialog, setShowSellDialog] = useState(false);
+  const [selectedStockForSell, setSelectedStockForSell] = useState<string | null>(null);
 
   const animeComments = getAnimeComments(id);
 
@@ -476,6 +480,8 @@ export default function AnimeDetailPage({
   const animeCharacters = stocks.filter(
     (stock) => stock.anime.toLowerCase().replace(/\s+/g, "-") === id
   );
+
+  const userPortfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
 
   const animeName = animeCharacters.length > 0 ? animeCharacters[0].anime : "";
   const comments = getAnimeComments(id);
@@ -502,8 +508,8 @@ export default function AnimeDetailPage({
       }
     });
 
-    // Sort root comments by timestamp
-    rootComments.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    // Sort root comments by timestamp (newest first)
+    rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     return { commentMap, rootComments };
   }, [comments]);
@@ -728,9 +734,11 @@ export default function AnimeDetailPage({
                     const isPositive = priceChange > 0;
                     const isNegative = priceChange < 0;
 
+                    const userHolding = userPortfolio.find(p => p.stockId === stock.id);
+
                     return (
-                      <Link key={stock.id} href={`/character/${stock.id}`}>
-                        <Card className="transition-all hover:shadow-md">
+                      <Card key={stock.id} className="transition-all hover:shadow-md">
+                        <Link href={`/character/${stock.id}`}>
                           <CardContent className="p-4">
                             <div className="mb-3 flex items-center gap-3">
                               <div className="relative h-16 w-16 overflow-hidden rounded-lg">
@@ -782,9 +790,31 @@ export default function AnimeDetailPage({
                                 {stock.availableShares.toLocaleString()}
                               </Badge>
                             </div>
+                            {userHolding && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                You own: {userHolding.shares.toLocaleString()} shares
+                              </div>
+                            )}
                           </CardContent>
-                        </Card>
-                      </Link>
+                        </Link>
+                        {userHolding && userHolding.shares > 0 && (
+                          <div className="p-4 pt-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelectedStockForSell(stock.id);
+                                setShowSellDialog(true);
+                              }}
+                            >
+                              Sell Shares
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
                     );
                   })}
                 </div>
@@ -871,6 +901,17 @@ export default function AnimeDetailPage({
           </div>
         </div>
       </div>
+
+      {showSellDialog && selectedStockForSell && (
+        <SellDialog
+          stockId={selectedStockForSell}
+          maxShares={userPortfolio.find(p => p.stockId === selectedStockForSell)?.shares || 0}
+          onClose={() => {
+            setShowSellDialog(false);
+            setSelectedStockForSell(null);
+          }}
+        />
+      )}
     </div>
   );
 }

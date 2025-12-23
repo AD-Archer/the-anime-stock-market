@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
-import { MarketChart } from "@/components/market-chart";
+import { MarketOverview } from "@/components/market-overview";
 import { TopStocksSection } from "./components/top-stocks-section";
 import { MarketDiscussion } from "./components/market-discussion";
 import { Comment, ContentTag } from "@/lib/types";
 import { StockCard } from "@/components/stock-card";
+import { useRouter } from "next/navigation";
 
 export default function TradingPage() {
   const { stocks, currentUser, addComment, editComment, deleteComment, getMarketComments, users, reportComment, toggleCommentReaction } = useStore();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
@@ -57,6 +59,14 @@ export default function TradingPage() {
     await reportComment(commentId, reason as any, description);
   };
 
+  const handleBuy = (stockId: string) => {
+    if (!currentUser) {
+      router.push('/auth/signin');
+    } else {
+      setSelectedStockId(stockId);
+    }
+  };
+
   return (
     <div className="bg-background">
       {/* Header moved to app layout */}
@@ -64,7 +74,7 @@ export default function TradingPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <MarketChart />
+          <MarketOverview />
         </div>
 
         {/* Search Results or Top Characters */}
@@ -78,7 +88,7 @@ export default function TradingPage() {
                 <StockCard
                   key={stock.id}
                   stock={stock}
-                  onBuy={() => setSelectedStockId(stock.id)}
+                  onBuy={() => handleBuy(stock.id)}
                 />
               ))}
             </div>
@@ -96,7 +106,7 @@ export default function TradingPage() {
             topStocks={topStocks}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onBuy={setSelectedStockId}
+            onBuy={handleBuy}
           />
         )}
 

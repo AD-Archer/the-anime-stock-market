@@ -1,4 +1,4 @@
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type { Portfolio } from "../types";
 import {
   DATABASE_ID,

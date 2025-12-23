@@ -21,6 +21,8 @@ export const initialUsers: User[] = [
     showNsfw: true,
     showSpoilers: true,
     isPortfolioPublic: true,
+    hideTransactions: false,
+    anonymousTransactions: false,
   },
   {
     id: "user-2",
@@ -33,6 +35,8 @@ export const initialUsers: User[] = [
     showNsfw: true,
     showSpoilers: true,
     isPortfolioPublic: false,
+    hideTransactions: false,
+    anonymousTransactions: false,
   },
   {
     id: "admin-1",
@@ -45,6 +49,8 @@ export const initialUsers: User[] = [
     showNsfw: true,
     showSpoilers: true,
     isPortfolioPublic: true,
+    hideTransactions: false,
+    anonymousTransactions: false,
   },
 ];
 

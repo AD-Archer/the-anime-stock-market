@@ -497,8 +497,8 @@ export default function CharacterPage({
       }
     });
 
-    // Sort root comments by timestamp
-    rootComments.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    // Sort root comments by timestamp (newest first)
+    rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     return { commentMap, rootComments };
   }, [comments]);
@@ -848,67 +848,15 @@ export default function CharacterPage({
                 <CardTitle>Activity & Discussion</CardTitle>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="transactions">
+                <Tabs defaultValue="comments">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="transactions">
-                      Recent Transactions
-                    </TabsTrigger>
                     <TabsTrigger value="comments">
                       Comments ({rootComments.length})
                     </TabsTrigger>
+                    <TabsTrigger value="transactions">
+                      Recent Transactions
+                    </TabsTrigger>
                   </TabsList>
-
-                  <TabsContent value="transactions" className="space-y-4">
-                    {characterTransactions.length === 0 ? (
-                      <p className="py-8 text-center text-muted-foreground">
-                        No transactions yet
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {characterTransactions.slice(0, 10).map((tx) => {
-                          const user = users.find((u) => u.id === tx.userId);
-                          return (
-                            <div
-                              key={tx.id}
-                              className="flex items-center justify-between rounded-lg border p-3"
-                            >
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {user?.username || "Unknown"}{" "}
-                                  <Badge
-                                    variant={
-                                      tx.type === "buy"
-                                        ? "default"
-                                        : "secondary"
-                                    }
-                                  >
-                                    {tx.type}
-                                  </Badge>
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {tx.shares} shares @ $
-                                  {tx.pricePerShare.toFixed(2)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-mono font-semibold text-foreground">
-                                  ${tx.totalAmount.toFixed(2)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {tx.timestamp.toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </TabsContent>
 
                   <TabsContent value="comments" className="space-y-4">
                     <div className="space-y-2">
@@ -963,6 +911,58 @@ export default function CharacterPage({
                             level={0}
                           />
                         ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="transactions" className="space-y-4">
+                    {characterTransactions.length === 0 ? (
+                      <p className="py-8 text-center text-muted-foreground">
+                        No transactions yet
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {characterTransactions.slice(0, 10).map((tx) => {
+                          const user = users.find((u) => u.id === tx.userId);
+                          return (
+                            <div
+                              key={tx.id}
+                              className="flex items-center justify-between rounded-lg border p-3"
+                            >
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {user?.username || "Unknown"}{" "}
+                                  <Badge
+                                    variant={
+                                      tx.type === "buy"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {tx.type}
+                                  </Badge>
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {tx.shares} shares @ $
+                                  {tx.pricePerShare.toFixed(2)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-mono font-semibold text-foreground">
+                                  ${tx.totalAmount.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {tx.timestamp.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </TabsContent>

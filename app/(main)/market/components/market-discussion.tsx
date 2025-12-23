@@ -74,11 +74,6 @@ export function MarketDiscussion({
     return { commentMap, rootComments };
   })[0];
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [marketComments]);
-
   const handleSendMessage = async () => {
     if (message.trim() && currentUser) {
       await onAddComment(message.trim(), []);

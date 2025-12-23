@@ -1,5 +1,5 @@
 import { ID } from "appwrite";
-import { databases } from "../appwrite";
+import { databases } from "../appwrite/appwrite";
 import type { PriceHistory } from "../types";
 import {
   DATABASE_ID,

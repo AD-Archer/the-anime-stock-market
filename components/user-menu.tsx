@@ -19,13 +19,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
-  const { currentUser } = useStore();
+  const { currentUser, notifications, markAllNotificationsRead } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
 
   if (!user || !currentUser) {
@@ -49,7 +48,20 @@ export function UserMenu() {
     .slice(0, 2);
 
   return (
-    <>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label="Notifications"
+        onClick={() => setShowNotifications(true)}
+      >
+        <Bell className="h-5 w-5" />
+        {notifications.some((n) => !n.read) && (
+          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -71,7 +83,7 @@ export function UserMenu() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <a href="/profile" className="flex items-center">
+            <a href={`/users/${currentUser.id}`} className="flex items-center">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </a>
@@ -81,13 +93,6 @@ export function UserMenu() {
               <MessageCircle className="mr-2 h-4 w-4" />
               <span>Messages</span>
             </a>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="flex items-center cursor-pointer"
-            onClick={() => setShowNotifications(true)}
-          >
-            <Bell className="mr-2 h-4 w-4" />
-            <span>Notifications</span>
           </DropdownMenuItem>
           {currentUser.isAdmin && (
             <>
@@ -114,14 +119,21 @@ export function UserMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications} modal={false}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Notifications</DialogTitle>
           </DialogHeader>
+          <div className="flex items-center justify-between mb-3">
+            {notifications.some((n) => !n.read) && (
+              <span className="text-xs text-muted-foreground">
+                {notifications.filter((n) => !n.read).length} unread
+              </span>
+            )}
+          </div>
           <NotificationCenter modal={true} />
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

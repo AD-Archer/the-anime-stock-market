@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { account } from "@/lib/appwrite";
+import { account } from "@/lib/appwrite/appwrite";
 
 export default function OAuthCallbackPage() {
   const router = useRouter();

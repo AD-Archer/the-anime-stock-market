@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 
 export function Header() {
   const { currentUser } = useStore();
@@ -84,7 +85,7 @@ export function Header() {
               </Link>
               <Link href="/leaderboard" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
-                  Top 100
+                  Leaderboard
                 </Button>
               </Link>
               <Link href="/anime" onClick={() => setIsMenuOpen(false)}>
@@ -100,7 +101,8 @@ export function Header() {
                 </Link>
               )}
               <div className="border-t border-border pt-2 mt-2">
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-2">
+                  <NotificationCenter />
                   <UserMenu />
                 </div>
               </div>

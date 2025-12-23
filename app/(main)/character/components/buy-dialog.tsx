@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { useStore } from "@/lib/store"
+import { useAuth } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -22,17 +24,48 @@ interface BuyDialogProps {
 
 export function BuyDialog({ stockId, onClose }: BuyDialogProps) {
   const { stocks, currentUser, buyStock } = useStore()
+  const { user } = useAuth()
   const { toast } = useToast()
-  const [shares, setShares] = useState(1)
+  const router = useRouter()
+  const [sharesInput, setSharesInput] = useState('1')
 
   const stock = stocks.find((s) => s.id === stockId)
   if (!stock) return null
 
+  const shares = Number.parseInt(sharesInput) || 1
+
+  // Check if user is authenticated
+  if (!user || !currentUser) {
+    return (
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign In Required</DialogTitle>
+            <DialogDescription>
+              You need to sign in to buy stocks. Please sign in to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              onClose()
+              router.push("/auth/signin")
+            }}>
+              Sign In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   const totalCost = stock.currentPrice * shares
-  const canAfford = currentUser ? currentUser.balance >= totalCost : false
+  const canAfford = currentUser.balance >= totalCost
   const hasEnoughShares = stock.availableShares >= shares
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!canAfford) {
       toast({
         title: "Insufficient Balance",
@@ -51,7 +84,7 @@ export function BuyDialog({ stockId, onClose }: BuyDialogProps) {
       return
     }
 
-    const success = buyStock(stockId, shares)
+    const success = await buyStock(stockId, shares)
     if (success) {
       toast({
         title: "Purchase Successful",
@@ -82,8 +115,8 @@ export function BuyDialog({ stockId, onClose }: BuyDialogProps) {
               type="number"
               min={1}
               max={stock.availableShares}
-              value={shares}
-              onChange={(e) => setShares(Math.max(1, Number.parseInt(e.target.value) || 1))}
+              value={sharesInput}
+              onChange={(e) => setSharesInput(e.target.value)}
             />
             <p className="text-sm text-muted-foreground">Available: {stock.availableShares.toLocaleString()} shares</p>
           </div>

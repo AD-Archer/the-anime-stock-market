@@ -219,7 +219,7 @@ export function UserManagement() {
     }
   };
 
-  const handleMoneyAction = (give: boolean) => {
+  const handleMoneyAction = async (give: boolean) => {
     if (!actionDialog.userId) return;
 
     const amount = Number.parseFloat(moneyAmount);
@@ -232,21 +232,29 @@ export function UserManagement() {
       return;
     }
 
-    if (give) {
-      giveUserMoney(actionDialog.userId, amount);
+    try {
+      if (give) {
+        await giveUserMoney(actionDialog.userId, amount);
+        toast({
+          title: "Money Given",
+          description: `$${amount.toFixed(
+            2
+          )} has been added to the user's balance.`,
+        });
+      } else {
+        await takeUserMoney(actionDialog.userId, amount);
+        toast({
+          title: "Money Taken",
+          description: `$${amount.toFixed(
+            2
+          )} has been removed from the user's balance.`,
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Money Given",
-        description: `$${amount.toFixed(
-          2
-        )} has been added to the user's balance.`,
-      });
-    } else {
-      takeUserMoney(actionDialog.userId, amount);
-      toast({
-        title: "Money Taken",
-        description: `$${amount.toFixed(
-          2
-        )} has been removed from the user's balance.`,
+        title: "Action Failed",
+        description: "Failed to update user balance. Please try again.",
+        variant: "destructive",
       });
     }
 
@@ -254,7 +262,7 @@ export function UserManagement() {
     setMoneyAmount("");
   };
 
-  const handleStockAction = (give: boolean) => {
+  const handleStockAction = async (give: boolean) => {
     if (!actionDialog.userId || !stockId) return;
 
     const shares = Number.parseInt(stockShares);
@@ -267,17 +275,25 @@ export function UserManagement() {
       return;
     }
 
-    if (give) {
-      giveUserStocks(actionDialog.userId, stockId, shares);
+    try {
+      if (give) {
+        await giveUserStocks(actionDialog.userId, stockId, shares);
+        toast({
+          title: "Stocks Given",
+          description: `${shares} shares have been added to the user's portfolio.`,
+        });
+      } else {
+        await removeUserStocks(actionDialog.userId, stockId, shares);
+        toast({
+          title: "Stocks Removed",
+          description: `${shares} shares have been removed from the user's portfolio.`,
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Stocks Given",
-        description: `${shares} shares have been added to the user's portfolio.`,
-      });
-    } else {
-      removeUserStocks(actionDialog.userId, stockId, shares);
-      toast({
-        title: "Stocks Removed",
-        description: `${shares} shares have been removed from the user's portfolio.`,
+        title: "Action Failed",
+        description: "Failed to update user portfolio. Please try again.",
+        variant: "destructive",
       });
     }
 

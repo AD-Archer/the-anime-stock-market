@@ -1,4 +1,4 @@
-import "./load-env";
+import "../load-env";
 
 import { Permission, Role } from "node-appwrite";
 import { getAdminDatabases } from "./appwrite-admin";

@@ -22,6 +22,8 @@ export interface User {
   showNsfw: boolean;
   showSpoilers: boolean;
   isPortfolioPublic: boolean;
+  hideTransactions: boolean;
+  anonymousTransactions: boolean;
 }
 
 export interface Stock {
@@ -46,6 +48,7 @@ export interface Transaction {
   pricePerShare: number;
   totalAmount: number;
   timestamp: Date;
+  isAnonymous?: boolean;
 }
 
 export interface PriceHistory {
@@ -121,6 +124,7 @@ export interface Notification {
   userId: string;
   type:
     | "buyback_offer"
+    | "liquidity_request"
     | "admin_message"
     | "system"
     | "moderation"

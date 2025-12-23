@@ -14,11 +14,17 @@ import { useStore } from "@/lib/store";
 import { StockCard } from "@/components/stock-card";
 import { Input } from "@/components/ui/input";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
-import { MarketChart } from "@/components/market-chart";
+import { MarketOverview } from "@/components/market-overview";
+import { useRouter } from "next/navigation";
 
 
 export default function LandingPage() {
-  const { stocks } = useStore();
+  const { stocks, users, transactions, currentUser } = useStore();
+  const router = useRouter();
+
+  const activeTraders = users.length;
+  const animeCharacters = stocks.length;
+  const totalVolume = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
@@ -37,7 +43,7 @@ export default function LandingPage() {
       stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
   );
   return (
-    <div className="bg-background">
+    <div className="bg-background overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-secondary/10">
         <div className="container mx-auto px-4 py-24 md:py-32">
@@ -90,9 +96,9 @@ export default function LandingPage() {
           </div>
 
           <div className="space-y-6 mb-8">
-            <MarketChart />
+            <MarketOverview />
 
-            <div className="max-w-md mx-auto">
+            <div className="w-full max-w-md mx-auto">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -110,7 +116,13 @@ export default function LandingPage() {
                 <StockCard
                   key={stock.id}
                   stock={stock}
-                  onBuy={() => setSelectedStockId(stock.id)}
+                  onBuy={() => {
+                    if (!currentUser) {
+                      router.push('/auth/signin');
+                    } else {
+                      setSelectedStockId(stock.id);
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -223,15 +235,15 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid gap-8 md:grid-cols-3 text-center">
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">10,000+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">{activeTraders.toLocaleString()}+</div>
               <div className="text-lg opacity-90">Active Traders</div>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">500+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">{animeCharacters.toLocaleString()}+</div>
               <div className="text-lg opacity-90">Anime Characters</div>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">$1M+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">${totalVolume.toLocaleString()}+</div>
               <div className="text-lg opacity-90">Total Volume</div>
             </div>
           </div>

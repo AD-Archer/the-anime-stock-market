@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 export function MarketTicker({ limit = 12, duration = 22 }: { limit?: number; duration?: number }) {
   const { stocks, getStockPriceHistory } = useStore();
@@ -23,15 +24,28 @@ export function MarketTicker({ limit = 12, duration = 22 }: { limit?: number; du
 
   const renderItems = (suffix = "") =>
     itemsData.map(({ stock, change }, idx) => (
-      <div key={`${stock.id}-${suffix || idx}`} className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2">
+      <Link
+        key={`${stock.id}-${suffix || idx}`}
+        href={`/character/${stock.id}`}
+        className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2"
+      >
         <Badge className="p-1 sm:p-2 flex items-center gap-2 bg-primary/10 text-primary">
-          <span className="font-mono text-foreground text-sm sm:text-base max-w-[8rem] sm:max-w-[12rem] truncate">{stock.characterName}</span>
-          <span className="font-mono text-foreground text-sm sm:text-base">${stock.currentPrice.toFixed(2)}</span>
-          <span className={`font-mono text-sm sm:text-base ${change >= 0 ? "text-primary" : "text-destructive"}`}>
-            {change >= 0 ? "+" : ""}{change.toFixed(2)}%
+          <span className="font-mono text-foreground text-sm sm:text-base max-w-[8rem] sm:max-w-[12rem] truncate">
+            {stock.characterName}
+          </span>
+          <span className="font-mono text-foreground text-sm sm:text-base">
+            ${stock.currentPrice.toFixed(2)}
+          </span>
+          <span
+            className={`font-mono text-sm sm:text-base ${
+              change >= 0 ? "text-primary" : "text-destructive"
+            }`}
+          >
+            {change >= 0 ? "+" : ""}
+            {change.toFixed(2)}%
           </span>
         </Badge>
-      </div>
+      </Link>
     ));
 
   return (

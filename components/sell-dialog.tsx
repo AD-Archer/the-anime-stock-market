@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useStore } from "@/lib/store"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -22,16 +23,44 @@ interface SellDialogProps {
 }
 
 export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
-  const { stocks, sellStock } = useStore()
+  const { stocks, currentUser, sellStock } = useStore()
   const { toast } = useToast()
+  const router = useRouter()
   const [shares, setShares] = useState(1)
 
   const stock = stocks.find((s) => s.id === stockId)
   if (!stock) return null
 
+  // Check if user is authenticated
+  if (!currentUser) {
+    return (
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign In Required</DialogTitle>
+            <DialogDescription>
+              You need to sign in to sell stocks. Please sign in to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              onClose()
+              router.push("/auth/signin")
+            }}>
+              Sign In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   const totalRevenue = stock.currentPrice * shares
 
-  const handleSell = () => {
+  const handleSell = async () => {
     if (shares > maxShares) {
       toast({
         title: "Invalid Amount",
@@ -41,7 +70,7 @@ export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
       return
     }
 
-    const success = sellStock(stockId, shares)
+    const success = await sellStock(stockId, shares)
     if (success) {
       toast({
         title: "Sale Successful",

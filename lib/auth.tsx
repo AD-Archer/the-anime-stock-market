@@ -10,7 +10,7 @@ import {
   useCallback,
 } from "react";
 import { ID, OAuthProvider, type Models } from "appwrite";
-import { account } from "./appwrite";
+import { account } from "./appwrite/appwrite";
 import { userService } from "./database";
 
 type AuthUser = {
@@ -69,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         showNsfw: true,
         showSpoilers: true,
         isPortfolioPublic: false,
+        hideTransactions: false,
+        anonymousTransactions: false,
       });
     } catch (error) {
       console.warn("Failed to ensure user document:", error);
