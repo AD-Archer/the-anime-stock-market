@@ -38,7 +38,7 @@ export function Header() {
             <Link href="/anime">
               <Button variant="ghost">Anime</Button>
             </Link>
-            {user && (
+            {currentUser?.isAdmin && (
               <Link href="/admin">
                 <Button variant="ghost">Admin</Button>
               </Link>
@@ -92,7 +92,7 @@ export function Header() {
                   Anime
                 </Button>
               </Link>
-              {user && (
+              {currentUser?.isAdmin && (
                 <Link href="/admin" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start">
                     Admin

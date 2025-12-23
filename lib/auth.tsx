@@ -7,8 +7,9 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  useCallback,
 } from "react";
-import { ID, type Models } from "appwrite";
+import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "./appwrite";
 import { userService } from "./database";
 
@@ -26,6 +27,11 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   updateName: (name: string) => Promise<void>;
+  updatePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,28 +65,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         balance: 0,
         isAdmin: false,
         createdAt: new Date(),
-        isBanned: false,
+        bannedUntil: null,
+        showNsfw: true,
+        showSpoilers: true,
+        isPortfolioPublic: false,
       });
     } catch (error) {
       console.warn("Failed to ensure user document:", error);
     }
   };
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const response = await account.get();
       await ensureUserDocument(response);
+
+      // Check if user is banned
+      const userDoc = await userService.getById(response.$id);
+      if (userDoc && userDoc.bannedUntil && userDoc.bannedUntil > new Date()) {
+        // User is banned, sign them out
+        await account.deleteSession("current");
+        setUser(null);
+        return;
+      }
+
       setUser(mapAccountUser(response));
     } catch {
       setUser(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [fetchUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -109,8 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await account.updateName(name);
         await fetchUser();
       },
+      updatePassword: async (currentPassword: string, newPassword: string) => {
+        await account.updatePassword(newPassword, currentPassword);
+      },
+      signInWithGoogle: async () => {
+        await account.createOAuth2Session(
+          OAuthProvider.Google,
+          `${window.location.origin}/market`,
+          `${window.location.origin}/auth/signin`
+        );
+      },
     }),
-    [user, loading]
+    [user, loading, fetchUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

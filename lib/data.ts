@@ -5,6 +5,7 @@ import type {
   PriceHistory,
   Portfolio,
   Comment,
+  Report,
 } from "./types";
 
 // Initial users with $1000 starting balance
@@ -16,7 +17,10 @@ export const initialUsers: User[] = [
     balance: 1000,
     isAdmin: false,
     createdAt: new Date("2024-01-01"),
-    isBanned: false,
+    bannedUntil: null,
+    showNsfw: true,
+    showSpoilers: true,
+    isPortfolioPublic: true,
   },
   {
     id: "user-2",
@@ -25,7 +29,10 @@ export const initialUsers: User[] = [
     balance: 1000,
     isAdmin: false,
     createdAt: new Date("2024-01-02"),
-    isBanned: false,
+    bannedUntil: null,
+    showNsfw: true,
+    showSpoilers: true,
+    isPortfolioPublic: false,
   },
   {
     id: "admin-1",
@@ -34,7 +41,10 @@ export const initialUsers: User[] = [
     balance: 10000,
     isAdmin: true,
     createdAt: new Date("2024-01-01"),
-    isBanned: false,
+    bannedUntil: null,
+    showNsfw: true,
+    showSpoilers: true,
+    isPortfolioPublic: true,
   },
 ];
 
@@ -288,6 +298,9 @@ export const initialComments: Comment[] = [
     characterId: "stock-1",
     content: "Luffy is going to the moon! Best investment ever!",
     timestamp: new Date("2024-01-15T11:00:00"),
+    tags: [],
+    likedBy: [],
+    dislikedBy: [],
   },
   {
     id: "comment-2",
@@ -295,6 +308,9 @@ export const initialComments: Comment[] = [
     animeId: "naruto",
     content: "Naruto stocks are undervalued right now. Great time to buy!",
     timestamp: new Date("2024-01-16T15:30:00"),
+    tags: ["spoiler"],
+    likedBy: [],
+    dislikedBy: [],
   },
 ];
 
@@ -305,3 +321,6 @@ export const initialBuybackOffers: BuybackOffer[] = [];
 
 // Initial notifications (empty)
 export const initialNotifications: Notification[] = [];
+
+// Initial reports (empty)
+export const initialReports: Report[] = [];

@@ -131,6 +131,8 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               <SelectItem value="admin_message">Admin Messages</SelectItem>
               <SelectItem value="buyback_offer">Buyback Offers</SelectItem>
               <SelectItem value="system">System Notifications</SelectItem>
+              <SelectItem value="moderation">Moderation</SelectItem>
+              <SelectItem value="direct_message">Direct Messages</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -158,6 +160,14 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
                   <p className="text-sm font-medium truncate">
                     {notification.title}
                   </p>
+                  <div className="flex items-center gap-1 mb-1">
+                    <Badge variant="secondary" className="text-[10px] uppercase">
+                      {notification.type.replace("_", " ")}
+                    </Badge>
+                    {!notification.read && (
+                      <span className="text-[10px] text-primary">New</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {notification.message}
                   </p>
@@ -165,11 +175,6 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
                     {notification.createdAt.toLocaleDateString()}
                   </p>
                 </div>
-                {!notification.read && (
-                  <div className="ml-2">
-                    <div className="h-2 w-2 bg-primary rounded-full"></div>
-                  </div>
-                )}
               </div>
             ))}
           {filteredNotifications.length > (modal ? 50 : 10) && (

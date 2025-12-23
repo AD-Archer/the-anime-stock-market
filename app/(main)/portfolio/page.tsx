@@ -171,7 +171,7 @@ export default function PortfolioPage() {
                   You don&apos;t have any stocks yet. Start trading to build
                   your portfolio!
                 </p>
-                <Link href="/">
+                <Link href="/market">
                   <Button>Browse Market</Button>
                 </Link>
               </CardContent>

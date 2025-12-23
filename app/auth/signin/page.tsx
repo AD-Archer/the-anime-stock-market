@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ID, OAuthProvider } from "appwrite";
@@ -20,7 +20,8 @@ import { account } from "@/lib/appwrite";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,6 +34,13 @@ export default function SignInPage() {
 
   const logDebug = (message: string) =>
     setDebugLog((prev) => [...prev, `${new Date().toISOString()}: ${message}`]);
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push("/market");
+    }
+  }, [user, authLoading, router]);
 
   const trimmedEmail = email.trim();
   const isValidEmail = (value: string) =>
@@ -145,6 +153,18 @@ export default function SignInPage() {
       );
     }
   };
+
+  // Show loading while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center px-4 py-10">

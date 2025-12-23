@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import type { User } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,10 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+
+const isUserBanned = (user: User): boolean => {
+  return user.bannedUntil !== null && user.bannedUntil > new Date();
+};
 
 export function BuybackManagement() {
   const { stocks, buybackOffers, users, createBuybackOffer, getUserPortfolio } =
@@ -182,7 +187,7 @@ export function BuybackManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     {users
-                      .filter((u) => !u.isBanned)
+                      .filter((u) => !isUserBanned(u))
                       .map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.username} ({user.email})

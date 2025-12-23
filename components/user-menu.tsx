@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, Bell, Crown } from "lucide-react";
+import { User, LogOut, Bell, Crown, MessageCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +74,12 @@ export function UserMenu() {
             <a href="/profile" className="flex items-center">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href="/messages" className="flex items-center">
+              <MessageCircle className="mr-2 h-4 w-4" />
+              <span>Messages</span>
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem

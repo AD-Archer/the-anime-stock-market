@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
@@ -20,26 +21,59 @@ import {
   User,
   Wallet,
   BarChart3,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { account } from "@/lib/appwrite";
 
 export default function ProfilePage() {
-  const { user, updateName } = useAuth();
-  const { currentUser, getUserPortfolio, stocks, transactions } = useStore();
+  const { user, updateName, updatePassword, loading: authLoading } = useAuth();
+  const {
+    currentUser,
+    getUserPortfolio,
+    stocks,
+    transactions,
+    isLoading,
+    updateContentPreferences,
+  } = useStore();
   const router = useRouter();
   const [displayName, setDisplayName] = useState(user?.name || "");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
   const [jwt, setJwt] = useState<string | null>(null);
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [showSpoilersPreference, setShowSpoilersPreference] = useState(
+    currentUser?.showSpoilers ?? true
+  );
+  const [showNsfwPreference, setShowNsfwPreference] = useState(
+    currentUser?.showNsfw ?? true
+  );
+  const [portfolioPublicPreference, setPortfolioPublicPreference] = useState(
+    currentUser?.isPortfolioPublic ?? false
+  );
+  const [preferenceLoading, setPreferenceLoading] = useState<
+    null | "spoilers" | "nsfw" | "portfolio"
+  >(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push("/auth/signin");
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (currentUser) {
+      setShowSpoilersPreference(currentUser.showSpoilers);
+      setShowNsfwPreference(currentUser.showNsfw);
+      setPortfolioPublicPreference(currentUser.isPortfolioPublic);
+    }
+  }, [currentUser]);
 
   const fetchJwt = async () => {
     setJwtStatus(null);
@@ -53,7 +87,69 @@ export default function ProfilePage() {
     }
   };
 
-  if (!user || !currentUser) {
+  const handlePasswordChange = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("All fields are required.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      await updatePassword(currentPassword, newPassword);
+      setPasswordSuccess("Password updated successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error("Failed to update password", err);
+      setPasswordError(
+        "Failed to update password. Check your current password."
+      );
+    }
+  };
+
+  const handlePreferenceChange = async (
+    key: "showSpoilers" | "showNsfw" | "isPortfolioPublic",
+    value: boolean
+  ) => {
+    const loadingKey =
+      key === "showSpoilers"
+        ? "spoilers"
+        : key === "showNsfw"
+        ? "nsfw"
+        : "portfolio";
+    setPreferenceLoading(loadingKey);
+    try {
+      await updateContentPreferences({ [key]: value });
+    } catch (error) {
+      console.error("Failed to update content preference", error);
+      if (key === "showSpoilers") {
+        setShowSpoilersPreference((prev) => !prev);
+      } else {
+        if (key === "showNsfw") {
+          setShowNsfwPreference((prev) => !prev);
+        } else {
+          setPortfolioPublicPreference((prev) => !prev);
+        }
+      }
+    } finally {
+      setPreferenceLoading(null);
+    }
+  };
+
+  if (authLoading || !user || isLoading || !currentUser) {
     return <div>Loading...</div>;
   }
 
@@ -203,10 +299,40 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">Change Password</label>
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="New password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <Button onClick={handlePasswordChange} size="sm">
+                  Update Password
+                </Button>
+                {passwordError && (
+                  <p className="text-sm text-red-500">{passwordError}</p>
+                )}
+                {passwordSuccess && (
+                  <p className="text-sm text-green-500">{passwordSuccess}</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
-              <p className="text-sm text-muted-foreground">
-                {user.email}
-              </p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
               <p className="text-xs text-muted-foreground">
                 Email cannot be changed here. Contact support if needed.
               </p>
@@ -224,7 +350,9 @@ export default function ProfilePage() {
                   Generate JWT
                 </Button>
                 {jwtStatus && (
-                  <span className="text-xs text-muted-foreground">{jwtStatus}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {jwtStatus}
+                  </span>
                 )}
               </div>
               {jwt && (
@@ -232,6 +360,69 @@ export default function ProfilePage() {
                   {jwt}
                 </p>
               )}
+            </div>
+            <div className="space-y-3 border-t border-border pt-4">
+              <label className="text-sm font-medium">Content Preferences</label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-foreground">Show Spoilers</p>
+                    <p className="text-xs text-muted-foreground">
+                      Hide comments tagged as spoilers when disabled.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showSpoilersPreference}
+                    onChange={(e) => {
+                      const value = e.target.checked;
+                      setShowSpoilersPreference(value);
+                      handlePreferenceChange("showSpoilers", value);
+                    }}
+                    disabled={preferenceLoading === "spoilers"}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-foreground">Show NSFW</p>
+                    <p className="text-xs text-muted-foreground">
+                      Blur or collapse NSFW-tagged comments when disabled.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showNsfwPreference}
+                    onChange={(e) => {
+                      const value = e.target.checked;
+                      setShowNsfwPreference(value);
+                      handlePreferenceChange("showNsfw", value);
+                    }}
+                    disabled={preferenceLoading === "nsfw"}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-foreground">Public Portfolio</p>
+                    <p className="text-xs text-muted-foreground">
+                      Allow other users to view your holdings on your public
+                      profile.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={portfolioPublicPreference}
+                    onChange={(e) => {
+                      const value = e.target.checked;
+                      setPortfolioPublicPreference(value);
+                      handlePreferenceChange("isPortfolioPublic", value);
+                    }}
+                    disabled={preferenceLoading === "portfolio"}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -330,13 +521,14 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="portfolio">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="portfolio">
                   Portfolio ({portfolio.length})
                 </TabsTrigger>
                 <TabsTrigger value="history">
                   Transaction History ({userTransactions.length})
                 </TabsTrigger>
+                <TabsTrigger value="messaging">Messaging Settings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="portfolio" className="space-y-4">
@@ -511,6 +703,86 @@ export default function ProfilePage() {
                     })}
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="messaging" className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div>
+                      <h3 className="text-sm font-medium">Direct Messages</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Allow other users to send you direct messages
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={true} // For now, always enabled
+                      disabled={true}
+                      className="h-4 w-4 accent-primary"
+                      title="Direct messaging is currently always enabled"
+                    />
+                  </div>
+
+                  <div className="p-4 border border-border rounded-lg">
+                    <h3 className="text-sm font-medium mb-2">
+                      Privacy Settings
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Control who can send you messages and how your messaging
+                      appears to others.
+                    </p>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm">Show online status</p>
+                          <p className="text-xs text-muted-foreground">
+                            Let others see when you&apos;re active
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={false} // Placeholder for future implementation
+                          disabled={true}
+                          className="h-4 w-4 accent-primary"
+                          title="Coming soon"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm">Allow message requests</p>
+                          <p className="text-xs text-muted-foreground">
+                            Allow users to start conversations with you
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={true} // Placeholder for future implementation
+                          disabled={true}
+                          className="h-4 w-4 accent-primary"
+                          title="Currently enabled for all users"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border border-border rounded-lg">
+                    <h3 className="text-sm font-medium mb-2">
+                      Message History
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Your direct messages are stored securely and can be
+                      accessed from the Messages page.
+                    </p>
+                    <Link href="/messages">
+                      <Button variant="outline" size="sm">
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        View Messages
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>

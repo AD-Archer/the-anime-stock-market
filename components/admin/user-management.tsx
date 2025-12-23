@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import type { User as UserType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,11 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 import {
   Ban,
   Trash2,
   ShieldCheck,
-  User,
+  User as UserIcon,
   DollarSign,
   TrendingUp,
   TrendingDown,
@@ -40,6 +42,7 @@ export function UserManagement() {
   const {
     users,
     stocks,
+    currentUser,
     banUser,
     unbanUser,
     deleteUser,
@@ -58,13 +61,29 @@ export function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [actionDialog, setActionDialog] = useState<{
-    type: "money" | "stocks" | "admin" | null;
+    type: "money" | "stocks" | "admin" | "ban" | null;
     userId: string | null;
   }>({ type: null, userId: null });
 
   const [moneyAmount, setMoneyAmount] = useState("");
   const [stockId, setStockId] = useState("");
   const [stockShares, setStockShares] = useState("");
+  const [banDuration, setBanDuration] = useState<
+    "week" | "month" | "year" | "forever"
+  >("week");
+  const [customBanDate, setCustomBanDate] = useState("");
+
+  const isUserBanned = (user: UserType): boolean => {
+    return user.bannedUntil !== null && user.bannedUntil > new Date();
+  };
+
+  const getBanStatus = (user: UserType): string => {
+    if (!user.bannedUntil) return "Not banned";
+    if (user.bannedUntil > new Date()) {
+      return `Banned until ${user.bannedUntil.toLocaleDateString()}`;
+    }
+    return "Ban expired";
+  };
 
   const filteredUsers = users.filter(
     (user) =>
@@ -72,7 +91,22 @@ export function UserManagement() {
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleBanToggle = (userId: string, isBanned: boolean) => {
+  const handleBanToggle = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const isBanned = isUserBanned(user);
+
+    // Prevent banning yourself
+    if (!isBanned && userId === currentUser?.id) {
+      toast({
+        title: "Cannot Ban Yourself",
+        description: "You cannot ban your own account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isBanned) {
       unbanUser(userId);
       toast({
@@ -80,15 +114,68 @@ export function UserManagement() {
         description: "The user can now access the platform.",
       });
     } else {
-      banUser(userId);
+      // Open ban duration dialog
+      setActionDialog({ type: "ban", userId });
+    }
+  };
+
+  const handleBanAction = async () => {
+    if (!actionDialog.userId) return;
+
+    try {
+      let duration: "week" | "month" | "year" | "forever" | Date = banDuration;
+
+      if (banDuration === "forever") {
+        duration = "forever";
+      } else if (customBanDate) {
+        const customDate = new Date(customBanDate);
+        if (customDate > new Date()) {
+          duration = customDate;
+        } else {
+          toast({
+            title: "Invalid Date",
+            description: "Custom ban date must be in the future.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      await banUser(actionDialog.userId, duration);
       toast({
         title: "User Banned",
-        description: "The user has been banned from the platform.",
+        description: `The user has been banned ${
+          banDuration === "forever"
+            ? "permanently"
+            : `until ${
+                duration instanceof Date
+                  ? duration.toLocaleDateString()
+                  : duration
+              }`
+        }.`,
+      });
+      setActionDialog({ type: null, userId: null });
+      setCustomBanDate("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to ban user.",
+        variant: "destructive",
       });
     }
   };
 
   const handleDelete = (userId: string) => {
+    // Prevent deleting yourself
+    if (userId === currentUser?.id) {
+      toast({
+        title: "Cannot Delete Yourself",
+        description: "You cannot delete your own account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     deleteUser(userId);
     toast({
       title: "User Deleted",
@@ -97,18 +184,37 @@ export function UserManagement() {
     setDeleteConfirm(null);
   };
 
-  const handleAdminToggle = (userId: string, isAdmin: boolean) => {
-    if (isAdmin) {
-      removeUserAdmin(userId);
+  const handleAdminToggle = async (userId: string, isAdmin: boolean) => {
+    // Prevent removing admin rights from yourself
+    if (isAdmin && userId === currentUser?.id) {
       toast({
-        title: "Admin Rights Removed",
-        description: "The user is no longer an admin.",
+        title: "Cannot Remove Own Admin Rights",
+        description:
+          "You cannot remove admin privileges from your own account.",
+        variant: "destructive",
       });
-    } else {
-      makeUserAdmin(userId);
+      return;
+    }
+
+    try {
+      if (isAdmin) {
+        await removeUserAdmin(userId);
+        toast({
+          title: "Admin Rights Removed",
+          description: "The user is no longer an admin.",
+        });
+      } else {
+        await makeUserAdmin(userId);
+        toast({
+          title: "Admin Rights Granted",
+          description: "The user is now an admin.",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Admin Rights Granted",
-        description: "The user is now an admin.",
+        title: "Error",
+        description: "Failed to update admin status.",
+        variant: "destructive",
       });
     }
   };
@@ -214,16 +320,21 @@ export function UserManagement() {
                     {user.isAdmin ? (
                       <Crown className="h-6 w-6 text-primary" />
                     ) : (
-                      <User className="h-6 w-6 text-primary" />
+                      <UserIcon className="h-6 w-6 text-primary" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-foreground">
-                        {user.username}
+                        <Link
+                          href={`/users/${user.id}`}
+                          className="hover:underline"
+                        >
+                          {user.username}
+                        </Link>
                       </CardTitle>
                       {user.isAdmin && <Badge>Admin</Badge>}
-                      {user.isBanned && (
+                      {isUserBanned(user) && (
                         <Badge variant="destructive">Banned</Badge>
                       )}
                     </div>
@@ -232,6 +343,9 @@ export function UserManagement() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Joined: {user.createdAt.toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {getBanStatus(user)}
                     </p>
                   </div>
                 </div>
@@ -258,6 +372,7 @@ export function UserManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleAdminToggle(user.id, user.isAdmin)}
+                    disabled={user.id === currentUser?.id}
                   >
                     <ShieldCheck
                       className={`h-4 w-4 ${
@@ -268,11 +383,12 @@ export function UserManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleBanToggle(user.id, user.isBanned)}
+                    onClick={() => handleBanToggle(user.id)}
+                    disabled={user.id === currentUser?.id}
                   >
                     <Ban
                       className={`h-4 w-4 ${
-                        user.isBanned ? "text-chart-4" : "text-destructive"
+                        isUserBanned(user) ? "text-chart-4" : "text-destructive"
                       }`}
                     />
                   </Button>
@@ -280,6 +396,7 @@ export function UserManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => setDeleteConfirm(user.id)}
+                    disabled={user.id === currentUser?.id}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -443,6 +560,64 @@ export function UserManagement() {
               >
                 Delete User
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Ban Duration Dialog */}
+      {actionDialog.type === "ban" && actionDialog.userId && (
+        <Dialog
+          open
+          onOpenChange={() => setActionDialog({ type: null, userId: null })}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ban User</DialogTitle>
+              <DialogDescription>
+                Select the duration for banning{" "}
+                {users.find((u) => u.id === actionDialog.userId)?.username}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Ban Duration</Label>
+                <Select
+                  value={banDuration}
+                  onValueChange={(value: any) => setBanDuration(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="week">1 Week</SelectItem>
+                    <SelectItem value="month">1 Month</SelectItem>
+                    <SelectItem value="year">1 Year</SelectItem>
+                    <SelectItem value="forever">Permanent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {banDuration !== "forever" && (
+                <div className="space-y-2">
+                  <Label htmlFor="customDate">Or set custom date</Label>
+                  <Input
+                    id="customDate"
+                    type="datetime-local"
+                    value={customBanDate}
+                    onChange={(e) => setCustomBanDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setActionDialog({ type: null, userId: null })}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleBanAction}>Ban User</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
