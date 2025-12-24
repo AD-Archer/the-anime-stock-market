@@ -28,7 +28,7 @@ const projectRoot = path.resolve(__dirname, "..");
 const tag = process.argv[2] || "latest";
 const imageName = tag.includes("/")
   ? tag
-  : `adarcher/anime-stock-market:${tag}`;
+  : `adarcher/the-anime-stock-exchange:${tag}`;
 
 // Get additional docker run options
 const additionalOptions = process.argv.slice(3).join(" ");
@@ -46,17 +46,45 @@ if (!envExists) {
 } else {
   // Read and display which env variables will be loaded
   const envContent = readFileSync(envPath, "utf-8");
-  const envVars = envContent
+  const envLines = envContent
     .split("\n")
     .filter(
       (line) => line.trim() && !line.startsWith("#") && line.includes("=")
-    )
-    .map((line) => line.split("=")[0])
-    .filter((varName) => varName.trim());
+    );
+
+  const envVars = envLines
+    .map((line) => line.split("=")[0].trim())
+    .filter(Boolean);
 
   console.log(`✅ Found .env.local with ${envVars.length} variables`);
   console.log(`   Variables: ${envVars.join(", ")}`);
   console.log("");
+
+  // Check for required server-only variables early to warn user before starting container
+  const defaultRequired = ["APPWRITE_API_KEY"];
+
+  // If .env.local defines REQUIRED_VARS, prefer that (comma or space separated)
+  const requiredLine = envLines.find((l) =>
+    l.trim().startsWith("REQUIRED_VARS=")
+  );
+  let requiredVars = defaultRequired;
+  if (requiredLine) {
+    const val = requiredLine.split("=").slice(1).join("=").trim();
+    const cleaned = val.replace(/^\"|\"$/g, "").replace(/,/g, " ");
+    requiredVars = cleaned.split(/\s+/).filter(Boolean);
+  }
+
+  const missing = requiredVars.filter((v) => !envVars.includes(v));
+  if (missing.length) {
+    console.warn(
+      "⚠️  Warning: The following required variables are not present in .env.local:",
+      missing.join(", ")
+    );
+    console.warn(
+      "   The container will fail at startup if they are not provided at runtime."
+    );
+    console.warn("");
+  }
 }
 
 console.log("🐳 Running Docker container...");

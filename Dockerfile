@@ -20,9 +20,23 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-# Note: We intentionally do NOT pass environment variables at build time
-# to prevent secrets from being baked into the image. All environment
-# variables will be provided at runtime via --env-file or -e flags.
+# Build-time args for client-exposed envs (NEXT_PUBLIC_*). The helper
+# script `scripts/build-docker.mjs` will pass any NEXT_PUBLIC_* values
+# from `.env.local` as build args. We expose them as ENVs so Next.js can
+# inline NEXT_PUBLIC_* into the client bundle during `pnpm run build`.
+ARG NEXT_PUBLIC_APPWRITE_ENDPOINT
+ARG NEXT_PUBLIC_APPWRITE_PROJECT_ID
+ARG NEXT_PUBLIC_APPWRITE_PROJECT_NAME
+ARG NEXT_PUBLIC_SITE_URL
+
+ENV NEXT_PUBLIC_APPWRITE_ENDPOINT=${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+ENV NEXT_PUBLIC_APPWRITE_PROJECT_ID=${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+ENV NEXT_PUBLIC_APPWRITE_PROJECT_NAME=${NEXT_PUBLIC_APPWRITE_PROJECT_NAME}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+
+# Note: NEXT_PUBLIC_APPWRITE_DATABASE_ID is intentionally excluded from build args
+# to avoid making the database ID public. If you need the DB ID server-side, set
+# APPWRITE_DATABASE_ID in your runtime environment (.env.local or via --env-file).
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

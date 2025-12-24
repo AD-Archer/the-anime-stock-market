@@ -2,7 +2,6 @@ import type React from "react";
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import { StoreProvider } from "@/lib/store";
 import { SiteStickyTicker } from "@/components/site-sticky-ticker";
 import { Toaster } from "@/components/ui/toaster";
@@ -74,7 +73,6 @@ function StackedProviders({ children }: { children: React.ReactNode }) {
     >
       <StoreProvider>
         {children}
-        <Analytics />
       </StoreProvider>
     </Suspense>
   );

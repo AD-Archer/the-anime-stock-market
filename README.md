@@ -78,6 +78,27 @@ That script mounts `.env.local` as an `--env-file`, but if you start the contain
 docker run -p 3000:3000 --env-file .env.local anime-stock-market
 ```
 
+**Troubleshooting tips** ✅
+
+- If the container complains about missing variables, ensure `.env.local` exists in the same directory as `docker-compose.yml` and contains the required keys (for example `APPWRITE_API_KEY`, `NEXT_PUBLIC_APPWRITE_ENDPOINT`, etc.).
+- You can control which server-only variables must be present at runtime using `REQUIRED_VARS` (space- or comma-separated). Example in `.env.local`:
+
+```env
+REQUIRED_VARS="APPWRITE_API_KEY SMTP_HOST SMTP_USER SMTP_PASS"
+```
+
+- Client-visible variables (those prefixed with `NEXT_PUBLIC_`) must be present at _build time_ to be inlined into the client bundle. Use `node scripts/build-docker.mjs` to pass `NEXT_PUBLIC_*` values as build args.
+  **Important:** Some `NEXT_PUBLIC_` values are intentionally excluded from build args to avoid leaking internal identifiers. By default, `NEXT_PUBLIC_APPWRITE_DATABASE_ID` is skipped and will NOT be passed as a build arg. If you need a database ID or other internal identifiers, set them as **server-side** variables (e.g. `APPWRITE_DATABASE_ID`) in `.env.local` instead.
+- If you're mounting a dotenv file into `/app`, verify it is readable by the container user (uid 1001); otherwise prefer `--env-file` which passes variables into the container environment directly.
+
+- When using Docker's `--env-file` / `docker-compose` `env_file`, avoid wrapping values in quotes (e.g. `APPWRITE_ENDPOINT=https://appwrite.example.com/v1`). Docker does not strip surrounding quotes in some environments and they can be preserved into the container environment, which will break client-side URL parsing. If you must include quotes for local editing, the runtime will now sanitize values, but removing the quotes is recommended.
+
+- To safely verify server-only env presence from a running app (no values returned): enable the debug endpoint temporarily by setting `ENABLE_ENV_DEBUG=true` (or run in non-production). Then GET `/api/_internal/env-check` which will return which keys are present and a `missing` list. To customize which keys it checks, set `ENV_CHECK_KEYS` (space separated).
+
+- To inspect which env vars are available inside the container:
+  - Run the image with `--env-file .env.local` and print env: `docker run --rm --env-file .env.local --entrypoint env adarcher/anime-stock-market:latest`
+  - Or, for a running container: `docker exec -it <container> sh -c "printenv | grep APPWRITE"`
+
 ## Docker Compose
 
 An example `docker-compose.yml` is provided to run the application using Docker Compose. It pulls the latest image from Docker Hub and supports environment variable configuration for future full-stack features.

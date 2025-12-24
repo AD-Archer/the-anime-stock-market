@@ -6,6 +6,7 @@ import {
   NOTIFICATIONS_COLLECTION,
   mapNotification,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,8 +14,9 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const notificationService = {
   async getAll(): Promise<Notification[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         NOTIFICATIONS_COLLECTION
       );
       return response.documents.map(mapNotification);
@@ -26,8 +28,9 @@ export const notificationService = {
 
   async getById(id: string): Promise<Notification | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         NOTIFICATIONS_COLLECTION,
         id
       );
@@ -42,8 +45,9 @@ export const notificationService = {
     try {
       const documentId = notification.id ?? ID.unique();
       const { id: _ignored, ...data } = notification as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         NOTIFICATIONS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -60,8 +64,9 @@ export const notificationService = {
     notification: Partial<Notification>
   ): Promise<Notification> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         NOTIFICATIONS_COLLECTION,
         id,
         normalizePayload(notification)
@@ -75,7 +80,8 @@ export const notificationService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, NOTIFICATIONS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, NOTIFICATIONS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete notification from database:", error);
       throw error;

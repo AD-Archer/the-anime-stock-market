@@ -6,6 +6,7 @@ import {
   PRICE_HISTORY_COLLECTION,
   mapPriceHistory,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,8 +14,9 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const priceHistoryService = {
   async getAll(): Promise<PriceHistory[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         PRICE_HISTORY_COLLECTION
       );
       return response.documents.map(mapPriceHistory);
@@ -26,8 +28,9 @@ export const priceHistoryService = {
 
   async getById(id: string): Promise<PriceHistory | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         PRICE_HISTORY_COLLECTION,
         id
       );
@@ -42,8 +45,9 @@ export const priceHistoryService = {
     try {
       const documentId = priceHistory.id ?? ID.unique();
       const { id: _ignored, ...data } = priceHistory as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         PRICE_HISTORY_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -60,8 +64,9 @@ export const priceHistoryService = {
     priceHistory: Partial<PriceHistory>
   ): Promise<PriceHistory> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         PRICE_HISTORY_COLLECTION,
         id,
         normalizePayload(priceHistory)
@@ -75,7 +80,8 @@ export const priceHistoryService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, PRICE_HISTORY_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, PRICE_HISTORY_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete price history from database:", error);
       throw error;

@@ -28,8 +28,34 @@ if (endpoint && projectId) {
           throw new Error(`Failed to fetch config: ${res.status}`);
         }
         const config = await res.json();
+        // Sanitize values returned from the API (strip surrounding quotes and whitespace)
+        const strip = (v: unknown): string | undefined => {
+          if (v === undefined || v === null) return undefined;
+          const raw =
+            typeof v === "string" || typeof v === "number"
+              ? String(v)
+              : undefined;
+          if (!raw) return undefined;
+          const sanitized = raw.trim().replace(/^['"]+|['"]+$/g, "");
+          return sanitized === "" ? undefined : sanitized;
+        };
+        config.endpoint = strip(config.endpoint);
+        config.projectId = strip(config.projectId);
+        config.databaseId = strip(config.databaseId);
+
+        // Expose the runtime config object for other libraries (only on client)
+        (window as any).__APPWRITE_CONFIG = {
+          endpoint: config.endpoint,
+          projectId: config.projectId,
+          databaseId: config.databaseId,
+        };
+
         if (config.endpoint && config.projectId) {
-          client.setEndpoint(config.endpoint).setProject(config.projectId);
+          try {
+            client.setEndpoint(config.endpoint).setProject(config.projectId);
+          } catch (err) {
+            console.warn("Failed to set Appwrite endpoint/projectId:", err);
+          }
         } else {
           console.warn(
             "Appwrite client not configured: failed to load config from API"
@@ -75,6 +101,12 @@ export async function ensureAppwriteInitialized(): Promise<void> {
       const res = await fetch("/api/appwrite-config");
       if (res.ok) {
         const config = await res.json();
+        // store runtime config for other modules
+        (window as any).__APPWRITE_CONFIG = {
+          endpoint: config.endpoint,
+          projectId: config.projectId,
+          databaseId: config.databaseId,
+        };
         if (config.endpoint && config.projectId) {
           client.setEndpoint(config.endpoint).setProject(config.projectId);
         }

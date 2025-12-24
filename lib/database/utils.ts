@@ -28,6 +28,36 @@ export const DATABASE_ID =
 
 export const isDatabaseConfigured = (): boolean => Boolean(DATABASE_ID);
 
+/**
+ * Get database id at runtime. Priority:
+ * 1) Server-side APPWRITE_DATABASE_ID
+ * 2) NEXT_PUBLIC_APPWRITE_DATABASE_ID (client-visible)
+ * 3) Runtime config provided by /api/appwrite-config (window.__APPWRITE_CONFIG.databaseId)
+ */
+export const getRuntimeDatabaseId = (): string | undefined => {
+  if (DATABASE_ID) return DATABASE_ID;
+  if (typeof window !== "undefined") {
+    // runtime config populated by client init
+    const cfg = (window as any).__APPWRITE_CONFIG;
+    if (cfg && typeof cfg.databaseId === "string" && cfg.databaseId.trim()) {
+      return cfg.databaseId;
+    }
+  }
+  return undefined;
+};
+
+export const ensureDatabaseIdAvailable = (): string => {
+  const id = getRuntimeDatabaseId();
+  if (!id) {
+    throw new Error(
+      "Appwrite database ID is not available on the client.\n" +
+        "To allow direct client access, set NEXT_PUBLIC_APPWRITE_DATABASE_ID or set EXPOSE_APPWRITE_DATABASE_ID=true.\n" +
+        "Alternatively, use server-side API endpoints that do not require exposing the DB id."
+    );
+  }
+  return id;
+};
+
 // Collections
 export const USERS_COLLECTION = "users";
 export const STOCKS_COLLECTION = "stocks";

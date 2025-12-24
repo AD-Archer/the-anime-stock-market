@@ -6,12 +6,14 @@ import {
   APPEALS_COLLECTION,
   mapAppeal,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 export const appealService = {
   async getAll(): Promise<Appeal[]> {
     try {
-      const response = await databases.listDocuments(DATABASE_ID, APPEALS_COLLECTION, [
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, APPEALS_COLLECTION, [
         Query.orderDesc("createdAt"),
         Query.limit(500),
       ]);
@@ -30,8 +32,9 @@ export const appealService = {
       createdAt: new Date(),
     });
 
+    const dbId = ensureDatabaseIdAvailable();
     const doc = await databases.createDocument(
-      DATABASE_ID,
+      dbId,
       APPEALS_COLLECTION,
       ID.unique(),
       payload
@@ -41,10 +44,13 @@ export const appealService = {
 
   async update(
     id: string,
-    updates: Partial<Pick<Appeal, "status" | "resolvedAt" | "resolvedBy" | "resolutionNotes">>
+    updates: Partial<
+      Pick<Appeal, "status" | "resolvedAt" | "resolvedBy" | "resolutionNotes">
+    >
   ): Promise<Appeal> {
+    const dbId = ensureDatabaseIdAvailable();
     const doc = await databases.updateDocument(
-      DATABASE_ID,
+      dbId,
       APPEALS_COLLECTION,
       id,
       normalizePayload(updates)

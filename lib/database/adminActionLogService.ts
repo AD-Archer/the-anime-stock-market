@@ -6,6 +6,7 @@ import {
   ADMIN_ACTION_LOGS_COLLECTION,
   mapAdminActionLog,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 const encodeMetadata = (value?: Record<string, unknown>) => {
@@ -22,8 +23,9 @@ const encodeMetadata = (value?: Record<string, unknown>) => {
 export const adminActionLogService = {
   async getAll(): Promise<AdminActionLog[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         ADMIN_ACTION_LOGS_COLLECTION,
         [Query.orderDesc("createdAt"), Query.limit(500)]
       );
@@ -48,8 +50,9 @@ export const adminActionLogService = {
       createdAt: new Date(),
     });
 
+    const dbId = ensureDatabaseIdAvailable();
     const document = await databases.createDocument(
-      DATABASE_ID,
+      dbId,
       ADMIN_ACTION_LOGS_COLLECTION,
       ID.unique(),
       payload

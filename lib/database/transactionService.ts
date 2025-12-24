@@ -6,6 +6,7 @@ import {
   TRANSACTIONS_COLLECTION,
   mapTransaction,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,8 +14,9 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const transactionService = {
   async getAll(): Promise<Transaction[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         TRANSACTIONS_COLLECTION
       );
       return response.documents.map(mapTransaction);
@@ -26,8 +28,9 @@ export const transactionService = {
 
   async getById(id: string): Promise<Transaction | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         TRANSACTIONS_COLLECTION,
         id
       );
@@ -41,9 +44,14 @@ export const transactionService = {
   async create(transaction: Creatable<Transaction>): Promise<Transaction> {
     try {
       const documentId = transaction.id ?? ID.unique();
-      const { id: _ignored, isAnonymous: _omitAnon, ...data } = transaction as any;
+      const {
+        id: _ignored,
+        isAnonymous: _omitAnon,
+        ...data
+      } = transaction as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         TRANSACTIONS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -60,8 +68,9 @@ export const transactionService = {
     transaction: Partial<Transaction>
   ): Promise<Transaction> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         TRANSACTIONS_COLLECTION,
         id,
         normalizePayload(transaction)
@@ -75,7 +84,8 @@ export const transactionService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, TRANSACTIONS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, TRANSACTIONS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete transaction from database:", error);
       throw error;

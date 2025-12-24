@@ -1,7 +1,7 @@
 import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { SupportTicket, SupportTicketMessage } from "../types";
-import { DATABASE_ID } from "./utils";
+import { DATABASE_ID, ensureDatabaseIdAvailable } from "./utils";
 import {
   SUPPORTS_COLLECTION,
   normalizePayload,
@@ -48,8 +48,9 @@ export const supportService = {
       }
 
       const payload = normalizePayload(obj);
+      const dbId = ensureDatabaseIdAvailable();
       const res = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         SUPPORTS_COLLECTION,
         id,
         payload
@@ -93,8 +94,9 @@ export const supportService = {
         queries.push(Query.search("subject", filters.searchQuery));
         queries.push(Query.search("message", filters.searchQuery));
       }
+      const dbId = ensureDatabaseIdAvailable();
       const res = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         SUPPORTS_COLLECTION,
         queries
       );
@@ -107,11 +109,8 @@ export const supportService = {
 
   async getById(id: string) {
     try {
-      const res = await databases.getDocument(
-        DATABASE_ID,
-        SUPPORTS_COLLECTION,
-        id
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const res = await databases.getDocument(dbId, SUPPORTS_COLLECTION, id);
       return mapSupportTicket(res);
     } catch (error) {
       console.warn("Failed to fetch support ticket:", error);
@@ -151,8 +150,9 @@ export const supportService = {
       }
 
       const payload = normalizePayload(merged as any);
+      const dbId = ensureDatabaseIdAvailable();
       const res = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         SUPPORTS_COLLECTION,
         id,
         payload

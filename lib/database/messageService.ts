@@ -7,6 +7,7 @@ import {
   mapMessage,
   normalizePayload,
   toArrayOr,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 export const messageService = {
@@ -23,8 +24,9 @@ export const messageService = {
       Object.entries(payload).filter(([_, value]) => value !== undefined)
     );
 
+    const dbId = ensureDatabaseIdAvailable();
     const doc = await databases.createDocument(
-      DATABASE_ID,
+      dbId,
       MESSAGES_COLLECTION,
       ID.unique(),
       filteredPayload
@@ -38,8 +40,9 @@ export const messageService = {
     const filteredPayload = Object.fromEntries(
       Object.entries(payload).filter(([_, value]) => value !== undefined)
     );
+    const dbId = ensureDatabaseIdAvailable();
     const doc = await databases.updateDocument(
-      DATABASE_ID,
+      dbId,
       MESSAGES_COLLECTION,
       id,
       filteredPayload
@@ -49,14 +52,11 @@ export const messageService = {
 
   // Get messages for a conversation
   async getConversationMessages(conversationId: string): Promise<Message[]> {
-    const response = await databases.listDocuments(
-      DATABASE_ID,
-      MESSAGES_COLLECTION,
-      [
-        Query.equal("conversationId", conversationId),
-        Query.orderAsc("createdAt"),
-      ]
-    );
+    const dbId = ensureDatabaseIdAvailable();
+    const response = await databases.listDocuments(dbId, MESSAGES_COLLECTION, [
+      Query.equal("conversationId", conversationId),
+      Query.orderAsc("createdAt"),
+    ]);
 
     return response.documents.map(mapMessage);
   },
@@ -64,8 +64,9 @@ export const messageService = {
   // Get all conversations for a user
   async getUserConversations(userId: string): Promise<Conversation[]> {
     // Get all messages (with a higher limit for testing)
+    const dbId = ensureDatabaseIdAvailable();
     const allMessagesResponse = await databases.listDocuments(
-      DATABASE_ID,
+      dbId,
       MESSAGES_COLLECTION,
       [
         Query.orderDesc("createdAt"),
@@ -123,22 +124,18 @@ export const messageService = {
     // For now, we'll handle this in the frontend by updating read status
     for (const messageId of messageIds) {
       try {
+        const dbId = ensureDatabaseIdAvailable();
         const message = await databases.getDocument(
-          DATABASE_ID,
+          dbId,
           MESSAGES_COLLECTION,
           messageId
         );
 
         const readBy = toArrayOr<string>(message.readBy, []);
         if (!readBy.includes(userId)) {
-          await databases.updateDocument(
-            DATABASE_ID,
-            MESSAGES_COLLECTION,
-            messageId,
-            {
-              readBy: [...readBy, userId],
-            }
-          );
+          await databases.updateDocument(dbId, MESSAGES_COLLECTION, messageId, {
+            readBy: [...readBy, userId],
+          });
         }
       } catch (error) {
         console.error(`Failed to mark message ${messageId} as read:`, error);
@@ -148,17 +145,18 @@ export const messageService = {
 
   // Get unread count for a user
   async getUnreadCount(userId: string): Promise<number> {
-    const response = await databases.listDocuments(
-      DATABASE_ID,
-      MESSAGES_COLLECTION,
-      [Query.notEqual("senderId", userId), Query.notContains("readBy", userId)]
-    );
+    const dbId = ensureDatabaseIdAvailable();
+    const response = await databases.listDocuments(dbId, MESSAGES_COLLECTION, [
+      Query.notEqual("senderId", userId),
+      Query.notContains("readBy", userId),
+    ]);
 
     return response.total;
   },
 
   // Delete a message
   async delete(id: string): Promise<void> {
-    await databases.deleteDocument(DATABASE_ID, MESSAGES_COLLECTION, id);
+    const dbId = ensureDatabaseIdAvailable();
+    await databases.deleteDocument(dbId, MESSAGES_COLLECTION, id);
   },
 };

@@ -26,7 +26,7 @@ const tag = process.argv[2] || "latest";
 // Ensure tag is properly formatted
 const imageName = tag.includes("/")
   ? tag
-  : `adarcher/anime-stock-market:${tag}`;
+  : `adarcher/the-anime-stock-exchange:${tag}`;
 
 console.log("🐳 Building Docker image...");
 console.log(`📦 Image name: ${imageName}`);
@@ -56,6 +56,15 @@ if (existsSync(envPath)) {
   const escapeValue = (value) =>
     value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
+  // Skip list for NEXT_PUBLIC_* variables that should NOT be passed as build args
+  // Default: never pass the database id into the client bundle
+  const skipBuildVars = new Set(
+    (process.env.SKIP_BUILD_VARS || "NEXT_PUBLIC_APPWRITE_DATABASE_ID")
+      .split(/[,\s]+/)
+      .filter(Boolean)
+  );
+
+  const skipped = [];
   for (const line of envLines) {
     const [key, ...rest] = line.split("=");
     if (!key || !rest.length) continue;
@@ -64,10 +73,22 @@ if (existsSync(envPath)) {
     if (!trimmedValue) continue;
 
     if (trimmedKey.startsWith("NEXT_PUBLIC_")) {
+      if (skipBuildVars.has(trimmedKey)) {
+        skipped.push(trimmedKey);
+        continue;
+      }
+
       buildArgs.push(
         `--build-arg ${trimmedKey}="${escapeValue(trimmedValue)}"`
       );
     }
+  }
+
+  if (skipped.length) {
+    console.log(`ℹ️  Skipping NEXT_PUBLIC_* build args: ${skipped.join(", ")}`);
+    console.log(
+      "   (These are omitted to avoid exposing sensitive or internal IDs in the client bundle)"
+    );
   }
 
   if (buildArgs.length > 0) {

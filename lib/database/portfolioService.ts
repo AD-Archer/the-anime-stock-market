@@ -5,13 +5,15 @@ import {
   PORTFOLIOS_COLLECTION,
   mapPortfolio,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 export const portfolioService = {
   async getAll(): Promise<Portfolio[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         PORTFOLIOS_COLLECTION
       );
       return response.documents.map(mapPortfolio);
@@ -23,8 +25,9 @@ export const portfolioService = {
 
   async getById(id: string): Promise<Portfolio | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         PORTFOLIOS_COLLECTION,
         id
       );
@@ -38,8 +41,9 @@ export const portfolioService = {
   async create(portfolio: Portfolio): Promise<Portfolio> {
     try {
       const documentId = `${portfolio.userId}-${portfolio.stockId}`;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         PORTFOLIOS_COLLECTION,
         documentId,
         normalizePayload(portfolio)
@@ -53,8 +57,9 @@ export const portfolioService = {
 
   async update(id: string, portfolio: Partial<Portfolio>): Promise<Portfolio> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         PORTFOLIOS_COLLECTION,
         id,
         normalizePayload(portfolio)
@@ -68,7 +73,8 @@ export const portfolioService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, PORTFOLIOS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, PORTFOLIOS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete portfolio from database:", error);
       throw error;

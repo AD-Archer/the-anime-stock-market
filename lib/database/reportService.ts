@@ -6,6 +6,7 @@ import {
   REPORTS_COLLECTION,
   mapReport,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -44,10 +45,8 @@ const serializeReportPayload = (report: Partial<Report>) => {
 export const reportService = {
   async getAll(): Promise<Report[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        REPORTS_COLLECTION
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, REPORTS_COLLECTION);
       return response.documents.map(mapReport);
     } catch (error) {
       console.warn("Failed to fetch reports from database:", error);
@@ -57,8 +56,9 @@ export const reportService = {
 
   async getById(id: string): Promise<Report | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         REPORTS_COLLECTION,
         id
       );
@@ -74,8 +74,9 @@ export const reportService = {
       const documentId = report.id ?? ID.unique();
       const { id: _ignored, ...data } = report as any;
       const payload = serializeReportPayload(data);
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         REPORTS_COLLECTION,
         documentId,
         normalizePayload(payload)
@@ -90,8 +91,9 @@ export const reportService = {
   async update(id: string, report: Partial<Report>): Promise<Report> {
     try {
       const payload = serializeReportPayload(report as any);
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         REPORTS_COLLECTION,
         id,
         normalizePayload(payload)
@@ -105,7 +107,8 @@ export const reportService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, REPORTS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, REPORTS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete report from database:", error);
       throw error;

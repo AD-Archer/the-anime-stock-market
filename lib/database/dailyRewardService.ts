@@ -6,6 +6,7 @@ import {
   DAILY_REWARDS_COLLECTION,
   mapDailyReward,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,8 +14,9 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const dailyRewardService = {
   async getAll(): Promise<DailyReward[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         DAILY_REWARDS_COLLECTION
       );
       return response.documents.map(mapDailyReward);
@@ -39,8 +41,9 @@ export const dailyRewardService = {
 
   async getByUserId(userId: string): Promise<DailyReward | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         DAILY_REWARDS_COLLECTION,
         [Query.equal("userId", userId)]
       );
@@ -65,8 +68,9 @@ export const dailyRewardService = {
 
   async getById(id: string): Promise<DailyReward | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         DAILY_REWARDS_COLLECTION,
         id
       );
@@ -89,8 +93,9 @@ export const dailyRewardService = {
     try {
       const documentId = dailyReward.id ?? ID.unique();
       const { id: _ignored, ...data } = dailyReward as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         DAILY_REWARDS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -117,8 +122,9 @@ export const dailyRewardService = {
     updates: Partial<DailyReward>
   ): Promise<DailyReward> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         DAILY_REWARDS_COLLECTION,
         id,
         normalizePayload(updates)
@@ -132,7 +138,8 @@ export const dailyRewardService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, DAILY_REWARDS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, DAILY_REWARDS_COLLECTION, id);
     } catch (error) {
       console.error("Failed to delete daily reward from database:", error);
       throw error;

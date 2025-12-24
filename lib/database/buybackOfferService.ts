@@ -6,6 +6,7 @@ import {
   BUYBACK_OFFERS_COLLECTION,
   mapBuybackOffer,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,8 +14,9 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const buybackOfferService = {
   async getAll(): Promise<BuybackOffer[]> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
-        DATABASE_ID,
+        dbId,
         BUYBACK_OFFERS_COLLECTION
       );
       return response.documents.map(mapBuybackOffer);
@@ -26,8 +28,9 @@ export const buybackOfferService = {
 
   async getById(id: string): Promise<BuybackOffer | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         BUYBACK_OFFERS_COLLECTION,
         id
       );
@@ -42,8 +45,9 @@ export const buybackOfferService = {
     try {
       const documentId = buybackOffer.id ?? ID.unique();
       const { id: _ignored, ...data } = buybackOffer as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         BUYBACK_OFFERS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -60,8 +64,9 @@ export const buybackOfferService = {
     buybackOffer: Partial<BuybackOffer>
   ): Promise<BuybackOffer> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         BUYBACK_OFFERS_COLLECTION,
         id,
         normalizePayload(buybackOffer)
@@ -75,11 +80,8 @@ export const buybackOfferService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(
-        DATABASE_ID,
-        BUYBACK_OFFERS_COLLECTION,
-        id
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, BUYBACK_OFFERS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete buyback offer from database:", error);
       throw error;

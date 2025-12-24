@@ -6,6 +6,7 @@ import {
   COMMENTS_COLLECTION,
   mapComment,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -24,10 +25,8 @@ const serializeCommentPayload = (comment: Partial<Comment>) => {
 export const commentService = {
   async getAll(): Promise<Comment[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COMMENTS_COLLECTION
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, COMMENTS_COLLECTION);
       return response.documents.map(mapComment);
     } catch (error) {
       console.warn("Failed to fetch comments from database:", error);
@@ -37,8 +36,9 @@ export const commentService = {
 
   async getById(id: string): Promise<Comment | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         COMMENTS_COLLECTION,
         id
       );
@@ -61,8 +61,9 @@ export const commentService = {
           ([_, value]) => value !== undefined
         )
       );
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         COMMENTS_COLLECTION,
         documentId,
         filteredData
@@ -84,8 +85,9 @@ export const commentService = {
           ([_, value]) => value !== undefined
         )
       );
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         COMMENTS_COLLECTION,
         id,
         filteredData
@@ -99,7 +101,8 @@ export const commentService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, COMMENTS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, COMMENTS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete comment from database:", error);
       throw error;

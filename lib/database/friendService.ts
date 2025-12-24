@@ -6,6 +6,7 @@ import {
   FRIENDS_COLLECTION,
   mapFriend,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -13,10 +14,8 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const friendService = {
   async getAll(): Promise<Friend[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        FRIENDS_COLLECTION
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, FRIENDS_COLLECTION);
       return response.documents.map(mapFriend);
     } catch (error) {
       console.warn("Failed to fetch friends from database:", error);
@@ -26,8 +25,9 @@ export const friendService = {
 
   async getById(id: string): Promise<Friend | null> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.getDocument(
-        DATABASE_ID,
+        dbId,
         FRIENDS_COLLECTION,
         id
       );
@@ -42,8 +42,9 @@ export const friendService = {
     try {
       const documentId = record.id ?? ID.unique();
       const { id: _ignored, ...data } = record as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         FRIENDS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -57,8 +58,9 @@ export const friendService = {
 
   async update(id: string, updates: Partial<Friend>): Promise<Friend> {
     try {
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         FRIENDS_COLLECTION,
         id,
         normalizePayload(updates)
@@ -72,7 +74,8 @@ export const friendService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, FRIENDS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, FRIENDS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete friend record:", error);
       throw error;

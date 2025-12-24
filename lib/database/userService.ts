@@ -6,6 +6,7 @@ import {
   USERS_COLLECTION,
   mapUser,
   normalizePayload,
+  ensureDatabaseIdAvailable,
 } from "./utils";
 import { Query } from "appwrite";
 
@@ -14,10 +15,8 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 export const userService = {
   async getAll(): Promise<User[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, USERS_COLLECTION);
       return response.documents.map(mapUser);
     } catch (error) {
       console.warn("Failed to fetch users from database:", error);
@@ -27,11 +26,8 @@ export const userService = {
 
   async getById(id: string): Promise<User | null> {
     try {
-      const response = await databases.getDocument(
-        DATABASE_ID,
-        USERS_COLLECTION,
-        id
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.getDocument(dbId, USERS_COLLECTION, id);
       return mapUser(response);
     } catch (error) {
       console.warn("Failed to fetch user from database:", error);
@@ -41,11 +37,10 @@ export const userService = {
 
   async getByEmail(email: string): Promise<User | null> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION,
-        [Query.equal("email", email)]
-      );
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, USERS_COLLECTION, [
+        Query.equal("email", email),
+      ]);
       if (!response.documents.length) return null;
       return mapUser(response.documents[0]);
     } catch (error) {
@@ -58,8 +53,9 @@ export const userService = {
     try {
       const documentId = user.id ?? ID.unique();
       const { id: _ignored, ...data } = user as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
-        DATABASE_ID,
+        dbId,
         USERS_COLLECTION,
         documentId,
         normalizePayload(data)
@@ -79,8 +75,9 @@ export const userService = {
 
       const merged = { ...current, ...user };
       const { id: _ignored, ...data } = merged as any;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
-        DATABASE_ID,
+        dbId,
         USERS_COLLECTION,
         id,
         normalizePayload(data)
@@ -94,7 +91,8 @@ export const userService = {
 
   async delete(id: string): Promise<void> {
     try {
-      await databases.deleteDocument(DATABASE_ID, USERS_COLLECTION, id);
+      const dbId = ensureDatabaseIdAvailable();
+      await databases.deleteDocument(dbId, USERS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete user from database:", error);
       throw error;

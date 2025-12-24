@@ -29,7 +29,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/anime-stock-market
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/the-anime-stock-exchange
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest,enable=true
