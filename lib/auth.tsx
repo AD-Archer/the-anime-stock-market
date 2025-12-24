@@ -12,6 +12,8 @@ import {
 import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "./appwrite/appwrite";
 import { userService } from "./database";
+import { awardService } from "./database/awardService";
+import { sendSystemEvent } from "./system-events-client";
 
 type AuthUser = {
   id: string;
@@ -62,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: accountUser.$id,
         username,
         email: accountUser.email,
-        balance: 0,
+        balance: 100,
         isAdmin: false,
         createdAt: new Date(),
         bannedUntil: null,
@@ -71,6 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isPortfolioPublic: false,
         hideTransactions: false,
         anonymousTransactions: false,
+        pendingDeletionAt: null,
+      });
+
+      // New accounts can claim a one-time welcome bonus.
+      await awardService.create({
+        userId: accountUser.$id,
+        type: "welcome_bonus",
+        unlockedAt: new Date(),
+        redeemed: false,
       });
     } catch (error) {
       console.warn("Failed to ensure user document:", error);
@@ -123,6 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       updatePassword: async (currentPassword: string, newPassword: string) => {
         await account.updatePassword(newPassword, currentPassword);
+        if (user?.id) {
+          await sendSystemEvent({ type: "password_changed", userId: user.id });
+        }
       },
       signInWithGoogle: async () => {
         await account.createOAuth2Session(

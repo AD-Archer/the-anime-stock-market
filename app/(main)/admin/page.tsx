@@ -15,6 +15,8 @@ import { BuybackManagement } from "@/components/admin/buyback-management";
 import { MarketManagement } from "@/components/admin/market-management";
 import { ReportManagement } from "@/components/admin/report-management";
 import { NotificationManagement } from "@/components/admin/notification-management";
+import { AppealManagement } from "@/components/admin/appeal-management";
+import { AdminActionLogPanel } from "@/components/admin/admin-action-log";
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -32,10 +34,19 @@ export default function AdminPage() {
 
   if (authLoading || storeLoading || !user || !currentUser?.isAdmin) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading admin panel...</p>
+      <div className="container mx-auto px-4 py-8" role="status" aria-busy="true" aria-live="polite">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="h-10 w-56 rounded-md bg-muted" />
+            <div className="h-4 w-80 rounded-md bg-muted" />
+          </div>
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              <div className="h-5 w-40 rounded-md bg-muted" />
+              <div className="h-9 w-full rounded-md bg-muted" />
+              <div className="h-72 w-full rounded-md bg-muted" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -59,13 +70,15 @@ export default function AdminPage() {
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
           className="w-full"
         >
-          <TabsList className="grid w-full max-w-2xl grid-cols-6">
+          <TabsList className="grid w-full max-w-3xl grid-cols-8">
             <TabsTrigger value="stocks">Stocks</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
             <TabsTrigger value="market">Market</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="appeals">Appeals</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
           <TabsContent value="stocks" className="mt-6">
             <StockManagement />
@@ -84,6 +97,12 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="notifications" className="mt-6">
             <NotificationManagement />
+          </TabsContent>
+          <TabsContent value="appeals" className="mt-6">
+            <AppealManagement />
+          </TabsContent>
+          <TabsContent value="logs" className="mt-6">
+            <AdminActionLogPanel />
           </TabsContent>
         </Tabs>
       </main>

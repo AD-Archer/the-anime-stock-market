@@ -1,3 +1,5 @@
+import { PageShellLoading } from "@/components/loading/page-shell";
+
 export default function Loading() {
-  return null
+  return <PageShellLoading titleWidth="w-60" subtitleWidth="w-72" />;
 }

@@ -11,6 +11,11 @@ import type {
   Stock,
   Transaction,
   User,
+  Appeal,
+  AdminActionLog,
+  Award,
+  AppealStatus,
+  AdminActionType,
 } from "../types";
 
 export type AddCommentInput = {
@@ -36,6 +41,9 @@ export interface StoreContextType {
   buybackOffers: BuybackOffer[];
   notifications: Notification[];
   reports: Report[];
+  appeals: Appeal[];
+  adminActionLogs: AdminActionLog[];
+  awards: Award[];
   messages: Message[];
   conversations: Conversation[];
 
@@ -50,6 +58,7 @@ export interface StoreContextType {
   ) => void;
   unbanUser: (userId: string) => void;
   deleteUser: (userId: string) => Promise<void>;
+  processPendingDeletions: () => Promise<void>;
   getUserPortfolio: (userId: string) => Portfolio[];
   getStockPriceHistory: (stockId: string) => PriceHistory[];
   getMarketData: () => MarketDataPoint[];
@@ -117,6 +126,20 @@ export interface StoreContextType {
   getUserConversations: (userId: string) => Promise<Conversation[]>;
   createConversation: (participantIds: string[]) => string;
   markMessagesAsRead: (conversationId: string, userId: string) => Promise<void>;
+  submitAppeal: (message: string) => Promise<Appeal | null>;
+  reviewAppeal: (
+    appealId: string,
+    status: AppealStatus,
+    notes?: string
+  ) => Promise<void>;
+  logAdminAction: (
+    action: AdminActionType,
+    targetUserId: string,
+    metadata?: Record<string, unknown>
+  ) => Promise<void>;
+  unlockAward: (userId: string, type: Award["type"]) => Promise<void>;
+  getUserAwards: (userId: string) => Award[];
+  redeemAward: (awardId: string) => Promise<boolean>;
 }
 
 export type StoreState = StoreContextType;

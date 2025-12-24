@@ -59,6 +59,8 @@ const applyPriceImpact = (stock: Stock, sharesDelta: number): number => {
 export function createMarketActions({
   setState,
   getState,
+  sendNotification,
+  unlockAward,
 }: StoreMutators & {
   sendNotification: (
     userId: string,
@@ -67,6 +69,7 @@ export function createMarketActions({
     message: string,
     data?: any
   ) => void;
+  unlockAward: (userId: string, type: import("../types").Award["type"]) => Promise<void>;
 }) {
   const notifyLiquidityRequest = (stock: Stock, requestedShares: number) => {
     const currentUser = getState().currentUser;
@@ -125,6 +128,94 @@ export function createMarketActions({
         }
       );
     });
+  };
+
+  const checkAwards = async (userId: string) => {
+    const state = getState();
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const userTransactions = state.transactions.filter((t) => t.userId === userId);
+    const userPortfolios = state.portfolios.filter((p) => p.userId === userId);
+    const userComments = state.comments.filter((c) => c.userId === userId);
+    const userAwards = state.awards.filter((a) => a.userId === userId);
+    const unlockedTypes = new Set(userAwards.map((a) => a.type));
+
+    // Check first_trade
+    if (!unlockedTypes.has("first_trade") && userTransactions.length > 0) {
+      await unlockAward(userId, "first_trade");
+    }
+
+    // Check profit milestones
+    const totalProfit = userPortfolios.reduce((total, p) => {
+      const stock = state.stocks.find((s) => s.id === p.stockId);
+      if (!stock) return total;
+      const currentValue = stock.currentPrice * p.shares;
+      const invested = p.averageBuyPrice * p.shares;
+      return total + (currentValue - invested);
+    }, 0);
+
+    if (!unlockedTypes.has("profit_milestone_100") && totalProfit >= 100) {
+      await unlockAward(userId, "profit_milestone_100");
+    }
+    if (!unlockedTypes.has("profit_milestone_1000") && totalProfit >= 1000) {
+      await unlockAward(userId, "profit_milestone_1000");
+    }
+
+    // Check portfolio value
+    const portfolioValue = userPortfolios.reduce((total, p) => {
+      const stock = state.stocks.find((s) => s.id === p.stockId);
+      return total + (stock ? stock.currentPrice * p.shares : 0);
+    }, 0);
+
+    if (!unlockedTypes.has("portfolio_value_1000") && portfolioValue >= 1000) {
+      await unlockAward(userId, "portfolio_value_1000");
+    }
+    if (!unlockedTypes.has("portfolio_value_10000") && portfolioValue >= 10000) {
+      await unlockAward(userId, "portfolio_value_10000");
+    }
+
+    // Check diversified portfolio
+    const uniqueStocks = new Set(userPortfolios.map((p) => p.stockId));
+    if (!unlockedTypes.has("diversified_portfolio") && uniqueStocks.size >= 5) {
+      await unlockAward(userId, "diversified_portfolio");
+    }
+
+    // Check comment master
+    if (!unlockedTypes.has("comment_master") && userComments.length >= 50) {
+      await unlockAward(userId, "comment_master");
+    }
+
+    // Early adopter (if user created before a certain date YYYY-MM-DD) 
+    const earlyAdopterDate = new Date("2026-03-01");
+    if (!unlockedTypes.has("early_adopter") && user.createdAt < earlyAdopterDate) {
+      await unlockAward(userId, "early_adopter");
+    }
+
+    // Top trader (ranked #1 on the leaderboard).
+    // Matches the PlayerLeaderboard "richest" sort (portfolio value only).
+    if (!unlockedTypes.has("top_trader")) {
+      const portfolioValueByUser = new Map<string, number>();
+      state.users.forEach((u) => {
+        const value = state.portfolios
+          .filter((p) => p.userId === u.id)
+          .reduce((total, p) => {
+            const stock = state.stocks.find((s) => s.id === p.stockId);
+            return total + (stock ? stock.currentPrice * p.shares : 0);
+          }, 0);
+        portfolioValueByUser.set(u.id, value);
+      });
+
+      let maxValue = -Infinity;
+      portfolioValueByUser.forEach((value) => {
+        if (value > maxValue) maxValue = value;
+      });
+
+      const userValue = portfolioValueByUser.get(userId) ?? 0;
+      if (Number.isFinite(maxValue) && userValue === maxValue && maxValue > 0) {
+        await unlockAward(userId, "top_trader");
+      }
+    }
   };
 
   const buyStock = async (stockId: string, shares: number): Promise<boolean> => {
@@ -259,6 +350,11 @@ export function createMarketActions({
       console.warn("Failed to persist buy transaction:", error);
       return false;
     }
+
+    // Check for awards after successful transaction
+    checkAwards(currentUser.id).catch((error) => {
+      console.warn("Failed to check awards:", error);
+    });
 
     return true;
   };

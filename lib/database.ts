@@ -8,6 +8,9 @@ export { buybackOfferService } from "./database/buybackOfferService";
 export { notificationService } from "./database/notificationService";
 export { reportService } from "./database/reportService";
 export { messageService } from "./database/messageService";
+export { appealService } from "./database/appealService";
+export { adminActionLogService } from "./database/adminActionLogService";
+export { awardService } from "./database/awardService";
 
 // Re-export utilities and constants
 export {
@@ -22,6 +25,9 @@ export {
   NOTIFICATIONS_COLLECTION,
   REPORTS_COLLECTION,
   MESSAGES_COLLECTION,
+  APPEALS_COLLECTION,
+  ADMIN_ACTION_LOGS_COLLECTION,
+  AWARDS_COLLECTION,
   mapUser,
   mapStock,
   mapTransaction,
@@ -32,4 +38,7 @@ export {
   mapNotification,
   mapReport,
   mapMessage,
+  mapAppeal,
+  mapAdminActionLog,
+  mapAward,
 } from "./database/utils";

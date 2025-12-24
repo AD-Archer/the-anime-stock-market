@@ -21,6 +21,7 @@ import {
 } from "../components/trading-activity";
 import { ProfileSettings } from "../components/profile-settings";
 import { CommentsSection } from "../components/comments-section";
+import { AwardsSection } from "../components/awards-section";
 
 export default function PublicProfilePage({
   params,
@@ -45,6 +46,8 @@ export default function PublicProfilePage({
     transactions,
     updateContentPreferences,
     isLoading,
+    awards,
+    getUserAwards,
   } = useStore();
 
   const profileUser = users.find((user) => user.id === id);
@@ -119,6 +122,11 @@ export default function PublicProfilePage({
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [comments, profileUser]);
 
+  const userAwards = useMemo(() => {
+    if (!profileUser) return [];
+    return getUserAwards(profileUser.id);
+  }, [getUserAwards, profileUser]);
+
   const [activeTab, setActiveTab] = useState<"portfolio" | "history" | "settings">(
     "portfolio"
   );
@@ -145,12 +153,44 @@ export default function PublicProfilePage({
 
   if (isLoading && !profileUser) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg text-muted-foreground">Loading user...</p>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto px-4 py-8">
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-full bg-muted" />
+                <div className="space-y-2">
+                  <div className="h-6 w-44 rounded-md bg-muted" />
+                  <div className="h-4 w-32 rounded-md bg-muted" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-9 w-24 rounded-md bg-muted" />
+                <div className="h-9 w-24 rounded-md bg-muted" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="rounded-xl border bg-card p-6 shadow-sm">
+                <div className="space-y-3">
+                  <div className="h-4 w-28 rounded-md bg-muted" />
+                  <div className="h-8 w-40 rounded-md bg-muted" />
+                  <div className="h-3 w-24 rounded-md bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <div className="space-y-3">
+              <div className="h-5 w-48 rounded-md bg-muted" />
+              <div className="h-3 w-72 rounded-md bg-muted" />
+              <div className="h-80 w-full rounded-md bg-muted" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -254,6 +294,8 @@ export default function PublicProfilePage({
         )}
 
         <CommentsSection comments={userComments} stocks={stocks} />
+
+        <AwardsSection awards={userAwards} isOwnProfile={!!isOwnProfile} />
 
         {!isOwnProfile && profileUser.hideTransactions && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

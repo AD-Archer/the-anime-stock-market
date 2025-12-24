@@ -1,11 +1,12 @@
 import type { StoreApi } from "zustand";
-import type { Portfolio, Stock, Transaction, User } from "../types";
+import type { AdminActionType, Portfolio, Transaction, User } from "../types";
 import {
   portfolioService,
   transactionService,
   userService,
 } from "../database";
 import type { StoreState } from "./types";
+import { sendSystemEvent } from "../system-events-client";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -37,6 +38,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       const optionalKeys: (keyof User)[] = [];
       if (updates.bannedUntil !== undefined) {
         optionalKeys.push("bannedUntil");
+      }
+      if (updates.pendingDeletionAt !== undefined) {
+        optionalKeys.push("pendingDeletionAt");
       }
       const preferenceKeys: (keyof User)[] = [];
       if (updates.hideTransactions !== undefined) {
@@ -101,6 +105,21 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     }
   };
 
+  const logAdmin = async (
+    action: AdminActionType,
+    targetUserId: string,
+    metadata?: Record<string, unknown>
+  ) => {
+    const logger = getState().logAdminAction;
+    if (logger) {
+      try {
+        await logger(action, targetUserId, metadata);
+      } catch (error) {
+        console.warn("Failed to persist admin action log", error);
+      }
+    }
+  };
+
   const updateContentPreferences = async (preferences: {
     showNsfw?: boolean;
     showSpoilers?: boolean;
@@ -140,18 +159,28 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     }
 
     await persistUserUpdate(userId, { bannedUntil });
+
+    if (bannedUntil) {
+      const bannedUntilIso = bannedUntil.toISOString();
+      await logAdmin("ban", userId, { bannedUntil: bannedUntilIso });
+      await sendSystemEvent({
+        type: "user_banned",
+        userId,
+        metadata: { bannedUntil: bannedUntilIso },
+      });
+    }
   };
 
   const unbanUser = async (userId: string) => {
-    await persistUserUpdate(userId, { bannedUntil: null });
+    await persistUserUpdate(userId, { bannedUntil: null, pendingDeletionAt: null });
+    await logAdmin("unban", userId);
   };
 
-  const deleteUser = async (userId: string) => {
+  const hardDeleteUser = async (userId: string) => {
     const { portfolios, transactions } = getState();
     const userPortfolios = portfolios.filter((p) => p.userId === userId);
     const userTransactions = transactions.filter((t) => t.userId === userId);
 
-    // Optimistically update state
     setState((state) => ({
       users: state.users.filter((u) => u.id !== userId),
       portfolios: state.portfolios.filter((p) => p.userId !== userId),
@@ -159,18 +188,54 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     }));
 
     try {
-      // Delete portfolios first
       for (const p of userPortfolios) {
         await portfolioService.delete(`${p.userId}-${p.stockId}`);
       }
-      // Delete transactions
       for (const t of userTransactions) {
         await transactionService.delete(t.id);
       }
-      // Finally delete the user
       await userService.delete(userId);
     } catch (error) {
       console.error("Failed to delete user from backend:", error);
+    }
+  };
+
+  const finalizeUserDeletion = async (userId: string) => {
+    const deletedAt = new Date().toISOString();
+    await sendSystemEvent({
+      type: "account_deleted",
+      userId,
+      metadata: { deletedAt },
+    });
+    await hardDeleteUser(userId);
+    await logAdmin("deletion_finalized", userId, { deletedAt });
+  };
+
+  const deleteUser = async (userId: string) => {
+    const deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await persistUserUpdate(userId, {
+      bannedUntil: deletionDate,
+      pendingDeletionAt: deletionDate,
+    });
+    const deletionDateIso = deletionDate.toISOString();
+    await logAdmin("deletion_scheduled", userId, { deletionDate: deletionDateIso });
+    await sendSystemEvent({
+      type: "deletion_scheduled",
+      userId,
+      metadata: { deletionDate: deletionDateIso },
+    });
+  };
+
+  const processPendingDeletions = async () => {
+    const now = Date.now();
+    const dueUsers = getState().users.filter(
+      (user) =>
+        user.pendingDeletionAt !== null &&
+        user.pendingDeletionAt.getTime() <= now
+    );
+
+    for (const user of dueUsers) {
+      await finalizeUserDeletion(user.id);
     }
   };
 
@@ -188,6 +253,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
     const newBalance = user.balance + amount;
     await persistUserUpdate(userId, { balance: newBalance });
+    await logAdmin("money_grant", userId, { amount });
   };
 
   const takeUserMoney = async (userId: string, amount: number) => {
@@ -196,6 +262,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
     const newBalance = Math.max(0, user.balance - amount);
     await persistUserUpdate(userId, { balance: newBalance });
+    await logAdmin("money_withdrawal", userId, { amount });
   };
 
   const giveUserStocks = async (
@@ -256,6 +323,10 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       setState({ transactions: [...transactions, newTransaction] });
 
       await transactionService.create(newTransaction);
+      await logAdmin("stock_grant", userId, {
+        stockId,
+        shares,
+      });
     } catch (error) {
       console.error("Failed to give user stocks:", error);
     }
@@ -295,6 +366,10 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       } else {
         await portfolioService.delete(`${userId}-${stockId}`);
       }
+      await logAdmin("stock_removal", userId, {
+        stockId,
+        shares,
+      });
     } catch (error) {
       console.error("Failed to remove user stocks:", error);
     }
@@ -305,6 +380,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     banUser,
     unbanUser,
     deleteUser,
+    processPendingDeletions,
     makeUserAdmin,
     removeUserAdmin,
     giveUserMoney,

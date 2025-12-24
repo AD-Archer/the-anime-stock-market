@@ -78,6 +78,9 @@ export function UserManagement() {
   };
 
   const getBanStatus = (user: UserType): string => {
+    if (user.pendingDeletionAt) {
+      return `Deletion scheduled for ${user.pendingDeletionAt.toLocaleDateString()}`;
+    }
     if (!user.bannedUntil) return "Not banned";
     if (user.bannedUntil > new Date()) {
       return `Banned until ${user.bannedUntil.toLocaleDateString()}`;
@@ -166,7 +169,6 @@ export function UserManagement() {
   };
 
   const handleDelete = async (userId: string) => {
-    // Prevent deleting yourself
     if (userId === currentUser?.id) {
       toast({
         title: "Cannot Delete Yourself",
@@ -176,17 +178,30 @@ export function UserManagement() {
       return;
     }
 
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    if (user.pendingDeletionAt && user.pendingDeletionAt > new Date()) {
+      toast({
+        title: "Deletion Already Scheduled",
+        description: "This user is already pending removal.",
+      });
+      setDeleteConfirm(null);
+      return;
+    }
+
     try {
       await deleteUser(userId);
+      const removalDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       toast({
-        title: "User Deleted",
-        description: "The user and all their data have been removed.",
+        title: "Deletion Scheduled",
+        description: `User will remain banned until ${removalDate.toLocaleDateString()} and then be permanently removed.`,
       });
       setDeleteConfirm(null);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete user. Please try again.",
+        description: "Failed to schedule deletion. Please try again.",
         variant: "destructive",
       });
     }
@@ -348,20 +363,24 @@ export function UserManagement() {
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-foreground">
-                        <Link
-                          href={`/users/${user.id}`}
-                          className="hover:underline"
-                        >
-                          {user.username}
-                        </Link>
-                      </CardTitle>
-                      {user.isAdmin && <Badge>Admin</Badge>}
-                      {isUserBanned(user) && (
-                        <Badge variant="destructive">Banned</Badge>
-                      )}
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-foreground">
+                          <Link
+                            href={`/users/${user.id}`}
+                            className="hover:underline"
+                          >
+                            {user.username}
+                          </Link>
+                        </CardTitle>
+                        {user.isAdmin && <Badge>Admin</Badge>}
+                        {isUserBanned(user) && (
+                          <Badge variant="destructive">Banned</Badge>
+                        )}
+                        {user.pendingDeletionAt && (
+                          <Badge variant="outline">Deletion Scheduled</Badge>
+                        )}
+                      </div>
+
                     <p className="text-sm text-muted-foreground">
                       {user.email}
                     </p>
@@ -420,7 +439,7 @@ export function UserManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => setDeleteConfirm(user.id)}
-                    disabled={user.id === currentUser?.id}
+                    disabled={user.id === currentUser?.id || !!user.pendingDeletionAt}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -569,9 +588,9 @@ export function UserManagement() {
               <DialogTitle>Delete User</DialogTitle>
               <DialogDescription>
                 Are you sure you want to delete{" "}
-                {users.find((u) => u.id === deleteConfirm)?.username}? This
-                action cannot be undone and will remove all their data including
-                portfolio and transaction history.
+                {users.find((u) => u.id === deleteConfirm)?.username}? This will
+                ban the account for seven days and then permanently remove all
+                associated data.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

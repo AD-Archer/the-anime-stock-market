@@ -71,6 +71,18 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
       setComments((prev) =>
         prev.map((c) => (c.id === tempComment.id ? newComment : c))
       );
+
+      const state = getState();
+      const hasCommentMaster = state.awards.some(
+        (a) => a.userId === currentUser.id && a.type === "comment_master"
+      );
+      if (!hasCommentMaster) {
+        const count = state.comments.filter((c) => c.userId === currentUser.id).length;
+        if (count >= 50) {
+          // Unlock immediately once achieved.
+          state.unlockAward(currentUser.id, "comment_master").catch(() => {});
+        }
+      }
     } catch (error) {
       console.warn("Failed to save comment to database:", error);
       setComments((prev) => prev.filter((c) => c.id !== tempComment.id));

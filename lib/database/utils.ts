@@ -13,13 +13,14 @@ import type {
   ContentTag,
   CommentSnapshot,
   Message,
+  Appeal,
+  AdminActionLog,
+  Award,
 } from "../types";
 
-export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!;
+export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "";
 
-if (!DATABASE_ID) {
-  throw new Error("Missing NEXT_PUBLIC_APPWRITE_DATABASE_ID");
-}
+export const isDatabaseConfigured = (): boolean => Boolean(DATABASE_ID);
 
 // Collections
 export const USERS_COLLECTION = "users";
@@ -32,6 +33,9 @@ export const BUYBACK_OFFERS_COLLECTION = "buyback_offers";
 export const NOTIFICATIONS_COLLECTION = "notifications";
 export const REPORTS_COLLECTION = "reports";
 export const MESSAGES_COLLECTION = "messages";
+export const APPEALS_COLLECTION = "appeals";
+export const ADMIN_ACTION_LOGS_COLLECTION = "admin_action_logs";
+export const AWARDS_COLLECTION = "awards";
 
 type AppwriteDocument = Models.Document;
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -112,6 +116,9 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   isPortfolioPublic: toBooleanOr(docValue(doc, "isPortfolioPublic"), false),
   hideTransactions: toBooleanOr(docValue(doc, "hideTransactions"), false),
   anonymousTransactions: toBooleanOr(docValue(doc, "anonymousTransactions"), false),
+  pendingDeletionAt: docValue(doc, "pendingDeletionAt")
+    ? toDate(docValue(doc, "pendingDeletionAt"))
+    : null,
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({
@@ -254,6 +261,24 @@ const parseLocation = (
   }
 };
 
+const parseRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value) return undefined;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return undefined;
+};
+
 // Message mapping
 export const mapMessage = (doc: AppwriteDocument): Message => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
@@ -262,4 +287,32 @@ export const mapMessage = (doc: AppwriteDocument): Message => ({
   content: toStringOr(docValue(doc, "content")),
   createdAt: toDate(docValue(doc, "createdAt")),
   readBy: toArrayOr(docValue(doc, "readBy"), []),
+});
+
+export const mapAppeal = (doc: AppwriteDocument): Appeal => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toStringOr(docValue(doc, "userId")),
+  message: toStringOr(docValue(doc, "message")),
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  status: (docValue(doc, "status") as Appeal["status"]) ?? "pending",
+  resolvedAt: toOptionalDate(docValue(doc, "resolvedAt")),
+  resolvedBy: toOptionalString(docValue(doc, "resolvedBy")),
+  resolutionNotes: toOptionalString(docValue(doc, "resolutionNotes")),
+});
+
+export const mapAdminActionLog = (doc: AppwriteDocument): AdminActionLog => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  action: (docValue(doc, "action") as AdminActionLog["action"]) ?? "money_grant",
+  performedBy: toStringOr(docValue(doc, "performedBy")),
+  targetUserId: toStringOr(docValue(doc, "targetUserId")),
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  metadata: parseRecord(docValue(doc, "metadata")),
+});
+
+export const mapAward = (doc: AppwriteDocument): Award => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toStringOr(docValue(doc, "userId")),
+  type: (docValue(doc, "type") as Award["type"]) ?? "first_trade",
+  unlockedAt: toDate(docValue(doc, "unlockedAt") ?? doc.$createdAt),
+  redeemed: toBooleanOr(docValue(doc, "redeemed"), false),
 });

@@ -8,13 +8,13 @@ import type {
   Report,
 } from "./types";
 
-// Initial users with $1000 starting balance
+// Initial users with $100 starting balance
 export const initialUsers: User[] = [
   {
     id: "user-1",
     username: "AnimeTrader",
     email: "trader@anime.com",
-    balance: 1000,
+    balance: 100,
     isAdmin: false,
     createdAt: new Date("2024-01-01"),
     bannedUntil: null,
@@ -23,12 +23,13 @@ export const initialUsers: User[] = [
     isPortfolioPublic: true,
     hideTransactions: false,
     anonymousTransactions: false,
+    pendingDeletionAt: null,
   },
   {
     id: "user-2",
     username: "StockMaster",
     email: "master@anime.com",
-    balance: 1000,
+    balance: 100,
     isAdmin: false,
     createdAt: new Date("2024-01-02"),
     bannedUntil: null,
@@ -37,6 +38,7 @@ export const initialUsers: User[] = [
     isPortfolioPublic: false,
     hideTransactions: false,
     anonymousTransactions: false,
+    pendingDeletionAt: null,
   },
   {
     id: "admin-1",
@@ -51,6 +53,7 @@ export const initialUsers: User[] = [
     isPortfolioPublic: true,
     hideTransactions: false,
     anonymousTransactions: false,
+    pendingDeletionAt: null,
   },
 ];
 
@@ -320,7 +323,13 @@ export const initialComments: Comment[] = [
   },
 ];
 
-import type { BuybackOffer, Notification } from "./types";
+import type {
+  BuybackOffer,
+  Notification,
+  Appeal,
+  AdminActionLog,
+  Award,
+} from "./types";
 
 // Initial buyback offers (empty)
 export const initialBuybackOffers: BuybackOffer[] = [];
@@ -330,3 +339,7 @@ export const initialNotifications: Notification[] = [];
 
 // Initial reports (empty)
 export const initialReports: Report[] = [];
+
+export const initialAppeals: Appeal[] = [];
+export const initialAdminActionLogs: AdminActionLog[] = [];
+export const initialAwards: Award[] = [];

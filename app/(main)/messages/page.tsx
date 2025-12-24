@@ -176,10 +176,12 @@ export default function MessagesPage() {
   };
 
   const handleUserSelect = (userId: string) => {
+    if (!currentUser) return;
+
     const existingConversation = conversations.find(
       (c) =>
         c.participants.length === 2 &&
-        c.participants.includes(currentUser!.id) &&
+        c.participants.includes(currentUser.id) &&
         c.participants.includes(userId)
     );
 
@@ -193,12 +195,41 @@ export default function MessagesPage() {
 
   if (authLoading || !currentUser) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg text-muted-foreground">Loading...</p>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto px-4 py-8" role="status" aria-busy="true" aria-live="polite">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="h-10 w-44 rounded-md bg-muted" />
+            <div className="h-4 w-72 rounded-md bg-muted" />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <div className="space-y-3">
+                <div className="h-9 w-full rounded-md bg-muted" />
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 rounded-md bg-muted" />
+                      <div className="h-3 w-48 rounded-md bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <div className="space-y-3">
+                <div className="h-8 w-40 rounded-md bg-muted" />
+                <div className="h-96 w-full rounded-md bg-muted" />
+                <div className="flex gap-2">
+                  <div className="h-10 flex-1 rounded-md bg-muted" />
+                  <div className="h-10 w-24 rounded-md bg-muted" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

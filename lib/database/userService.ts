@@ -57,7 +57,12 @@ export const userService = {
 
   async update(id: string, user: Partial<User>): Promise<User> {
     try {
-      const { id: _ignored, ...data } = user as any;
+      // Fetch current user to merge with updates, ensuring all required attributes are provided
+      const current = await this.getById(id);
+      if (!current) throw new Error("User not found");
+
+      const merged = { ...current, ...user };
+      const { id: _ignored, ...data } = merged as any;
       const response = await databases.updateDocument(
         DATABASE_ID,
         USERS_COLLECTION,

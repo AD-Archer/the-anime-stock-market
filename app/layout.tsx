@@ -8,6 +8,7 @@ import { SiteStickyTicker } from "@/components/site-sticky-ticker";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AuthProvider } from "@/lib/auth";
+import { PageShellLoading } from "@/components/loading/page-shell";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -59,7 +60,7 @@ export default function RootLayout({
 
 function StackedProviders({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />}>
       <StoreProvider>
         {children}
         <Analytics />

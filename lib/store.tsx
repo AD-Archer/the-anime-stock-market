@@ -13,6 +13,9 @@ import {
   initialStocks,
   initialTransactions,
   initialUsers,
+  initialAppeals,
+  initialAdminActionLogs,
+  initialAwards,
 } from "./data";
 import { databases } from "./appwrite/appwrite";
 import {
@@ -25,6 +28,8 @@ import {
   userService,
   portfolioService,
   priceHistoryService,
+  appealService,
+  adminActionLogService,
   DATABASE_ID,
   COMMENTS_COLLECTION,
   STOCKS_COLLECTION,
@@ -33,12 +38,16 @@ import {
   mapPriceHistory,
   mapStock,
 } from "./database";
+import { awardService } from "./database/awardService";
 import { createNotificationActions } from "./store/notifications";
 import { createCommentActions } from "./store/comments";
 import { createUserActions } from "./store/user-actions";
 import { createMarketActions } from "./store/market";
 import { createReportActions } from "./store/reports";
 import { createMessageActions } from "./store/messages";
+import { createAppealActions } from "./store/appeals";
+import { createAdminLogActions } from "./store/admin-log";
+import { createAwardActions } from "./store/awards";
 import type { StoreState } from "./store/types";
 import type { User } from "./types";
 
@@ -46,10 +55,12 @@ export const useStore = create<StoreState>((set, get) => {
   const notificationActions = createNotificationActions({ setState: set, getState: get });
   const commentActions = createCommentActions({ setState: set, getState: get });
   const userActions = createUserActions({ setState: set, getState: get });
+  const awardActions = createAwardActions({ setState: set, getState: get });
   const marketActions = createMarketActions({
     setState: set,
     getState: get,
     sendNotification: notificationActions.sendNotification,
+    unlockAward: awardActions.unlockAward,
   });
   const reportActions = createReportActions({
     setState: set,
@@ -59,6 +70,8 @@ export const useStore = create<StoreState>((set, get) => {
     deleteComment: commentActions.deleteComment,
   });
   const messageActions = createMessageActions({ setState: set, getState: get });
+  const appealActions = createAppealActions({ setState: set, getState: get });
+  const adminLogActions = createAdminLogActions({ setState: set, getState: get });
 
   return {
     currentUser: null,
@@ -74,6 +87,9 @@ export const useStore = create<StoreState>((set, get) => {
     buybackOffers: [],
     notifications: [],
     reports: [],
+    appeals: [],
+    adminActionLogs: [],
+    awards: [],
     messages: [],
     conversations: [],
     ...notificationActions,
@@ -82,6 +98,9 @@ export const useStore = create<StoreState>((set, get) => {
     ...marketActions,
     ...reportActions,
     ...messageActions,
+    ...appealActions,
+    ...adminLogActions,
+    ...awardActions,
   };
 });
 
@@ -105,6 +124,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notificationsData,
           portfoliosData,
           priceHistoryData,
+          appealsData,
+          adminLogData,
+          awardsData,
         ] = await Promise.all([
           userService.getAll(),
           stockService.getAll(),
@@ -115,6 +137,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notificationService.getAll(),
           portfolioService.getAll(),
           priceHistoryService.getAll(),
+          appealService.getAll(),
+          adminActionLogService.getAll(),
+          awardService.getAll(),
         ]);
 
         useStore.setState({
@@ -134,7 +159,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
           priceHistory: priceHistoryData.length > 0 ? priceHistoryData : initialPriceHistory,
           portfolios: portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
+          appeals: appealsData.length > 0 ? appealsData : initialAppeals,
+          adminActionLogs:
+            adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
+          awards: awardsData.length > 0 ? awardsData : initialAwards,
         });
+
+        await useStore.getState().processPendingDeletions();
 
         if (user) {
           let matchedUser: User | null =
@@ -154,7 +185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   user.email.split("@")[0] ||
                   `user-${Date.now().toString(36)}`,
                 email: user.email,
-                balance: 1000,
+                balance: 100,
                 isAdmin: false,
                 createdAt: new Date(),
                 bannedUntil: null,
@@ -163,9 +194,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 isPortfolioPublic: false,
                 hideTransactions: false,
                 anonymousTransactions: false,
+                pendingDeletionAt: null,
               });
               matchedUser = created;
               useStore.setState((state) => ({ users: [...state.users, created] }));
+
+              // Give new accounts a claimable welcome bonus achievement.
+              await useStore.getState().unlockAward(user.id, "welcome_bonus");
             } catch (e) {
               console.warn(
                 "Failed to create user record for Appwrite account",
@@ -174,9 +209,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          if (matchedUser) useStore.setState({ currentUser: matchedUser });
-        } else if (initialUsers.length > 0) {
-          useStore.setState({ currentUser: initialUsers[0] });
+          if (matchedUser) {
+            useStore.setState({ currentUser: matchedUser });
+
+            // Ensure all users have the welcome bonus available (one-time claimable).
+            const hasWelcomeBonus = awardsData.some(a => a.userId === matchedUser.id && a.type === "welcome_bonus");
+            if (!hasWelcomeBonus) {
+              await useStore.getState().unlockAward(matchedUser.id, "welcome_bonus");
+            }
+          }
+        } else {
+          // Not signed in: keep currentUser null (guest)
+          useStore.setState({ currentUser: null });
         }
       } catch (error) {
         console.warn(
@@ -195,7 +239,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           reports: [...initialReports].sort(
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
           ),
-          currentUser: initialUsers[0] || null,
+          appeals: initialAppeals,
+          adminActionLogs: initialAdminActionLogs,
+          currentUser: null,
         });
       } finally {
         useStore.setState({ isLoading: false });

@@ -1,6 +1,10 @@
 import { MetadataRoute } from 'next'
-import { stockService } from '@/lib/database/stockService'
-import { userService } from '@/lib/database/userService'
+
+const canUseAppwrite = () =>
+  Boolean(
+    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT &&
+      process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+  )
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://animestockexchange.com'
@@ -77,11 +81,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Fetch dynamic pages
   let stocks: any[] = []
   let users: any[] = []
-  try {
-    stocks = await stockService.getAll()
-    users = await userService.getAll()
-  } catch (error) {
-    console.warn('Failed to fetch dynamic data for sitemap:', error)
+  if (canUseAppwrite()) {
+    try {
+      const [{ stockService }, { userService }] = await Promise.all([
+        import('@/lib/database/stockService'),
+        import('@/lib/database/userService'),
+      ])
+
+      stocks = await stockService.getAll()
+      users = await userService.getAll()
+    } catch (error) {
+      console.warn('Failed to fetch dynamic data for sitemap:', error)
+    }
   }
 
   const dynamicPages: MetadataRoute.Sitemap = [

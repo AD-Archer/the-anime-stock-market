@@ -31,8 +31,8 @@ type TradingActivityProps = {
   portfolio: PortfolioWithDetails[];
   transactions: Array<Transaction & { stock: Stock }>;
   settingsContent?: ReactNode;
-  activeTab?: "portfolio" | "history" | "settings";
-  onTabChange?: (tab: "portfolio" | "history" | "settings") => void;
+  activeTab?: "portfolio" | "history"  | "settings";
+  onTabChange?: (tab: "portfolio" | "history"  | "settings") => void;
 };
 
 export function TradingActivity({
@@ -58,7 +58,7 @@ export function TradingActivity({
         <Tabs
           value={activeTab}
           onValueChange={(val) =>
-            onTabChange?.(val as "portfolio" | "history" | "settings")
+            onTabChange?.(val as "portfolio" | "history"  | "settings")
           }
         >
           <TabsList className={`grid w-full ${tabColsClass}`}>

@@ -40,6 +40,22 @@ export function createMessageActions({
         ),
       }));
 
+      // Unlock social_butterfly once the user has sent messages in 10 distinct conversations.
+      const state = getState();
+      const alreadyUnlocked = state.awards.some(
+        (a) => a.userId === currentUser.id && a.type === "social_butterfly"
+      );
+      if (!alreadyUnlocked) {
+        const conversationIds = new Set(
+          state.messages
+            .filter((m) => m.senderId === currentUser.id)
+            .map((m) => m.conversationId)
+        );
+        if (conversationIds.size >= 10) {
+          state.unlockAward(currentUser.id, "social_butterfly").catch(() => {});
+        }
+      }
+
       return message;
     } catch (error) {
       console.error("Failed to send message:", error);

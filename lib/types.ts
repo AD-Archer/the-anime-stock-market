@@ -24,6 +24,7 @@ export interface User {
   isPortfolioPublic: boolean;
   hideTransactions: boolean;
   anonymousTransactions: boolean;
+  pendingDeletionAt: Date | null;
 }
 
 export interface Stock {
@@ -160,4 +161,66 @@ export interface Report {
     animeId: string;
     characterId?: string;
   };
+}
+
+export type AppealStatus = "pending" | "approved" | "rejected";
+
+export interface Appeal {
+  id: string;
+  userId: string;
+  message: string;
+  createdAt: Date;
+  status: AppealStatus;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolutionNotes?: string;
+}
+
+export type AdminActionType =
+  | "money_grant"
+  | "money_withdrawal"
+  | "stock_grant"
+  | "stock_removal"
+  | "ban"
+  | "unban"
+  | "deletion_scheduled"
+  | "deletion_finalized";
+
+export interface AdminActionLog {
+  id: string;
+  action: AdminActionType;
+  performedBy: string;
+  targetUserId: string;
+  createdAt: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Award {
+  id: string;
+  userId: string;
+  type: AwardType;
+  unlockedAt: Date;
+  redeemed?: boolean;
+}
+
+export type AwardType =
+  | "first_trade"
+  | "profit_milestone_100"
+  | "profit_milestone_1000"
+  | "portfolio_value_1000"
+  | "portfolio_value_10000"
+  | "diversified_portfolio"
+  | "top_trader"
+  | "early_adopter"
+  | "comment_master"
+  | "social_butterfly"
+  | "welcome_bonus";
+
+export interface AwardDefinition {
+  type: AwardType;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: "common" | "rare" | "epic" | "legendary";
+  redeemableValue?: number;
 }
