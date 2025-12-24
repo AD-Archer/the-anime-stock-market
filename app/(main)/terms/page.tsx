@@ -196,6 +196,19 @@ export default function TermsPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                We use Plausible Analytics to collect anonymous usage data to
+                improve the service and diagnose issues. Plausible does not
+                collect personally-identifiable information by default.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Contact Information</CardTitle>
             </CardHeader>
             <CardContent>

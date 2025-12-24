@@ -160,6 +160,30 @@ We do **not** sell your data.
 
           <Card>
             <CardHeader>
+              <CardTitle>Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
+                <p>
+                  We use{" "}
+                  <a href="https://plausible.io" className="underline">
+                    Plausible Analytics
+                  </a>{" "}
+                  to collect anonymous usage data (page views, referrers, and
+                  event counts) to help improve the site and fix issues.
+                  Plausible is privacy‑focused and does not collect personal
+                  identifiers by default.
+                </p>
+                <p className="mt-2">
+                  The analytics script is loaded from
+                  <code className="ml-1">https://plausible.adarcher.app</code>.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Contact Us</CardTitle>
             </CardHeader>
             <CardContent>

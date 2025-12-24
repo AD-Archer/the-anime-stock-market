@@ -9,6 +9,7 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AuthProvider } from "@/lib/auth";
 import { PageShellLoading } from "@/components/loading/page-shell";
 import { ThemeProvider } from "@/components/theme-provider";
+import PlausibleInit from "@/components/analytics/plausible-init";
 // @ts-ignore: allow side-effect CSS import without type declarations
 import "./globals.css";
 
@@ -61,6 +62,8 @@ export default function RootLayout({
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
+        {/* Initialize Plausible via client component (plausible-tracker) */}
+        <PlausibleInit />
       </body>
     </html>
   );
@@ -71,9 +74,7 @@ function StackedProviders({ children }: { children: React.ReactNode }) {
     <Suspense
       fallback={<PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />}
     >
-      <StoreProvider>
-        {children}
-      </StoreProvider>
+      <StoreProvider>{children}</StoreProvider>
     </Suspense>
   );
 }
