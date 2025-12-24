@@ -50,6 +50,8 @@ export interface StoreContextType {
   dailyRewards: DailyReward[];
   messages: Message[];
   conversations: Conversation[];
+  // Support tickets
+  supportTickets: import("../types").SupportTicket[];
 
   buyStock: (stockId: string, shares: number) => Promise<boolean>;
   sellStock: (stockId: string, shares: number) => Promise<boolean>;
@@ -87,6 +89,8 @@ export interface StoreContextType {
     anonymousTransactions?: boolean;
   }) => Promise<void>;
   setUserAvatar: (avatarUrl: string | null) => Promise<void>;
+  // persist theme preference for current user
+  updateTheme: (theme: "light" | "dark" | "system") => Promise<boolean>;
 
   makeUserAdmin: (userId: string) => void;
   removeUserAdmin: (userId: string) => void;
@@ -148,6 +152,27 @@ export interface StoreContextType {
     reportId: string,
     resolution: "dismiss" | "warn" | "ban"
   ) => Promise<void>;
+
+  // Support tickets
+  getSupportTickets: (filters?: {
+    status?: string;
+    searchQuery?: string;
+  }) => Promise<import("../types").SupportTicket[]>;
+  submitSupportTicket: (input: {
+    subject: string;
+    message: string;
+    contactEmail?: string;
+    tag?: import("../types").SupportTicketTag;
+    referenceId?: string;
+  }) => Promise<import("../types").SupportTicket | null>;
+  updateSupportTicket: (
+    id: string,
+    patch: Partial<import("../types").SupportTicket>
+  ) => Promise<import("../types").SupportTicket | null>;
+  addSupportFollowUp: (
+    ticketId: string,
+    message: string
+  ) => Promise<import("../types").SupportTicket | null>;
 
   sendMessage: (
     conversationId: string,

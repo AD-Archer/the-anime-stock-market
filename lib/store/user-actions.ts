@@ -1,10 +1,6 @@
 import type { StoreApi } from "zustand";
 import type { AdminActionType, Portfolio, Transaction, User } from "../types";
-import {
-  portfolioService,
-  transactionService,
-  userService,
-} from "../database";
+import { portfolioService, transactionService, userService } from "../database";
 import type { StoreState } from "./types";
 import { sendSystemEvent } from "../system-events-client";
 
@@ -22,7 +18,8 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
     setState((state) => ({
       users: state.users.map((u) => (u.id === userId ? merged : u)),
-      currentUser: state.currentUser?.id === userId ? merged : state.currentUser,
+      currentUser:
+        state.currentUser?.id === userId ? merged : state.currentUser,
     }));
 
     try {
@@ -54,6 +51,10 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.anonymousTransactions !== undefined) {
         preferenceKeys.push("anonymousTransactions");
       }
+      // Persist theme preference if present
+      if (updates.theme !== undefined) {
+        preferenceKeys.push("theme");
+      }
 
       const buildPayload = (keys: (keyof User)[]) =>
         Object.fromEntries(keys.map((key) => [key, (merged as any)[key]]));
@@ -74,10 +75,18 @@ export function createUserActions({ setState, getState }: StoreMutators) {
         updates.avatarUrl !== undefined ? { avatarUrl: merged.avatarUrl } : {};
 
       try {
-        const saved = await userService.update(userId, payload as Partial<User>);
+        const saved = await userService.update(
+          userId,
+          payload as Partial<User>
+        );
+        console.debug("persistUserUpdate: saved user", {
+          userId,
+          theme: (saved as any).theme,
+        });
         setState((state) => ({
           users: state.users.map((u) => (u.id === userId ? saved : u)),
-          currentUser: state.currentUser?.id === userId ? saved : state.currentUser,
+          currentUser:
+            state.currentUser?.id === userId ? saved : state.currentUser,
         }));
         return saved;
       } catch (innerError: any) {
@@ -85,17 +94,19 @@ export function createUserActions({ setState, getState }: StoreMutators) {
         const hasPrefs = preferenceKeys.length > 0;
         const hasAvatar = updates.avatarUrl !== undefined;
         if ((hasPrefs || hasAvatar) && message.includes("Unknown attribute")) {
-          const fallbackPayload = buildPayload(
-            [
-              ...baseKeys,
-              ...optionalKeys.filter((key) => key !== "avatarUrl"),
-            ]
-          );
+          const fallbackPayload = buildPayload([
+            ...baseKeys,
+            ...optionalKeys.filter((key) => key !== "avatarUrl"),
+          ]);
           try {
-            const saved = await userService.update(userId, fallbackPayload as Partial<User>);
+            const saved = await userService.update(
+              userId,
+              fallbackPayload as Partial<User>
+            );
             setState((state) => ({
               users: state.users.map((u) => (u.id === userId ? saved : u)),
-              currentUser: state.currentUser?.id === userId ? saved : state.currentUser,
+              currentUser:
+                state.currentUser?.id === userId ? saved : state.currentUser,
             }));
             // Keep local preference flags even if backend ignores them
             setState((state) => ({
@@ -106,12 +117,19 @@ export function createUserActions({ setState, getState }: StoreMutators) {
               ),
               currentUser:
                 state.currentUser?.id === userId
-                  ? { ...state.currentUser, ...preferenceValues, ...avatarValues }
+                  ? {
+                      ...state.currentUser,
+                      ...preferenceValues,
+                      ...avatarValues,
+                    }
                   : state.currentUser,
             }));
             return { ...saved, ...preferenceValues, ...avatarValues } as User;
           } catch (retryError) {
-            console.error("Failed to update user after stripping preferences:", retryError);
+            console.error(
+              "Failed to update user after stripping preferences:",
+              retryError
+            );
           }
         }
         throw innerError;
@@ -120,7 +138,8 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       console.error("Failed to update user:", error);
       setState((state) => ({
         users: state.users.map((u) => (u.id === userId ? existing : u)),
-        currentUser: state.currentUser?.id === userId ? existing : state.currentUser,
+        currentUser:
+          state.currentUser?.id === userId ? existing : state.currentUser,
       }));
       return null;
     }
@@ -159,6 +178,19 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     if (!currentUser) return;
 
     await persistUserUpdate(currentUser.id, { avatarUrl });
+  };
+
+  const updateTheme = async (theme: "light" | "dark" | "system") => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return false;
+
+    try {
+      const saved = await persistUserUpdate(currentUser.id, { theme });
+      return !!saved;
+    } catch (error) {
+      console.error("Failed to persist theme:", error);
+      return false;
+    }
   };
 
   const banUser = async (
@@ -200,7 +232,10 @@ export function createUserActions({ setState, getState }: StoreMutators) {
   };
 
   const unbanUser = async (userId: string) => {
-    await persistUserUpdate(userId, { bannedUntil: null, pendingDeletionAt: null });
+    await persistUserUpdate(userId, {
+      bannedUntil: null,
+      pendingDeletionAt: null,
+    });
     await logAdmin("unban", userId);
   };
 
@@ -246,7 +281,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       pendingDeletionAt: deletionDate,
     });
     const deletionDateIso = deletionDate.toISOString();
-    await logAdmin("deletion_scheduled", userId, { deletionDate: deletionDateIso });
+    await logAdmin("deletion_scheduled", userId, {
+      deletionDate: deletionDateIso,
+    });
     await sendSystemEvent({
       type: "deletion_scheduled",
       userId,
@@ -390,7 +427,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       setState({ stocks: updatedStocks });
 
       if (newShares > 0) {
-        await portfolioService.update(`${userId}-${stockId}`, { shares: newShares });
+        await portfolioService.update(`${userId}-${stockId}`, {
+          shares: newShares,
+        });
       } else {
         await portfolioService.delete(`${userId}-${stockId}`);
       }
@@ -406,6 +445,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
   return {
     updateContentPreferences,
     setUserAvatar,
+    updateTheme,
     banUser,
     unbanUser,
     deleteUser,

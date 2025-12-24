@@ -5,6 +5,7 @@ export type MailPayload = {
   subject: string;
   text: string;
   html?: string;
+  replyTo?: string;
 };
 
 let cachedTransporter: Transporter | null = null;
@@ -55,5 +56,6 @@ export async function sendSystemEmail(payload: MailPayload): Promise<void> {
   await transporter.sendMail({
     ...payload,
     from,
+    ...(payload.replyTo ? { replyTo: payload.replyTo } : {}),
   });
 }

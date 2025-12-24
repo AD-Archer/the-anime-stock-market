@@ -2,7 +2,8 @@ export type SystemEventType =
   | "password_changed"
   | "user_banned"
   | "deletion_scheduled"
-  | "account_deleted";
+  | "account_deleted"
+  | "support_ticket_created";
 
 export type PasswordChangedEvent = {
   type: "password_changed";
@@ -33,8 +34,21 @@ export type AccountDeletedEvent = {
   };
 };
 
+export type SupportTicketCreatedEvent = {
+  type: "support_ticket_created";
+  // optional user who submitted (null for anonymous)
+  userId?: string;
+  metadata?: {
+    id?: string;
+    subject?: string;
+    email?: string;
+    messageSnippet?: string;
+  };
+};
+
 export type SystemEventRequest =
   | PasswordChangedEvent
   | UserBannedEvent
   | DeletionScheduledEvent
-  | AccountDeletedEvent;
+  | AccountDeletedEvent
+  | SupportTicketCreatedEvent;

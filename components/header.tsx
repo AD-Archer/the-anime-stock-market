@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   const { currentUser } = useStore();
@@ -45,6 +46,7 @@ export function Header() {
                 <Button variant="ghost">Admin</Button>
               </Link>
             )}
+            <ThemeToggle />
             <UserMenu />
           </nav>
 
@@ -105,6 +107,7 @@ export function Header() {
               )}
               <div className="border-t border-border pt-2 mt-2">
                 <div className="flex justify-center gap-2">
+                  <ThemeToggle />
                   <UserMenu />
                 </div>
               </div>

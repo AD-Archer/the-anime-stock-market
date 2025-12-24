@@ -15,6 +15,7 @@ import { BuybackManagement } from "@/components/admin/buyback-management";
 import { MarketManagement } from "@/components/admin/market-management";
 import { ReportManagement } from "@/components/admin/report-management";
 import { NotificationManagement } from "@/components/admin/notification-management";
+import { SupportManagement } from "@/components/admin/support-management";
 import { AppealManagement } from "@/components/admin/appeal-management";
 import { AdminActionLogPanel } from "@/components/admin/admin-action-log";
 
@@ -34,7 +35,12 @@ export default function AdminPage() {
 
   if (authLoading || storeLoading || !user || !currentUser?.isAdmin) {
     return (
-      <div className="container mx-auto px-4 py-8" role="status" aria-busy="true" aria-live="polite">
+      <div
+        className="container mx-auto px-4 py-8"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
         <div className="space-y-6">
           <div className="space-y-2">
             <div className="h-10 w-56 rounded-md bg-muted" />
@@ -70,12 +76,13 @@ export default function AdminPage() {
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
           className="w-full"
         >
-          <TabsList className="grid w-full max-w-3xl grid-cols-8">
+          <TabsList className="grid w-full max-w-4xl grid-cols-9">
             <TabsTrigger value="stocks">Stocks</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
             <TabsTrigger value="market">Market</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="support">Support</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="appeals">Appeals</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -94,6 +101,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="reports" className="mt-6">
             <ReportManagement />
+          </TabsContent>
+          <TabsContent value="support" className="mt-6">
+            <SupportManagement />
           </TabsContent>
           <TabsContent value="notifications" className="mt-6">
             <NotificationManagement />

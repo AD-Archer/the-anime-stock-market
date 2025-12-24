@@ -189,6 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hideTransactions: false,
         anonymousTransactions: false,
         pendingDeletionAt: null,
+        // default theme preference
+        theme: "system",
       });
 
       if (isServer) {
@@ -471,10 +473,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error("User not authenticated");
         }
 
-        // Appwrite doesn't have a direct "createPassword" method for OAuth users
-        // We use updatePassword with an empty current password for OAuth-only accounts
+        // Double-check the database to see if a password already exists for this account
         try {
-          await account.updatePassword(password, "");
+          const userDoc = await userService.getById(user.id);
+          if (userDoc?.hasPassword) {
+            throw new Error(
+              "Account already has a password. Use the 'Change Password' form instead."
+            );
+          }
+        } catch (checkErr: any) {
+          // If we can't check, log and proceed — the backend will still enforce correctness
+          console.warn(
+            "createPassword: could not verify existing password flag:",
+            checkErr
+          );
+        }
+
+        // Appwrite doesn't have a direct "createPassword" method for OAuth users
+        // We use updatePassword with only the new password where supported
+        try {
+          await (account as any).updatePassword(password);
+
           // Mark that the user now has a password in the database
           await userService.update(user.id, {
             hasPassword: true,
@@ -485,11 +504,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               userId: user.id,
             });
           }
-        } catch (error) {
-          // If empty current password doesn't work, they might already have a password
-          throw new Error(
-            "Unable to create password. You may already have one."
-          );
+        } catch (error: any) {
+          // If Appwrite provides a message, surface it; otherwise keep a helpful hint
+          const rawMsg = error?.message || "";
+          // Map common Appwrite messages to user-friendly messages
+          let friendly: string;
+          if (
+            rawMsg.includes("oldPassword") ||
+            rawMsg.includes("Password must")
+          ) {
+            friendly =
+              "Unable to create password: please ensure your password is at least 8 characters.";
+          } else if (
+            rawMsg.includes("Invalid credentials") ||
+            rawMsg.includes("Invalid auth")
+          ) {
+            friendly =
+              "Unable to create password: account may already have a password. Please use 'Change Password'.";
+          } else {
+            friendly = `Unable to create password: ${rawMsg}`;
+          }
+          throw new Error(friendly);
         }
       },
       hasPassword: async () => {

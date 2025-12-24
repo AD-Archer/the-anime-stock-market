@@ -31,6 +31,8 @@ export interface User {
   anonymousTransactions: boolean;
   pendingDeletionAt: Date | null;
   lastDailyRewardClaim?: Date;
+  // optional user theme preference
+  theme?: "light" | "dark" | "system";
 }
 
 export interface Stock {
@@ -151,6 +153,36 @@ export interface Notification {
   createdAt: Date;
 }
 
+export interface SupportTicketMessage {
+  senderId?: string;
+  text: string;
+  createdAt: Date;
+}
+
+export type SupportTicketTag =
+  | "feature"
+  | "bug"
+  | "question"
+  | "report"
+  | "other";
+
+export interface SupportTicket {
+  id: string;
+  userId?: string;
+  // contact email for replies
+  contactEmail?: string;
+  subject: string;
+  message: string;
+  messages?: SupportTicketMessage[];
+  status: "open" | "in_progress" | "closed";
+  tag?: SupportTicketTag;
+  // optional reference (e.g., a message ID when reporting a message)
+  referenceId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  assignedTo?: string | null;
+}
+
 export interface Report {
   id: string;
   reporterId: string;
@@ -201,7 +233,8 @@ export type AdminActionType =
   | "ban"
   | "unban"
   | "deletion_scheduled"
-  | "deletion_finalized";
+  | "deletion_finalized"
+  | "support_update";
 
 export interface AdminActionLog {
   id: string;

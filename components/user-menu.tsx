@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import { getUserProfileHref } from "@/lib/user-profile";
 import { Badge } from "@/components/ui/badge";
-import { User, LogOut, Bell, Crown, MessageCircle, Gift } from "lucide-react";
+import { User, LogOut, Bell, Crown, MessageCircle, Gift, Shield } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -151,6 +151,12 @@ export function UserMenu() {
                   {unreadMessagesCount}
                 </Badge>
               )}
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href="/support" className="flex items-center">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Support</span>
             </a>
           </DropdownMenuItem>
           {currentUser.isAdmin && (

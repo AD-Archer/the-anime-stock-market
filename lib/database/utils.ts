@@ -17,10 +17,14 @@ import type {
   AdminActionLog,
   Award,
   DailyReward,
+  SupportTicket,
 } from "../types";
 
 // Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
-export const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || "";
+export const DATABASE_ID =
+  process.env.APPWRITE_DATABASE_ID ||
+  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ||
+  "";
 
 export const isDatabaseConfigured = (): boolean => Boolean(DATABASE_ID);
 
@@ -39,6 +43,7 @@ export const APPEALS_COLLECTION = "appeals";
 export const ADMIN_ACTION_LOGS_COLLECTION = "admin_action_logs";
 export const AWARDS_COLLECTION = "awards";
 export const FRIENDS_COLLECTION = "friends";
+export const SUPPORTS_COLLECTION = "support_tickets";
 // Daily rewards collection - will gracefully fail if not created
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
@@ -110,7 +115,10 @@ export const normalizePayload = <T extends object>(
 export const mapUser = (doc: AppwriteDocument): User => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
   username: toStringOr(docValue(doc, "username")),
-  displayName: toStringOr(docValue(doc, "displayName"), toStringOr(docValue(doc, "username"))),
+  displayName: toStringOr(
+    docValue(doc, "displayName"),
+    toStringOr(docValue(doc, "username"))
+  ),
   displaySlug: toStringOr(
     docValue(doc, "displaySlug"),
     toStringOr(docValue(doc, "username"))
@@ -136,6 +144,10 @@ export const mapUser = (doc: AppwriteDocument): User => ({
     ? toDate(docValue(doc, "pendingDeletionAt"))
     : null,
   lastDailyRewardClaim: toOptionalDate(docValue(doc, "lastDailyRewardClaim")),
+  // optional theme preference
+  theme: toOptionalString(docValue(doc, "theme")) as User["theme"],
+  // whether the user has a password set
+  hasPassword: toBooleanOr(docValue(doc, "hasPassword"), false),
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({
@@ -393,6 +405,39 @@ export const mapAdminActionLog = (doc: AppwriteDocument): AdminActionLog => ({
   targetUserId: toStringOr(docValue(doc, "targetUserId")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   metadata: parseRecord(docValue(doc, "metadata")),
+});
+
+export const mapSupportTicket = (doc: AppwriteDocument): SupportTicket => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toOptionalString(docValue(doc, "userId")),
+  contactEmail: toOptionalString(
+    docValue(doc, "contactEmail") ?? docValue(doc, "email")
+  ),
+  subject: toStringOr(docValue(doc, "subject")),
+  message: toStringOr(docValue(doc, "message")),
+  messages: (() => {
+    const raw = docValue(doc, "messages");
+    let arr: any[] = [];
+    if (Array.isArray(raw)) arr = raw;
+    else if (typeof raw === "string" && raw.trim()) {
+      try {
+        arr = JSON.parse(raw);
+      } catch {
+        arr = [];
+      }
+    }
+    return toArrayOr(arr, []).map((m: any) => ({
+      senderId: toOptionalString(m.senderId),
+      text: toStringOr(m.text),
+      createdAt: toDate(m.createdAt),
+    }));
+  })(),
+  status: (docValue(doc, "status") as SupportTicket["status"]) ?? "open",
+  tag: (docValue(doc, "tag") as import("../types").SupportTicketTag) ?? "other",
+  referenceId: toOptionalString(docValue(doc, "referenceId")),
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  updatedAt: toDate(docValue(doc, "updatedAt") ?? doc.$updatedAt),
+  assignedTo: toOptionalString(docValue(doc, "assignedTo")),
 });
 
 export const mapAward = (doc: AppwriteDocument): Award => ({

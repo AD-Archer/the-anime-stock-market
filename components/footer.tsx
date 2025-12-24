@@ -9,7 +9,10 @@ export function Footer() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               © 2025 Anime Stock Exchange. All rights reserved.
             </Link>
           </div>
@@ -29,6 +32,14 @@ export function Footer() {
             >
               <FileText className="h-4 w-4" />
               Terms of Service
+            </Link>
+
+            <Link
+              href="/support"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Shield className="h-4 w-4" />
+              Support
             </Link>
 
             <Link

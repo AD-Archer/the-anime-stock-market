@@ -9,6 +9,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AuthProvider } from "@/lib/auth";
 import { PageShellLoading } from "@/components/loading/page-shell";
+import { ThemeProvider } from "@/components/theme-provider";
+// @ts-ignore: allow side-effect CSS import without type declarations
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -42,17 +44,24 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
-        <TooltipProvider>
-          <AuthProvider>
-            <div className="pt-10 md:pt-14">
-              <StackedProviders>
-                <SiteStickyTicker />
-                {children}
-                <Toaster />
-              </StackedProviders>
-            </div>
-          </AuthProvider>
-        </TooltipProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          themes={["light", "dark"]}
+        >
+          <TooltipProvider>
+            <AuthProvider>
+              <div className="pt-10 md:pt-14">
+                <StackedProviders>
+                  <SiteStickyTicker />
+                  {children}
+                  <Toaster />
+                </StackedProviders>
+              </div>
+            </AuthProvider>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
@@ -60,7 +69,9 @@ export default function RootLayout({
 
 function StackedProviders({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />}>
+    <Suspense
+      fallback={<PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />}
+    >
       <StoreProvider>
         {children}
         <Analytics />

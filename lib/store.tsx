@@ -31,6 +31,7 @@ import {
   portfolioService,
   priceHistoryService,
   appealService,
+  supportService,
   adminActionLogService,
   DATABASE_ID,
   COMMENTS_COLLECTION,
@@ -53,6 +54,7 @@ import { createMarketActions } from "./store/market";
 import { createReportActions } from "./store/reports";
 import { createMessageActions } from "./store/messages";
 import { createAppealActions } from "./store/appeals";
+import { createSupportActions } from "./store/support";
 import { createAdminLogActions } from "./store/admin-log";
 import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
@@ -84,6 +86,7 @@ export const useStore = create<StoreState>((set, get) => {
   });
   const messageActions = createMessageActions({ setState: set, getState: get });
   const appealActions = createAppealActions({ setState: set, getState: get });
+  const supportActions = createSupportActions({ setState: set, getState: get });
   const adminLogActions = createAdminLogActions({
     setState: set,
     getState: get,
@@ -109,6 +112,7 @@ export const useStore = create<StoreState>((set, get) => {
     notifications: [],
     reports: [],
     appeals: [],
+    supportTickets: [],
     adminActionLogs: [],
     awards: [],
     friends: [],
@@ -122,6 +126,7 @@ export const useStore = create<StoreState>((set, get) => {
     ...reportActions,
     ...messageActions,
     ...appealActions,
+    ...supportActions,
     ...adminLogActions,
     ...awardActions,
     ...friendActions,
@@ -153,6 +158,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           portfoliosData,
           priceHistoryData,
           appealsData,
+          supportTicketsData,
           adminLogData,
           awardsData,
           friendsData,
@@ -168,6 +174,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           portfolioService.getAll(),
           priceHistoryService.getAll(),
           appealService.getAll(),
+          supportService.list(),
           adminActionLogService.getAll(),
           awardService.getAll(),
           (await import("./database")).friendService.getAll(),
@@ -207,6 +214,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           portfolios:
             portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
           appeals: appealsData.length > 0 ? appealsData : initialAppeals,
+          supportTickets:
+            supportTicketsData.length > 0 ? supportTicketsData : [],
           adminActionLogs:
             adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
           awards: awardsData.length > 0 ? awardsData : initialAwards,

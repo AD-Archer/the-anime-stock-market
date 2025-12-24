@@ -69,6 +69,8 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "bannedUntil", size: 64, required: false },
       { kind: "boolean", key: "showNsfw", required: false, default: false },
       { kind: "boolean", key: "showSpoilers", required: false, default: false },
+      // Optional user theme preference: 'light' | 'dark' | 'system'
+      { kind: "string", key: "theme", size: 16, required: false },
       {
         kind: "boolean",
         key: "isPortfolioPublic",
@@ -250,6 +252,29 @@ const collections: CollectionPlan[] = [
     ],
   },
   {
+    id: "support_tickets",
+    name: "Support Tickets",
+    attributes: [
+      { kind: "string", key: "userId", size: 64, required: false },
+      { kind: "string", key: "contactEmail", size: 320, required: false },
+      { kind: "string", key: "subject", size: 256, required: true },
+      { kind: "string", key: "message", size: 10000, required: true },
+      { kind: "string", key: "messages", size: 20000, required: false },
+      {
+        kind: "string",
+        key: "status",
+        size: 16,
+        required: true,
+        default: "open",
+      },
+      { kind: "string", key: "tag", size: 16, required: false },
+      { kind: "string", key: "referenceId", size: 64, required: false },
+      { kind: "string", key: "assignedTo", size: 64, required: false },
+      { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "updatedAt", size: 64, required: true },
+    ],
+  },
+  {
     id: "admin_action_logs",
     name: "Admin Action Logs",
     attributes: [
@@ -401,6 +426,33 @@ async function ensureAttribute(
   );
 }
 
+async function ensureIndex(
+  databases: ReturnType<typeof getAdminDatabases>,
+  collectionId: string,
+  key: string,
+  type: "key" | "fulltext" | "unique",
+  attributes: string[]
+) {
+  try {
+    // There is no get index, if this fails we can create
+    const existing = await databases.listIndexes(DATABASE_ID, collectionId);
+    if (existing.indexes.some((i: any) => i.key === key)) {
+      return;
+    }
+  } catch (e) {
+    // if list fails, we can assume we can create
+  }
+  console.log(`  Creating index: ${collectionId}.${key}`);
+  await databases.createIndex(
+    DATABASE_ID,
+    collectionId,
+    key,
+    type as any,
+    attributes,
+    []
+  );
+}
+
 async function setup() {
   console.log("Bootstrapping Appwrite database/tables...");
   console.log(
@@ -413,7 +465,7 @@ async function setup() {
 
   for (const collection of collections) {
     await ensureCollection(databases, collection);
-    for (const attr of collection.attributes) {
+for (const attr of collection.attributes) {
       try {
         await ensureAttribute(databases, collection.id, attr);
       } catch (error) {
@@ -422,6 +474,22 @@ async function setup() {
           error
         );
       }
+    }
+    // Add indexes after attributes are created
+    if (collection.id === "support_tickets") {
+      await ensureIndex(databases, collection.id, "status", "key", [
+        "status",
+      ]);
+      await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
+      await ensureIndex(databases, collection.id, "contactEmail", "key", [
+        "contactEmail",
+      ]);
+      await ensureIndex(databases, collection.id, "subject", "fulltext", [
+        "subject",
+      ]);
+      await ensureIndex(databases, collection.id, "message", "fulltext", [
+        "message",
+      ]);
     }
   }
 

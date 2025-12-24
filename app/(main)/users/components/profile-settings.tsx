@@ -297,6 +297,16 @@ export function ProfileSettings({
     }
 
     try {
+      // Re-check server-side flag in case it changed since mount
+      const already = await hasPassword();
+      if (already) {
+        setPasswordError(
+          "It looks like you already have a password. Use 'Change Password' instead."
+        );
+        setIsCreatingPassword(false);
+        return;
+      }
+
       await createPassword(createPasswordNew);
       setPasswordSuccess(
         "Password created successfully! You can now sign in with your email and password."
@@ -305,9 +315,12 @@ export function ProfileSettings({
       setCreatePasswordConfirm("");
       setIsCreatingPassword(false);
       setUserHasPassword(true);
-    } catch (error) {
-      console.error("Failed to create password", error);
-      setPasswordError("Failed to create password. Please try again.");
+    } catch (error: any) {
+      // Show user-friendly message from the provider if present; avoid noisy stack traces
+      const message =
+        error?.message || "Failed to create password. Please try again.";
+      console.warn("Create password error:", message);
+      setPasswordError(message);
     }
   };
 
@@ -598,9 +611,37 @@ export function ProfileSettings({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-              <Button onClick={handlePasswordChange} size="sm">
-                Update Password
-              </Button>
+              <div className="flex gap-2 items-center">
+                <Button onClick={handlePasswordChange} size="sm">
+                  Update Password
+                </Button>
+                <button
+                  type="button"
+                  className="text-sm text-primary hover:underline"
+                  onClick={async () => {
+                    try {
+                      if (!authUser?.email) return;
+                      const { ensureAppwriteInitialized, account } =
+                        await import("@/lib/appwrite/appwrite");
+                      await ensureAppwriteInitialized();
+                      await account.createRecovery({
+                        email: authUser.email,
+                        url: `${window.location.origin}/auth/reset/callback`,
+                      });
+                      setPasswordSuccess("Reset link sent to your email.");
+                    } catch (err: any) {
+                      console.warn("Failed to send reset email", err);
+                      const raw = err?.message || "Failed to send reset link.";
+                      const friendly = /redirect|platform|url/i.test(raw)
+                        ? `${raw} — ensure /auth/reset/callback is added as an allowed redirect URL in Appwrite Console.`
+                        : raw;
+                      setPasswordError(friendly);
+                    }
+                  }}
+                >
+                  Forgot? Send reset email
+                </button>
+              </div>
               {passwordError && (
                 <p className="text-sm text-red-500">{passwordError}</p>
               )}

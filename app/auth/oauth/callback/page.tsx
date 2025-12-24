@@ -340,18 +340,18 @@ export default function OAuthCallbackPage() {
 
     hasHandledOauthRef.current = true;
     finish();
-  }, [router, secret, userId, isLinking, redirectTo, refresh]);
+  }, [router, secret, userId, isLinking, redirectTo, refresh, search]);
 
   // Log when component mounts
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const currentSearch = new URLSearchParams(window.location.search);
     console.log("[OAuth Callback] Component mounted", {
       url: window.location.href,
-      searchParams: Object.fromEntries(search.entries()),
+      searchParams: Object.fromEntries(currentSearch.entries()),
       hash: window.location.hash,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, []);
 
   // Show helpful error if we're stuck without parameters
   if (

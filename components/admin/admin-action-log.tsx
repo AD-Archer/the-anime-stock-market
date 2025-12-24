@@ -21,9 +21,13 @@ const actionLabels: Record<AdminActionType, string> = {
   unban: "Unban",
   deletion_scheduled: "Deletion Scheduled",
   deletion_finalized: "Deletion Finalized",
+  support_update: "Support Ticket",
 };
 
-const badgeVariants: Record<AdminActionType, "default" | "secondary" | "outline" | "destructive"> = {
+const badgeVariants: Record<
+  AdminActionType,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   money_grant: "default",
   money_withdrawal: "outline",
   stock_grant: "default",
@@ -32,13 +36,17 @@ const badgeVariants: Record<AdminActionType, "default" | "secondary" | "outline"
   unban: "secondary",
   deletion_scheduled: "secondary",
   deletion_finalized: "destructive",
+  support_update: "secondary",
 };
 
 export function AdminActionLogPanel() {
   const { adminActionLogs, users } = useStore();
 
   const entries = useMemo(
-    () => [...adminActionLogs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    () =>
+      [...adminActionLogs].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      ),
     [adminActionLogs]
   );
 
@@ -53,13 +61,16 @@ export function AdminActionLogPanel() {
     );
   }
 
-  const resolveUser = (userId: string) => users.find((user) => user.id === userId)?.username || "Unknown";
+  const resolveUser = (userId: string) =>
+    users.find((user) => user.id === userId)?.username || "Unknown";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Admin Action Log</CardTitle>
-        <CardDescription>Immutable history of manual admin actions.</CardDescription>
+        <CardDescription>
+          Immutable history of manual admin actions.
+        </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -83,8 +94,12 @@ export function AdminActionLogPanel() {
                     {actionLabels[entry.action]}
                   </Badge>
                 </td>
-                <td className="py-2 align-top">{resolveUser(entry.performedBy)}</td>
-                <td className="py-2 align-top">{resolveUser(entry.targetUserId)}</td>
+                <td className="py-2 align-top">
+                  {resolveUser(entry.performedBy)}
+                </td>
+                <td className="py-2 align-top">
+                  {resolveUser(entry.targetUserId)}
+                </td>
                 <td className="py-2 align-top">
                   {entry.metadata ? (
                     <pre className="whitespace-pre-wrap break-words rounded bg-muted/50 p-2 text-xs">

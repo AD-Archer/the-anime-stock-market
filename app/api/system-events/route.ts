@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminDatabases } from "@/lib/appwrite/appwrite-admin";
+import { getAdminDatabases, Query } from "@/lib/appwrite/appwrite-admin";
 import { DATABASE_ID, USERS_COLLECTION } from "@/lib/database";
 import { sendSystemEmail } from "@/lib/email/mailer";
 import type { SystemEventRequest } from "@/lib/system-events";
@@ -20,7 +20,11 @@ const friendlyDate = (value: string | undefined): string => {
 async function fetchUser(userId: string) {
   try {
     const databases = getAdminDatabases();
-    const document = await databases.getDocument(DATABASE_ID, USERS_COLLECTION, userId);
+    const document = await databases.getDocument(
+      DATABASE_ID,
+      USERS_COLLECTION,
+      userId
+    );
     return {
       email: (document as any).email as string,
       username: (document as any).username as string,
@@ -39,7 +43,11 @@ async function handlePasswordChanged(userId: string) {
     to: user.email,
     subject: "Your Anime Stock Exchange password changed",
     text: `Hi ${user.username},\n\nYour password was just updated. If this wasn't you, please reset your password immediately.`,
-    html: `<p>Hi ${user.username},</p><p>Your password was just updated. If this wasn't you, please <a href="${process.env.NEXT_PUBLIC_SITE_URL || ""}/auth/signin">reset it immediately</a>.</p>`,
+    html: `<p>Hi ${
+      user.username
+    },</p><p>Your password was just updated. If this wasn't you, please <a href="${
+      process.env.NEXT_PUBLIC_SITE_URL || ""
+    }/auth/signin">reset it immediately</a>.</p>`,
   });
 }
 
@@ -82,6 +90,72 @@ async function handleAccountDeleted(userId: string, deletedAt?: string) {
   });
 }
 
+async function handleSupportTicketCreated(event: any) {
+  try {
+    const { userId, metadata } = event;
+    const subject = metadata?.subject ?? "Support Request";
+    const ticketId = metadata?.id;
+    const snippet = metadata?.messageSnippet ?? "";
+    const contactEmail = metadata?.contactEmail;
+    const tag = metadata?.tag;
+    const referenceId = metadata?.referenceId;
+
+    // Find submitter (if possible)
+    let fromText = "Anonymous";
+    if (userId) {
+      const submitter = await fetchUser(userId);
+      if (submitter) fromText = `${submitter.username} <${submitter.email}>`;
+    } else if (contactEmail) {
+      fromText = contactEmail;
+    }
+
+    const adminDb = getAdminDatabases();
+    const res = await adminDb.listDocuments(DATABASE_ID, USERS_COLLECTION, [
+      Query.equal("isAdmin", true),
+      Query.limit(500),
+    ]);
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+    const ticketUrl = ticketId
+      ? `${siteUrl}/admin?tab=support&ticket=${ticketId}`
+      : `${siteUrl}/admin?tab=support`;
+
+    // Collect recipients (admins + fallback address)
+    const recipients = new Set<string>();
+    (res.documents || []).forEach((admin: any) => {
+      if (admin.email) recipients.add(admin.email);
+    });
+    // Always notify this address as requested
+    recipients.add("antonioarcher.dev@gmail.com");
+
+    await Promise.all(
+      Array.from(recipients).map(async (to) => {
+        const tagText = tag ? `Type: ${tag}\n` : "";
+        const refText = referenceId ? `Reference: ${referenceId}\n` : "";
+        const bodyText = `New support ticket submitted\n\nFrom: ${fromText}\nSubject: ${subject}\n${tagText}${refText}\n${snippet}\n\nView: ${ticketUrl}`;
+        const bodyHtml = `<p><strong>From:</strong> ${fromText}</p><p><strong>Subject:</strong> ${subject}</p>${
+          tag ? `<p><strong>Type:</strong> ${tag}</p>` : ""
+        }${
+          referenceId ? `<p><strong>Reference:</strong> ${referenceId}</p>` : ""
+        }<div style="white-space:pre-wrap">${snippet}</div><p><a href="${ticketUrl}">View ticket in admin</a></p>`;
+        try {
+          await sendSystemEmail({
+            to,
+            subject: `Anime Stock Exchange [Support] ${subject}`,
+            text: bodyText,
+            html: bodyHtml,
+            replyTo: contactEmail,
+          });
+        } catch (e) {
+          console.warn("Failed to send support email to admin", to, e);
+        }
+      })
+    );
+  } catch (e) {
+    console.warn("Error handling support_ticket_created event", e);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SystemEventRequest | null;
@@ -102,8 +176,15 @@ export async function POST(req: Request) {
       case "account_deleted":
         await handleAccountDeleted(body.userId, body.metadata?.deletedAt);
         break;
+      case "support_ticket_created":
+        // email all admins with ticket details
+        await handleSupportTicketCreated(body as any);
+        break;
       default:
-        return NextResponse.json({ error: "Unsupported event" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Unsupported event" },
+          { status: 400 }
+        );
     }
 
     return NextResponse.json({ ok: true });
