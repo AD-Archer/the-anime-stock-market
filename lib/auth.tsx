@@ -140,8 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUser = useCallback(async () => {
     try {
       await hydrateSessionFromUrl();
-      await refreshAppwriteJwt();
       const response = await account.get();
+      await refreshAppwriteJwt();
       await ensureUserDocument(response);
 
       setUser(mapAccountUser(response));

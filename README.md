@@ -56,18 +56,26 @@ Continue building your app on:
 
 ### Build Locally
 
-To build the Docker image locally:
+Copy the environment values you want the client bundle to bake in (`NEXT_PUBLIC_*`) into `.env.local`, then build the image with the helper script so those variables are passed as build args:
 
 ```bash
-docker build -t anime-stock-market .
+node scripts/build-docker.mjs
 ```
+
+If you prefer to run `docker build` directly, mirror the same values via `--build-arg NEXT_PUBLIC_APPWRITE_ENDPOINT=...` etc.
 
 ### Run Locally
 
-To run the application using Docker:
+Use the included run script so `.env.local` and other required secrets are automatically passed at runtime:
 
 ```bash
-docker run -p 3000:3000 anime-stock-market
+node scripts/run-docker.mjs
+```
+
+That script mounts `.env.local` as an `--env-file`, but if you start the container manually you must include the same file as well:
+
+```bash
+docker run -p 3000:3000 --env-file .env.local anime-stock-market
 ```
 
 ## Docker Compose

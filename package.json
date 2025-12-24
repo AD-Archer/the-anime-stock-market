@@ -11,7 +11,10 @@
     "next:start": "next start",
     "typecheck": "tsc --noEmit",
     "appwrite:setup": "infisical run tsx lib/appwrite/appwrite-setup.ts",
-    "seed": "tsx lib/seed.ts"
+    "seed": "tsx lib/seed.ts",
+    "docker:build": "node scripts/build-docker.mjs",
+    "docker:run": "node scripts/run-docker.mjs",
+    "docker:stop": "node scripts/stop-docker.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
