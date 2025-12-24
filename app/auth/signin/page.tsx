@@ -28,10 +28,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Magic Link removed; keep Email OTP only
-  const [otpStatus, setOtpStatus] = useState<string | null>(null);
-  const [otpCode, setOtpCode] = useState("");
-  const [otpUserId, setOtpUserId] = useState<string | null>(null);
+  // Email OTP removed; using email/password + Google OAuth
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
@@ -95,55 +92,7 @@ export default function SignInPage() {
   };
 
   // Magic Link flow removed
-
-  const sendEmailOtp = async () => {
-    setOtpStatus(null);
-    if (!termsAccepted || !privacyAccepted) {
-      setOtpStatus(
-        "Please accept the Terms of Service and Privacy Policy to continue."
-      );
-      return;
-    }
-    if (!isValidEmail(trimmedEmail)) {
-      setOtpStatus("Enter a valid email above first.");
-      return;
-    }
-    try {
-      const token = await account.createEmailToken({
-        userId: ID.unique(),
-        email: trimmedEmail,
-      });
-      setOtpUserId(token.userId);
-      setOtpStatus("Code sent! Check your email and enter it below.");
-    } catch (err) {
-      console.error("OTP send failed", err);
-      setOtpStatus(toFriendlyAuthError(err));
-    }
-  };
-
-  const verifyEmailOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!termsAccepted || !privacyAccepted) {
-      setOtpStatus(
-        "Please accept the Terms of Service and Privacy Policy to continue."
-      );
-      return;
-    }
-    if (!otpUserId || !otpCode) {
-      setOtpStatus("Enter the code you received.");
-      return;
-    }
-    try {
-      await account.createSession({
-        userId: otpUserId,
-        secret: otpCode.trim(),
-      });
-      router.push("/market");
-    } catch (err) {
-      console.error("OTP login failed", err);
-      setOtpStatus("Invalid code. Try again.");
-    }
-  };
+  // Email OTP flow removed
 
   const handleGoogle = async () => {
     setError(null);
@@ -180,13 +129,9 @@ export default function SignInPage() {
             Welcome back to Anime Stock Exchange
           </h1>
           <p className="text-muted-foreground text-lg">
-            Sign in with email/password, Email OTP, or Google OAuth. Powered by
-            Appwrite.
+            Sign in with email/password or Google OAuth. Powered by Appwrite.
           </p>
           <div className="flex gap-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <KeyRound className="h-4 w-4" /> Email OTP
-            </span>
             <span className="inline-flex items-center gap-1">
               <LogIn className="h-4 w-4" /> Google OAuth
             </span>
@@ -200,7 +145,7 @@ export default function SignInPage() {
               Sign in
             </h2>
             <p className="text-sm text-muted-foreground">
-              Use email/password, Email OTP, or Google OAuth.
+              Use email/password or Google OAuth.
             </p>
           </div>
 
@@ -221,202 +166,97 @@ export default function SignInPage() {
           >
             <GoogleIcon className="mr-2 h-4 w-4" /> Continue with Google
           </Button>
-
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
             <span>or</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Tabs: Passwordless and Username & Password */}
-          <Tabs defaultValue="passwordless" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="passwordless">Passwordless</TabsTrigger>
-              <TabsTrigger value="credentials">Username & Password</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="passwordless" className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="otp-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="otp-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="pl-10"
-                  />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="pl-10"
+                />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <input
-                    id="tos-accept-otp"
-                    type="checkbox"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-primary"
-                  />
-                  <label htmlFor="tos-accept-otp">
-                    I have read and agree to the {""}
-                    <Link
-                      href="/terms"
-                      className="text-primary hover:underline"
-                    >
-                      Terms of Service
-                    </Link>
-                  </label>
-                </div>
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <input
-                    id="privacy-accept-otp"
-                    type="checkbox"
-                    checked={privacyAccepted}
-                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-primary"
-                  />
-                  <label htmlFor="privacy-accept-otp">
-                    I have read and agree to the {""}
-                    <Link
-                      href="/privacy"
-                      className="text-primary hover:underline"
-                    >
-                      Privacy Policy
-                    </Link>
-                  </label>
-                </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pl-10"
+                />
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={sendEmailOtp}
-                disabled={
-                  !termsAccepted ||
-                  !privacyAccepted ||
-                  !isValidEmail(trimmedEmail)
-                }
-              >
-                Send OTP
-              </Button>
-              {otpUserId && (
-                <form
-                  onSubmit={verifyEmailOtp}
-                  className="flex gap-2 items-center"
-                >
-                  <Input
-                    type="text"
-                    placeholder="Enter code"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                  />
-                  <Button
-                    type="submit"
-                    disabled={!termsAccepted || !privacyAccepted}
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="tos-accept-signin"
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="tos-accept-signin">
+                  I have read and agree to the most recent {""}
+                  <Link href="/terms" className="text-primary hover:underline">
+                    Terms of Service
+                  </Link>
+                </label>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="privacy-accept-signin"
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="privacy-accept-signin">
+                  I have read and agree to the most recent {""}
+                  <Link
+                    href="/privacy"
+                    className="text-primary hover:underline"
                   >
-                    Verify
-                  </Button>
-                </form>
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !termsAccepted || !privacyAccepted}
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Signing in...
+                </span>
+              ) : (
+                "Sign In"
               )}
-              {otpStatus && (
-                <p className="text-xs text-muted-foreground">{otpStatus}</p>
-              )}
-            </TabsContent>
-
-            <TabsContent value="credentials" className="space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                {error && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
-                  </p>
-                )}
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <input
-                      id="tos-accept-signin"
-                      type="checkbox"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-primary"
-                    />
-                    <label htmlFor="tos-accept-signin">
-                      I have read and agree to the {""}
-                      <Link
-                        href="/terms"
-                        className="text-primary hover:underline"
-                      >
-                        Terms of Service
-                      </Link>
-                    </label>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <input
-                      id="privacy-accept-signin"
-                      type="checkbox"
-                      checked={privacyAccepted}
-                      onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-primary"
-                    />
-                    <label htmlFor="privacy-accept-signin">
-                      I have read and agree to the {""}
-                      <Link
-                        href="/privacy"
-                        className="text-primary hover:underline"
-                      >
-                        Privacy Policy
-                      </Link>
-                    </label>
-                  </div>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loading || !termsAccepted || !privacyAccepted}
-                >
-                  {loading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Signing in...
-                    </span>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+            </Button>
+          </form>
 
           <p className="text-sm text-center text-muted-foreground">
             No account yet? {""}

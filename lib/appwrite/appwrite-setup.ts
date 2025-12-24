@@ -9,7 +9,10 @@ const requiredEnv = (key: string): string => {
   return value;
 };
 
-const DATABASE_ID = requiredEnv("NEXT_PUBLIC_APPWRITE_DATABASE_ID");
+// Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
+const DATABASE_ID =
+  process.env.APPWRITE_DATABASE_ID ||
+  requiredEnv("NEXT_PUBLIC_APPWRITE_DATABASE_ID");
 
 type AttributePlan =
   | {
@@ -56,6 +59,9 @@ const collections: CollectionPlan[] = [
     attributes: [
       { kind: "string", key: "username", size: 128, required: true },
       { kind: "string", key: "email", size: 320, required: true },
+      { kind: "string", key: "displayName", size: 256, required: false },
+      { kind: "string", key: "displaySlug", size: 256, required: false },
+      { kind: "boolean", key: "hasPassword", required: false, default: false },
       { kind: "float", key: "balance", required: true, default: 0 },
       { kind: "boolean", key: "isAdmin", required: false, default: false },
       { kind: "string", key: "createdAt", size: 64, required: true },

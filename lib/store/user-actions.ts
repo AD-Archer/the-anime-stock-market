@@ -28,6 +28,8 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     try {
       const baseKeys: (keyof User)[] = [
         "username",
+        "displayName",
+        "displaySlug",
         "email",
         "balance",
         "isAdmin",

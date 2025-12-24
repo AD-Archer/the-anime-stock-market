@@ -72,3 +72,30 @@ export const generateRandomUsername = (
   // Fallback to numeric if we somehow exhaust attempts
   return makeUniqueUsername("user", existingUsernames);
 };
+
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "user";
+
+export const generateDisplaySlug = (
+  displayName: string,
+  existingSlugs: Iterable<string>
+): string => {
+  const base = slugify(displayName);
+  const existing = new Set(
+    Array.from(existingSlugs, (name) => name.toLowerCase())
+  );
+
+  if (!existing.has(base)) return base;
+
+  let suffix = 1;
+  let candidate = `${base}-${suffix}`;
+  while (existing.has(candidate.toLowerCase())) {
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+  return candidate;
+};

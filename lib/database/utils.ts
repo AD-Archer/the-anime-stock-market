@@ -19,7 +19,8 @@ import type {
   DailyReward,
 } from "../types";
 
-export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "";
+// Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
+export const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || "";
 
 export const isDatabaseConfigured = (): boolean => Boolean(DATABASE_ID);
 
@@ -109,9 +110,15 @@ export const normalizePayload = <T extends object>(
 export const mapUser = (doc: AppwriteDocument): User => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
   username: toStringOr(docValue(doc, "username")),
+  displayName: toStringOr(docValue(doc, "displayName"), toStringOr(docValue(doc, "username"))),
+  displaySlug: toStringOr(
+    docValue(doc, "displaySlug"),
+    toStringOr(docValue(doc, "username"))
+  ),
   email: toStringOr(docValue(doc, "email")),
   balance: toNumberOr(docValue(doc, "balance"), 0),
   isAdmin: toBooleanOr(docValue(doc, "isAdmin")),
+  isBanned: toBooleanOr(docValue(doc, "isBanned"), false),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   avatarUrl: toOptionalString(docValue(doc, "avatarUrl")),
   bannedUntil: docValue(doc, "bannedUntil")

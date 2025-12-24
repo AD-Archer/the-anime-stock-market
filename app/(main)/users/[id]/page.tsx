@@ -58,8 +58,12 @@ export default function PublicProfilePage({
   } = useStore();
 
   const profileUser =
-    users.find((user) => user.username === slug) ||
-    users.find((user) => user.id === slug);
+    users.find(
+      (user) =>
+        user.displaySlug === slug ||
+        user.username === slug ||
+        user.id === slug
+    ) || users.find((user) => user.id === slug);
   const isOwnProfile = authUser?.id === profileUser?.id;
 
   const portfolio = useMemo(() => {
@@ -202,7 +206,8 @@ export default function PublicProfilePage({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `anime-stock-market-data-${profileUser.username}.json`;
+    const slugName = profileUser.displaySlug || profileUser.username || "user";
+    anchor.download = `anime-stock-market-data-${slugName}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   };

@@ -49,10 +49,10 @@ export function FriendsList() {
                   <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={getUserAvatarUrl(user)}
-                      alt={user.username}
+                      alt={user.displayName || user.username}
                     />
                     <AvatarFallback>
-                      {getUserInitials(user.username)}
+                      {getUserInitials(user.displayName || user.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export function FriendsList() {
                       href={getUserProfileHref(user, user.id)}
                       className="text-sm hover:underline"
                     >
-                      {user.username}
+                      {user.displayName || user.username}
                     </Link>
                     {user.isAdmin && <Badge variant="secondary">Admin</Badge>}
                   </div>

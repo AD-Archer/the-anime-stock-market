@@ -7,8 +7,12 @@ const requiredEnv = (key: string): string => {
 };
 
 function createBaseClient(): Client {
-  const endpoint = requiredEnv("NEXT_PUBLIC_APPWRITE_ENDPOINT");
-  const projectId = requiredEnv("NEXT_PUBLIC_APPWRITE_PROJECT_ID");
+  // Prefer non-public variable names to avoid leaking secrets
+  // Fallback to NEXT_PUBLIC_* for backwards compatibility
+  const endpoint =
+    process.env.APPWRITE_ENDPOINT || requiredEnv("NEXT_PUBLIC_APPWRITE_ENDPOINT");
+  const projectId =
+    process.env.APPWRITE_PROJECT_ID || requiredEnv("NEXT_PUBLIC_APPWRITE_PROJECT_ID");
   return new Client().setEndpoint(endpoint).setProject(projectId);
 }
 

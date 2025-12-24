@@ -251,7 +251,7 @@ export function PlayerLeaderboard() {
                 {/* Avatar */}
                 <div className="relative h-12 w-12 overflow-hidden rounded-full flex-shrink-0 bg-muted">
                   <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
-                    {player.username.charAt(0).toUpperCase()}
+                    {(player.displayName || player.username).charAt(0).toUpperCase()}
                   </div>
                 </div>
 
@@ -264,7 +264,7 @@ export function PlayerLeaderboard() {
                           isCurrentUser ? "text-primary" : "text-foreground"
                         }`}
                       >
-                        {player.username}
+                        {player.displayName || player.username}
                         {isCurrentUser && (
                           <span className="ml-2 text-xs">(You)</span>
                         )}

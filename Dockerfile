@@ -20,43 +20,27 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-# Build-time arguments that should be exposed to Next.js
-ARG NEXT_PUBLIC_APPWRITE_ENDPOINT
-ARG NEXT_PUBLIC_APPWRITE_PROJECT_ID
-ARG NEXT_PUBLIC_APPWRITE_PROJECT_NAME
-ARG NEXT_PUBLIC_APPWRITE_DATABASE_ID
-ARG NEXT_PUBLIC_SITE_URL
-
-ENV NEXT_PUBLIC_APPWRITE_ENDPOINT=${NEXT_PUBLIC_APPWRITE_ENDPOINT}
-ENV NEXT_PUBLIC_APPWRITE_PROJECT_ID=${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
-ENV NEXT_PUBLIC_APPWRITE_PROJECT_NAME=${NEXT_PUBLIC_APPWRITE_PROJECT_NAME}
-ENV NEXT_PUBLIC_APPWRITE_DATABASE_ID=${NEXT_PUBLIC_APPWRITE_DATABASE_ID}
-ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+# Note: We intentionally do NOT pass environment variables at build time
+# to prevent secrets from being baked into the image. All environment
+# variables will be provided at runtime via --env-file or -e flags.
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application (requires NEXT_PUBLIC_* variables)
+# Build the application
+# The build will work without NEXT_PUBLIC_* variables (code handles missing values gracefully)
 RUN pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
-# Environment variables should still be provided at runtime for secrets like the Appwrite API key.
-# NEXT_PUBLIC_* values are safe to bake in via build args (scripts/build-docker.mjs already sets them), so we keep them available.
-ARG NEXT_PUBLIC_APPWRITE_ENDPOINT
-ARG NEXT_PUBLIC_APPWRITE_PROJECT_ID
-ARG NEXT_PUBLIC_APPWRITE_PROJECT_NAME
-ARG NEXT_PUBLIC_APPWRITE_DATABASE_ID
-ARG NEXT_PUBLIC_SITE_URL
+# Set only non-sensitive runtime defaults
+# All environment variables (including NEXT_PUBLIC_* and secrets) should be
+# provided at runtime via --env-file or -e flags when running the container.
+# This ensures no secrets are baked into the image.
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV NEXT_PUBLIC_APPWRITE_ENDPOINT=${NEXT_PUBLIC_APPWRITE_ENDPOINT}
-ENV NEXT_PUBLIC_APPWRITE_PROJECT_ID=${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
-ENV NEXT_PUBLIC_APPWRITE_PROJECT_NAME=${NEXT_PUBLIC_APPWRITE_PROJECT_NAME}
-ENV NEXT_PUBLIC_APPWRITE_DATABASE_ID=${NEXT_PUBLIC_APPWRITE_DATABASE_ID}
-ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

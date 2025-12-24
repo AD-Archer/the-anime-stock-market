@@ -59,7 +59,8 @@ export function UserMenu() {
     );
   }
 
-  const displayName = user.name || user.email || "User";
+  const displayName =
+    currentUser.displayName || user.name || user.email || "User";
   const initials = getUserInitials(displayName);
 
   return (
@@ -83,7 +84,7 @@ export function UserMenu() {
             <Avatar className="h-10 w-10">
               <AvatarImage
                 src={getUserAvatarUrl(currentUser)}
-                alt={currentUser.username}
+                alt={currentUser.displayName || currentUser.username}
               />
               <AvatarFallback className="bg-primary text-primary-foreground">
                 {initials}

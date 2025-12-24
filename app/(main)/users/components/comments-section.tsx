@@ -114,10 +114,10 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                       return (
                         <div className="flex items-center gap-2">
                           <Link
-                            href={`/users/${author.username}`}
+                            href={`/users/${author.displaySlug || author.username}`}
                             className="hover:underline"
                           >
-                            {author.username}
+                            {author.displayName || author.username}
                           </Link>
                           {author.isAdmin && (
                             <Badge variant="secondary">Admin</Badge>

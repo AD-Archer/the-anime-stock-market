@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
+import { generateDisplaySlug } from "@/lib/usernames";
 import type { Stock, User } from "@/lib/types";
-import { MessageCircle, LogIn } from "lucide-react";
+import { MessageCircle, LogIn, LogOut, CheckCircle2 } from "lucide-react";
 
 type ProfileSettingsProps = {
   authUser: { id: string; name?: string | null; email: string } | null;
@@ -48,13 +50,21 @@ export function ProfileSettings({
   onExportData,
   onDeleteAccount,
 }: ProfileSettingsProps) {
-  const [displayName, setDisplayName] = useState(authUser?.name || "");
-  const [isEditingName, setIsEditingName] = useState(false);
+  const router = useRouter();
+  const [displayName, setDisplayName] = useState(storeUser?.displayName || "");
+  const [displaySlug, setDisplaySlug] = useState(storeUser?.displaySlug || "");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [isCreatingPassword, setIsCreatingPassword] = useState(false);
+  const [createPasswordNew, setCreatePasswordNew] = useState("");
+  const [createPasswordConfirm, setCreatePasswordConfirm] = useState("");
   const [showSpoilersPreference, setShowSpoilersPreference] = useState(true);
   const [showNsfwPreference, setShowNsfwPreference] = useState(true);
   const [portfolioPublicPreference, setPortfolioPublicPreference] =
@@ -69,13 +79,82 @@ export function ProfileSettings({
   const [preferenceLoading, setPreferenceLoading] = useState<
     null | "spoilers" | "nsfw" | "portfolio" | "transactions"
   >(null);
-  const { signInWithGoogle } = useAuth();
+  const {
+    signInWithGoogle,
+    getLinkedProviders,
+    unlinkProvider,
+    createPassword,
+    hasPassword,
+  } = useAuth();
+  const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
+  const [userHasPassword, setUserHasPassword] = useState(true);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (authUser) {
-      setDisplayName(authUser.name || authUser.email);
+    if (storeUser) {
+      setDisplayName(storeUser.displayName || "");
+      setDisplaySlug(storeUser.displaySlug || "");
     }
-  }, [authUser]);
+  }, [storeUser]);
+
+  // Check if user has a password
+  useEffect(() => {
+    const checkPassword = async () => {
+      try {
+        const hasPwd = await hasPassword();
+        console.log("[ProfileSettings] hasPassword() returned:", hasPwd);
+        setUserHasPassword(hasPwd);
+      } catch (error) {
+        console.error("Failed to check password status:", error);
+        setUserHasPassword(false); // Default to false to show create password option
+      }
+    };
+    if (authUser) {
+      checkPassword();
+    }
+  }, [authUser, hasPassword]);
+
+  // When entering edit mode, focus the input, move caret to the end and
+  // smoothly scroll the input (or the container) into view. Non-blocking.
+  useEffect(() => {
+    if (!isEditingProfile) return;
+
+    // Focus and set caret to end when input is available
+    if (nameInputRef.current) {
+      const el = nameInputRef.current;
+      // Focus first to ensure keyboard appears on mobile
+      el.focus();
+      const len = el.value ? el.value.length : 0;
+      try {
+        el.setSelectionRange(len, len);
+      } catch (e) {
+        // ignore - fallback behavior is fine
+      }
+
+      // Smoothly scroll input into view without blocking
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (e) {
+        // ignore scroll errors
+      }
+      return;
+    }
+
+    // If input not yet mounted, fall back to scrolling the container
+    if (containerRef.current) {
+      try {
+        containerRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [isEditingProfile]);
 
   useEffect(() => {
     if (storeUser) {
@@ -86,6 +165,43 @@ export function ProfileSettings({
       setAnonymousTransactionsPreference(storeUser.anonymousTransactions);
     }
   }, [storeUser]);
+
+  // Load linked providers
+  useEffect(() => {
+    const loadProviders = async () => {
+      if (!authUser) return;
+      setLoadingProviders(true);
+      try {
+        const providers = await getLinkedProviders();
+        setLinkedProviders(providers);
+      } catch (error) {
+        console.error("Failed to load linked providers:", error);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+    loadProviders();
+  }, [authUser, getLinkedProviders]);
+
+  // Check for link success message
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("linked") === "google") {
+        setLinkStatus("Google account linked successfully!");
+        // Remove the param from URL
+        params.delete("linked");
+        const newUrl = `${window.location.pathname}${
+          params.toString() ? `?${params.toString()}` : ""
+        }`;
+        window.history.replaceState({}, "", newUrl);
+        // Refresh providers
+        getLinkedProviders().then(setLinkedProviders);
+        // Clear message after 5 seconds
+        setTimeout(() => setLinkStatus(null), 5000);
+      }
+    }
+  }, [getLinkedProviders]);
 
   const matchingCharacters = useMemo(() => {
     const query = avatarSearch.trim().toLowerCase();
@@ -124,6 +240,77 @@ export function ProfileSettings({
     }
   };
 
+  const handleSaveProfileChanges = async () => {
+    setProfileError(null);
+    setProfileSuccess(null);
+    setProfileSaving(true);
+
+    try {
+      const newDisplayName = displayName.trim();
+      if (!newDisplayName) {
+        setProfileError("Display name cannot be empty.");
+        setProfileSaving(false);
+        return;
+      }
+
+      // Update display name in the database
+      await onUpdateName(newDisplayName);
+      setProfileSuccess("Profile updated successfully!");
+      setIsEditingProfile(false);
+      setTimeout(() => setProfileSuccess(null), 3000);
+
+      // Generate the new slug from the new display name
+      const newSlug = generateDisplaySlug(newDisplayName, [
+        storeUser?.displaySlug || "",
+      ]);
+      setDisplaySlug(newSlug);
+
+      // Redirect to the new profile page with the newly generated slug after a short delay
+      setTimeout(() => {
+        router.push(`/users/${newSlug}`);
+      }, 500);
+    } catch (error) {
+      console.error("Failed to save profile", error);
+      setProfileError("Failed to save profile. Please try again.");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleCreatePassword = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!createPasswordNew || !createPasswordConfirm) {
+      setPasswordError("Both fields are required.");
+      return;
+    }
+
+    if (createPasswordNew !== createPasswordConfirm) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    if (createPasswordNew.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      await createPassword(createPasswordNew);
+      setPasswordSuccess(
+        "Password created successfully! You can now sign in with your email and password."
+      );
+      setCreatePasswordNew("");
+      setCreatePasswordConfirm("");
+      setIsCreatingPassword(false);
+      setUserHasPassword(true);
+    } catch (error) {
+      console.error("Failed to create password", error);
+      setPasswordError("Failed to create password. Please try again.");
+    }
+  };
+
   const handlePasswordChange = async () => {
     setPasswordError(null);
     setPasswordSuccess(null);
@@ -151,9 +338,15 @@ export function ProfileSettings({
       setConfirmPassword("");
     } catch (err) {
       console.error("Failed to update password", err);
-      setPasswordError(
-        "Failed to update password. Check your current password."
-      );
+      if (!userHasPassword) {
+        setPasswordError(
+          "It looks like you don't have a password set yet. Use the 'Create Password' option below first."
+        );
+      } else {
+        setPasswordError(
+          "Failed to update password. Check your current password."
+        );
+      }
     }
   };
 
@@ -200,62 +393,74 @@ export function ProfileSettings({
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+    <div
+      ref={containerRef}
+      className="bg-card border border-border rounded-lg p-6 space-y-4"
+    >
       <div className="space-y-2">
-        <label className="text-sm font-medium">Display Name</label>
-        <div className="flex items-center gap-2">
-          {isEditingName ? (
-            <>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                onBlur={async (e) => {
-                  const newName = e.target.value.trim();
-                  if (newName && newName !== authUser.name) {
-                    await onUpdateName(newName);
-                    setDisplayName(newName);
-                  } else if (!newName) {
-                    setDisplayName(authUser.name || "");
-                  }
-                  setIsEditingName(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.currentTarget.blur();
-                  } else if (e.key === "Escape") {
-                    setDisplayName(authUser.name || "");
-                    setIsEditingName(false);
-                  }
-                }}
-                className="flex-1 px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Enter your display name"
-                autoFocus
-              />
-              <button
+        <label className="text-sm font-medium">
+          Profile Name (Display Name)
+        </label>
+        <p className="text-xs text-muted-foreground">
+          This is what other users see on your profile.
+        </p>
+        {isEditingProfile ? (
+          <div className="space-y-2">
+            <Input
+              ref={nameInputRef}
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Enter your display name"
+            />
+            <p className="text-xs text-muted-foreground">
+              Profile slug:{" "}
+              <code className="bg-muted px-2 py-1 rounded">{displaySlug}</code>
+            </p>
+            {profileError && (
+              <p className="text-sm text-red-500">{profileError}</p>
+            )}
+            {profileSuccess && (
+              <p className="text-sm text-green-500">{profileSuccess}</p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSaveProfileChanges}
+                disabled={profileSaving}
+                size="sm"
+              >
+                {profileSaving ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => {
-                  setDisplayName(authUser.name || "");
-                  setIsEditingName(false);
+                  setIsEditingProfile(false);
+                  setDisplayName(storeUser?.displayName || "");
+                  setProfileError(null);
                 }}
-                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                size="sm"
               >
                 Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="flex-1 py-2 text-foreground">
-                {authUser.name || "No display name set"}
-              </span>
-              <button
-                onClick={() => setIsEditingName(true)}
-                className="px-3 py-2 text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                Edit
-              </button>
-            </>
-          )}
-        </div>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 border border-border rounded-md bg-muted/50">
+            <div>
+              <p className="text-foreground font-medium">
+                {displayName || "No display name set"}
+              </p>
+              <p className="text-xs text-muted-foreground">@{displaySlug}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingProfile(true)}
+            >
+              Edit
+            </Button>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Profile Picture</label>
@@ -263,10 +468,10 @@ export function ProfileSettings({
           <Avatar className="h-12 w-12">
             <AvatarImage
               src={getUserAvatarUrl(storeUser)}
-              alt={storeUser.username}
+              alt={storeUser.displayName || storeUser.username}
             />
             <AvatarFallback>
-              {getUserInitials(storeUser.username)}
+              {getUserInitials(storeUser.displayName || storeUser.username)}
             </AvatarFallback>
           </Avatar>
           <Button
@@ -315,37 +520,96 @@ export function ProfileSettings({
         )}
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Change Password</label>
-        <div className="space-y-2">
-          <Input
-            type="password"
-            placeholder="Current password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="New password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="Confirm new password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-          <Button onClick={handlePasswordChange} size="sm">
-            Update Password
-          </Button>
-          {passwordError && (
-            <p className="text-sm text-red-500">{passwordError}</p>
-          )}
-          {passwordSuccess && (
-            <p className="text-sm text-green-500">{passwordSuccess}</p>
-          )}
-        </div>
+      <div className="space-y-2 border-t border-border pt-4">
+        {!userHasPassword ? (
+          <>
+            <label className="text-sm font-medium">Create Password</label>
+            <p className="text-xs text-muted-foreground">
+              You&apos;re currently signed in with Google. Create a password to
+              enable traditional email/password sign in.
+            </p>
+            {!isCreatingPassword ? (
+              <Button
+                variant="outline"
+                onClick={() => setIsCreatingPassword(true)}
+                size="sm"
+              >
+                Create Password
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="New password"
+                  value={createPasswordNew}
+                  onChange={(e) => setCreatePasswordNew(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="Confirm password"
+                  value={createPasswordConfirm}
+                  onChange={(e) => setCreatePasswordConfirm(e.target.value)}
+                />
+                {passwordError && (
+                  <p className="text-sm text-red-500">{passwordError}</p>
+                )}
+                {passwordSuccess && (
+                  <p className="text-sm text-green-500">{passwordSuccess}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button onClick={handleCreatePassword} size="sm">
+                    Create Password
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreatingPassword(false);
+                      setCreatePasswordNew("");
+                      setCreatePasswordConfirm("");
+                      setPasswordError(null);
+                    }}
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="text-sm font-medium">Change Password</label>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+              <Input
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <Input
+                type="password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <Button onClick={handlePasswordChange} size="sm">
+                Update Password
+              </Button>
+              {passwordError && (
+                <p className="text-sm text-red-500">{passwordError}</p>
+              )}
+              {passwordSuccess && (
+                <p className="text-sm text-green-500">{passwordSuccess}</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Email</label>
@@ -464,33 +728,116 @@ export function ProfileSettings({
 
       <div className="space-y-3 border-t border-border pt-4">
         <label className="text-sm font-medium">Linked Accounts</label>
-        <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-          <div>
-            <h3 className="text-sm font-medium">Google</h3>
-            <p className="text-xs text-muted-foreground">
-              Link your Google account for one-click sign in.
+        {linkStatus && (
+          <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+            <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {linkStatus}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              if (!storeUser) return;
-              const origin = window.location.origin;
-              await signInWithGoogle({
-                successUrl: `${origin}/users/${storeUser.username}?linked=google`,
-                failureUrl: `${origin}/users/${storeUser.username}?oauth=failed`,
-              });
-            }}
-          >
-            <LogIn className="mr-2 h-4 w-4" /> Link Google
-          </Button>
+        )}
+        <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium">Google</h3>
+              {loadingProviders ? (
+                <span className="text-xs text-muted-foreground">
+                  Loading...
+                </span>
+              ) : linkedProviders.includes("google") ? (
+                <Badge variant="secondary" className="text-xs">
+                  Linked
+                </Badge>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {linkedProviders.includes("google")
+                ? "Your Google account is linked for one-click sign in."
+                : "Link your Google account for one-click sign in."}
+            </p>
+          </div>
+          {loadingProviders ? (
+            <Button variant="outline" size="sm" disabled>
+              Loading...
+            </Button>
+          ) : linkedProviders.includes("google") ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!userHasPassword}
+              title={
+                !userHasPassword
+                  ? "You must create a password before unlinking Google"
+                  : ""
+              }
+              onClick={async () => {
+                if (!userHasPassword) {
+                  setLinkStatus(
+                    "Please create a password first before unlinking your Google account."
+                  );
+                  setTimeout(() => setLinkStatus(null), 5000);
+                  return;
+                }
+                if (
+                  !confirm(
+                    "Are you sure you want to unlink your Google account?"
+                  )
+                ) {
+                  return;
+                }
+                try {
+                  // Find the Google identity ID
+                  const { account } = await import("@/lib/appwrite/appwrite");
+                  const identities = await account.listIdentities();
+                  const googleIdentity = identities.identities.find(
+                    (id) => id.provider === "google"
+                  );
+                  if (googleIdentity) {
+                    await unlinkProvider(googleIdentity.$id);
+                    setLinkedProviders(
+                      linkedProviders.filter((p) => p !== "google")
+                    );
+                    setLinkStatus("Google account unlinked successfully.");
+                    setTimeout(() => setLinkStatus(null), 5000);
+                  }
+                } catch (error) {
+                  console.error("Failed to unlink Google:", error);
+                  setLinkStatus(
+                    "Failed to unlink Google account. Please try again."
+                  );
+                  setTimeout(() => setLinkStatus(null), 5000);
+                }
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />{" "}
+              {!userHasPassword ? "Create Password First" : "Unlink"}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (!storeUser) return;
+                const origin = window.location.origin;
+                await signInWithGoogle({
+                  successUrl: `${origin}/auth/oauth/callback?link=true&redirectTo=${encodeURIComponent(
+                    `/users/${storeUser.displaySlug || storeUser.username}`
+                  )}`,
+                  failureUrl: `${origin}/users/${
+                    storeUser.displaySlug || storeUser.username
+                  }?oauth=failed`,
+                });
+              }}
+            >
+              <LogIn className="mr-2 h-4 w-4" /> Link Google
+            </Button>
+          )}
         </div>
       </div>
       <div className="space-y-3 border-t border-border pt-4">
         <label className="text-sm font-medium">Messaging Settings</label>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+        <div className="p-4 border border-border rounded-lg space-y-4">
+          <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium">Direct Messages</h3>
               <p className="text-xs text-muted-foreground">
@@ -506,29 +853,13 @@ export function ProfileSettings({
             />
           </div>
 
-          <div className="p-4 border border-border rounded-lg">
+          <div>
             <h3 className="text-sm font-medium mb-2">Privacy</h3>
             <p className="text-xs text-muted-foreground mb-3">
               Control how you appear to others when messaging.
             </p>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm">Show online status</p>
-                  <p className="text-xs text-muted-foreground">
-                    Let others see when you&apos;re active
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={false}
-                  disabled={true}
-                  className="h-4 w-4 accent-primary"
-                  title="Coming soon"
-                />
-              </div>
-
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm">Allow message requests</p>
@@ -547,7 +878,7 @@ export function ProfileSettings({
             </div>
           </div>
 
-          <div className="p-4 border border-border rounded-lg">
+          <div>
             <h3 className="text-sm font-medium mb-2">Message History</h3>
             <p className="text-xs text-muted-foreground mb-3">
               Your direct messages are stored securely and can be accessed from

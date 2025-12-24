@@ -59,7 +59,7 @@ import { createFriendActions } from "./store/friends";
 import { createDailyRewardActions } from "./store/daily-rewards";
 import type { StoreState } from "./store/types";
 import type { User } from "./types";
-import { makeUniqueUsername } from "./usernames";
+import { generateDisplaySlug } from "./usernames";
 
 export const useStore = create<StoreState>((set, get) => {
   const notificationActions = createNotificationActions({
@@ -224,20 +224,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             usersData.find(
               (u) =>
                 u.email === user.email ||
+                u.displayName === user.name ||
+                u.displaySlug === user.name ||
                 u.username === user.name ||
                 u.id === user.id
             ) || null;
 
           if (!matchedUser) {
             try {
+              const displayName =
+                user.name || user.email.split("@")[0] || "user";
+              const existingSlugs = usersData.map(
+                (u) => u.displaySlug || u.username
+              );
+              const displaySlug = generateDisplaySlug(
+                displayName,
+                existingSlugs
+              );
               const created = await userService.create({
                 id: user.id,
-                username: makeUniqueUsername(
-                  user.name ||
-                    user.email.split("@")[0] ||
-                    `user-${Date.now().toString(36)}`,
-                  usersData.map((u) => u.username)
-                ),
+                username: displaySlug,
+                displayName,
+                displaySlug,
                 email: user.email,
                 balance: 100,
                 isAdmin: false,

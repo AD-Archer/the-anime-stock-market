@@ -67,16 +67,18 @@ export function UserHeader({
           <Avatar className="h-16 w-16">
             <AvatarImage
               src={getUserAvatarUrl(profileUser)}
-              alt={profileUser.username}
+              alt={profileUser.displayName || profileUser.username}
             />
             <AvatarFallback className="bg-primary/10 text-primary text-xl">
-              {getUserInitials(profileUser.username)}
+              {getUserInitials(
+                profileUser.displayName || profileUser.username
+              )}
             </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-3xl text-foreground">
-                {profileUser.username}
+                {profileUser.displayName || profileUser.username}
               </CardTitle>
               {profileUser.isAdmin && <Badge variant="secondary">Admin</Badge>}
             </div>

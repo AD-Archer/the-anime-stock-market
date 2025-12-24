@@ -2,21 +2,88 @@ import { Client, Account, Databases } from "appwrite";
 
 const client = new Client();
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
-const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
+// Configuration - prefer server-side only variables, fallback to NEXT_PUBLIC_ for backwards compatibility
+const endpoint =
+  process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
+const projectId =
+  process.env.APPWRITE_PROJECT_ID ||
+  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
 
+// Initialize client if we have config (server-side or build-time)
 if (endpoint && projectId) {
   client.setEndpoint(endpoint).setProject(projectId);
+} else if (typeof window !== "undefined") {
+  // Client-side: fetch config from API route at runtime synchronously
+  // This prevents secrets from being baked into the client bundle
+  // We need to ensure the client is initialized before use, so we'll do this eagerly
+  let configPromise: Promise<void> | null = null;
+
+  const initializeClient = async () => {
+    if (configPromise) return configPromise;
+
+    configPromise = (async () => {
+      try {
+        const res = await fetch("/api/appwrite-config");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch config: ${res.status}`);
+        }
+        const config = await res.json();
+        if (config.endpoint && config.projectId) {
+          client.setEndpoint(config.endpoint).setProject(config.projectId);
+        } else {
+          console.warn(
+            "Appwrite client not configured: failed to load config from API"
+          );
+        }
+      } catch (error) {
+        console.warn("Failed to load Appwrite config:", error);
+      }
+    })();
+
+    return configPromise;
+  };
+
+  // Start initialization immediately
+  initializeClient();
+
+  // Export a function to ensure client is initialized before use
+  (window as any).__ensureAppwriteInitialized = initializeClient;
 } else {
-  // Allow builds to succeed without Appwrite env configured.
-  // Any Appwrite calls will still fail at runtime until env is set.
+  // Server-side but no config - allow builds to succeed
   console.warn(
-    "Appwrite client not configured: missing NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID"
+    "Appwrite client not configured: missing APPWRITE_ENDPOINT/PROJECT_ID"
   );
 }
 
 export const account = new Account(client);
 export const databases = new Databases(client);
+
+// Helper function to ensure client is initialized before making any Appwrite calls
+export async function ensureAppwriteInitialized(): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  // If we already have endpoint and projectId from env vars, we're good
+  if (endpoint && projectId) return;
+
+  // Otherwise, wait for the async initialization
+  const ensureFn = (window as any).__ensureAppwriteInitialized;
+  if (ensureFn) {
+    await ensureFn();
+  } else {
+    // If initialization function doesn't exist, try to initialize now
+    try {
+      const res = await fetch("/api/appwrite-config");
+      if (res.ok) {
+        const config = await res.json();
+        if (config.endpoint && config.projectId) {
+          client.setEndpoint(config.endpoint).setProject(config.projectId);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to initialize Appwrite client:", error);
+    }
+  }
+}
 
 export async function refreshAppwriteJwt(): Promise<string | null> {
   if (typeof window === "undefined") {

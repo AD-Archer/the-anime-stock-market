@@ -14,9 +14,13 @@ export interface CommentSnapshot {
 export interface User {
   id: string;
   username: string;
+  displayName: string;
+  displaySlug: string;
   email: string;
   balance: number;
   isAdmin: boolean;
+  isBanned?: boolean;
+  hasPassword?: boolean;
   createdAt: Date;
   avatarUrl?: string | null;
   bannedUntil: Date | null;
