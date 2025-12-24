@@ -31,10 +31,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/anime-stock-market
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=true
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5

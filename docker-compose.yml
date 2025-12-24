@@ -8,19 +8,3 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
-
-# To add a database later, uncomment and modify the following service:
-# db:
-#   image: postgres:15-alpine  # or your preferred database
-#   environment:
-#     - POSTGRES_DB=anime_stock_db
-#     - POSTGRES_USER=user
-#     - POSTGRES_PASSWORD=password
-#   volumes:
-#     - postgres_data:/var/lib/postgresql/data
-#   ports:
-#     - "5432:5432"
-#   restart: unless-stopped
-
-# volumes:
-#   postgres_data:
