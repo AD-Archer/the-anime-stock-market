@@ -75,6 +75,8 @@ export interface StoreContextType {
     commentId: string,
     reaction: "like" | "dislike"
   ) => Promise<void>;
+  reopenReport: (reportId: string) => Promise<void>;
+  reopenAppeal: (appealId: string) => Promise<void>;
   updateContentPreferences: (preferences: {
     showNsfw?: boolean;
     showSpoilers?: boolean;
@@ -102,10 +104,13 @@ export interface StoreContextType {
     stockId: string,
     offeredPrice: number,
     targetUsers?: string[],
-    expiresInHours?: number
+    expiresInHours?: number,
+    targetShares?: number
   ) => void;
   acceptBuybackOffer: (offerId: string, shares: number) => void;
   declineBuybackOffer: (offerId: string) => void;
+  cancelBuybackOffer: (offerId: string) => void;
+  removeBuybackOffer: (offerId: string) => Promise<void>;
   sendNotification: (
     userId: string,
     type: Notification["type"],
@@ -130,6 +135,11 @@ export interface StoreContextType {
     reason: Report["reason"],
     description?: string
   ) => Promise<void>;
+  reportMessage: (
+    messageId: string,
+    reason: Report["reason"],
+    description?: string
+  ) => Promise<void>;
   getReports: () => Promise<Report[]>;
   resolveReport: (
     reportId: string,
@@ -138,8 +148,11 @@ export interface StoreContextType {
 
   sendMessage: (
     conversationId: string,
-    content: string
+    content: string,
+    replyToMessageId?: string
   ) => Promise<Message | null>;
+  editMessage: (messageId: string, content: string) => Promise<Message | null>;
+  deleteMessage: (messageId: string) => Promise<boolean>;
   getConversationMessages: (conversationId: string) => Promise<Message[]>;
   getUserConversations: (userId: string) => Promise<Conversation[]>;
   createConversation: (participantIds: string[]) => string;

@@ -5,13 +5,11 @@ import type { StoreState } from "./types";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
-export function createMessageActions({
-  setState,
-  getState,
-}: StoreMutators) {
+export function createMessageActions({ setState, getState }: StoreMutators) {
   const sendMessage = async (
     conversationId: string,
-    content: string
+    content: string,
+    replyToMessageId?: string
   ): Promise<Message | null> => {
     const currentUser = getState().currentUser;
     if (!currentUser) return null;
@@ -21,6 +19,7 @@ export function createMessageActions({
         conversationId,
         senderId: currentUser.id,
         content,
+        replyToMessageId,
       });
 
       setState((state) => ({
@@ -63,6 +62,48 @@ export function createMessageActions({
     }
   };
 
+  const editMessage = async (
+    messageId: string,
+    content: string
+  ): Promise<Message | null> => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return null;
+
+    const original = getState().messages.find((m) => m.id === messageId);
+    if (!original || original.senderId !== currentUser.id) return null;
+
+    const optimistic: Message = {
+      ...original,
+      content,
+      editedAt: new Date(),
+    };
+
+    setState((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? optimistic : m
+      ),
+    }));
+
+    try {
+      const updated = await messageService.update(messageId, {
+        content,
+        editedAt: new Date(),
+      });
+      setState((state) => ({
+        messages: state.messages.map((m) => (m.id === messageId ? updated : m)),
+      }));
+      return updated;
+    } catch (error) {
+      console.error("Failed to edit message:", error);
+      setState((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId && original ? original : m
+        ),
+      }));
+      return null;
+    }
+  };
+
   const getConversationMessages = async (
     conversationId: string
   ): Promise<Message[]> => {
@@ -72,7 +113,9 @@ export function createMessageActions({
       );
       setState((state) => {
         const existingIds = new Set(state.messages.map((m) => m.id));
-        const newMessages = fetchedMessages.filter((m) => !existingIds.has(m.id));
+        const newMessages = fetchedMessages.filter(
+          (m) => !existingIds.has(m.id)
+        );
         return { messages: [...state.messages, ...newMessages] };
       });
       return fetchedMessages;
@@ -126,10 +169,7 @@ export function createMessageActions({
     return conversationId;
   };
 
-  const markMessagesAsRead = async (
-    conversationId: string,
-    userId: string
-  ) => {
+  const markMessagesAsRead = async (conversationId: string, userId: string) => {
     try {
       const conversationMessages = getState().messages.filter(
         (m) => m.conversationId === conversationId
@@ -155,8 +195,29 @@ export function createMessageActions({
     }
   };
 
+  const deleteMessage = async (messageId: string): Promise<boolean> => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return false;
+
+    const message = getState().messages.find((m) => m.id === messageId);
+    if (!message || message.senderId !== currentUser.id) return false;
+
+    try {
+      await messageService.delete(messageId);
+      setState((state) => ({
+        messages: state.messages.filter((m) => m.id !== messageId),
+      }));
+      return true;
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+      return false;
+    }
+  };
+
   return {
     sendMessage,
+    editMessage,
+    deleteMessage,
     getConversationMessages,
     getUserConversations,
     createConversation,

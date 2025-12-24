@@ -18,6 +18,8 @@ const serializeReportPayload = (report: Partial<Report>) => {
     if (value === undefined) return;
     if (key === "commentContent") {
       metadata.commentContent = value;
+    } else if (key === "messageContent") {
+      metadata.messageContent = value;
     } else if (key === "threadContext" && Array.isArray(value)) {
       metadata.threadContext = value.map((snapshot: any) => ({
         ...snapshot,

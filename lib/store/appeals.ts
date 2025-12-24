@@ -50,8 +50,34 @@ export function createAppealActions({ setState, getState }: StoreMutators) {
     });
   };
 
+  const reopenAppeal = async (appealId: string): Promise<void> => {
+    const { currentUser, logAdminAction } = getState();
+    const admin = currentUser;
+    if (!admin) return;
+
+    const updated = await appealService.update(appealId, {
+      status: "pending",
+      resolvedAt: null,
+      resolvedBy: undefined,
+      resolutionNotes: undefined,
+    });
+
+    setState((state) => ({
+      appeals: state.appeals.map((appeal) =>
+        appeal.id === appealId ? updated : appeal
+      ),
+    }));
+
+    const appeal = getState().appeals.find((a) => a.id === appealId);
+    logAdminAction("ban", appeal?.userId || "unknown", {
+      action: "appeal_reopened",
+      appealId,
+    });
+  };
+
   return {
     submitAppeal,
     reviewAppeal,
+    reopenAppeal,
   };
 }

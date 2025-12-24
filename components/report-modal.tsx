@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,26 +25,38 @@ interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (reason: Report["reason"], description?: string) => Promise<void>;
-  commentId: string;
+  title?: string;
+  description?: string;
+  initialReason?: Report["reason"];
+  initialDescription?: string;
 }
 
 export function ReportModal({
   isOpen,
   onClose,
   onSubmit,
-  commentId,
+  title = "Report Content",
+  description = "Help us keep the community safe by reporting inappropriate content.",
+  initialReason = "other",
+  initialDescription = "",
 }: ReportModalProps) {
-  const [reason, setReason] = useState<Report["reason"]>("other");
-  const [description, setDescription] = useState("");
+  const [reason, setReason] = useState<Report["reason"]>(initialReason);
+  const [details, setDetails] = useState(initialDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setReason(initialReason);
+    setDetails(initialDescription);
+  }, [isOpen, initialReason, initialDescription]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      await onSubmit(reason, description.trim() || undefined);
+      await onSubmit(reason, details.trim() || undefined);
       onClose();
-      setReason("other");
-      setDescription("");
+      setReason(initialReason);
+      setDetails(initialDescription);
     } catch (error) {
       console.error("Failed to submit report:", error);
     } finally {
@@ -56,10 +68,8 @@ export function ReportModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Report Comment</DialogTitle>
-          <DialogDescription>
-            Help us keep the community safe by reporting inappropriate content.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
@@ -90,8 +100,8 @@ export function ReportModal({
             <Textarea
               id="description"
               placeholder="Provide additional details about this report..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
               rows={3}
             />
           </div>

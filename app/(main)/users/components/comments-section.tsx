@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ContentModeration } from "@/components/content-moderation";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import type { Comment, Stock } from "@/lib/types";
 
@@ -22,7 +23,9 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
     <Card>
       <CardHeader>
         <CardTitle>Recent Comments</CardTitle>
-        <CardDescription>Latest comments and replies made by this user.</CardDescription>
+        <CardDescription>
+          Latest comments and replies made by this user.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {comments.length === 0 ? (
@@ -36,6 +39,10 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
               const destination = comment.characterId
                 ? `/character/${comment.characterId}`
                 : `/anime/${comment.animeId}`;
+              const hasSensitiveContent = (comment.tags || []).some(
+                (tag) => tag === "nsfw" || tag === "spoiler"
+              );
+
               return (
                 <div key={comment.id} className="rounded border p-3 space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -52,22 +59,66 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                       {comment.timestamp.toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-sm text-foreground">{comment.content}</p>
-                  {(comment.tags || []).length > 0 && (
-                    <div className="flex gap-2">
-                      {comment.tags?.map((tag) => (
-                        <Badge
-                          key={`${comment.id}-${tag}`}
-                          variant={tag === "nsfw" ? "destructive" : "secondary"}
-                        >
-                          {tag.toUpperCase()}
-                        </Badge>
-                      ))}
-                    </div>
+
+                  {hasSensitiveContent ? (
+                    (() => {
+                      const primaryTag = (comment.tags || []).includes("nsfw")
+                        ? "nsfw"
+                        : "spoiler";
+                      const reason =
+                        (comment.tags || []).length > 1
+                          ? (comment.tags || [])
+                              .map((tag) => tag.toUpperCase())
+                              .join(" & ")
+                          : undefined;
+                      return (
+                        <ContentModeration type={primaryTag} reason={reason}>
+                          <p className="text-sm text-foreground">
+                            {comment.content}
+                          </p>
+                          {(comment.tags || []).length > 0 && (
+                            <div className="flex gap-2 mt-2">
+                              {comment.tags?.map((tag) => (
+                                <Badge
+                                  key={`${comment.id}-${tag}`}
+                                  variant={
+                                    tag === "nsfw" ? "destructive" : "secondary"
+                                  }
+                                >
+                                  {tag.toUpperCase()}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </ContentModeration>
+                      );
+                    })()
+                  ) : (
+                    <>
+                      <p className="text-sm text-foreground">
+                        {comment.content}
+                      </p>
+                      {(comment.tags || []).length > 0 && (
+                        <div className="flex gap-2">
+                          {comment.tags?.map((tag) => (
+                            <Badge
+                              key={`${comment.id}-${tag}`}
+                              variant={
+                                tag === "nsfw" ? "destructive" : "secondary"
+                              }
+                            >
+                              {tag.toUpperCase()}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
+
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <ThumbsUp className="h-3 w-3" /> {comment.likedBy.length} •{" "}
-                    <ThumbsDown className="h-3 w-3" /> {comment.dislikedBy.length}
+                    <ThumbsDown className="h-3 w-3" />{" "}
+                    {comment.dislikedBy.length}
                   </div>
                 </div>
               );

@@ -10,6 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -42,9 +50,11 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
+import { SellDialog } from "@/components/sell-dialog";
 import { ComparisonChart } from "@/app/(main)/character/components/comparison-chart";
 import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
+import { MessageContent } from "@/components/chat/message-content";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -90,6 +100,7 @@ function CommentThread({
   const [editContent, setEditContent] = useState(comment.content);
   const [showReplies, setShowReplies] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [replyTag, setReplyTag] = useState<"none" | ContentTag>("none");
 
   const user = users.find((u) => u.id === comment.userId);
@@ -133,9 +144,8 @@ function CommentThread({
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this comment?")) {
-      await onDelete(comment.id);
-    }
+    await onDelete(comment.id);
+    setShowDeleteDialog(false);
   };
 
   const sortedReplies = replies.sort(
@@ -163,7 +173,7 @@ function CommentThread({
           }
           defaultHidden={shouldHide}
         >
-          <p className="text-sm text-muted-foreground">{content}</p>
+          <MessageContent content={content} className="text-muted-foreground" />
         </ContentModeration>
       );
     }
@@ -181,7 +191,10 @@ function CommentThread({
           reason={reason}
           defaultHidden={!prefersNsfw}
         >
-          <p className="text-sm text-muted-foreground">{nsfwContent}</p>
+          <MessageContent
+            content={nsfwContent}
+            className="text-muted-foreground"
+          />
         </ContentModeration>
       );
     }
@@ -196,12 +209,17 @@ function CommentThread({
           reason={reason}
           defaultHidden={!prefersSpoilers}
         >
-          <p className="text-sm text-muted-foreground">{spoilerContent}</p>
+          <MessageContent
+            content={spoilerContent}
+            className="text-muted-foreground"
+          />
         </ContentModeration>
       );
     }
 
-    return <p className="text-sm text-muted-foreground">{content}</p>;
+    return (
+      <MessageContent content={content} className="text-muted-foreground" />
+    );
   };
 
   return (
@@ -256,7 +274,7 @@ function CommentThread({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 className="h-6 px-2 text-xs text-destructive hover:text-destructive"
               >
                 Delete
@@ -401,13 +419,36 @@ function CommentThread({
         )}
       </div>
 
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this comment? This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         onSubmit={async (reason, description) => {
           await onReport(comment.id, reason, description);
         }}
-        commentId={comment.id}
+        title="Report Comment"
       />
 
       {showReplies && sortedReplies.length > 0 && (
@@ -451,11 +492,13 @@ export default function CharacterPage({
     users,
     reportComment,
     toggleCommentReaction,
+    getUserPortfolio,
   } = useStore();
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [comment, setComment] = useState("");
   const [commentTag, setCommentTag] = useState<"none" | ContentTag>("none");
   const [showBuyDialog, setShowBuyDialog] = useState(false);
+  const [showSellDialog, setShowSellDialog] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -474,6 +517,16 @@ export default function CharacterPage({
     .filter((t) => t.stockId === id)
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   const comments = getCharacterComments(id);
+  const animeSlug = stock?.anime
+    ? stock.anime.toLowerCase().replace(/\s+/g, "-")
+    : "";
+  const userShares = useMemo(() => {
+    if (!currentUser) return 0;
+    const portfolio = getUserPortfolio(currentUser.id).find(
+      (p) => p.stockId === id
+    );
+    return portfolio?.shares ?? 0;
+  }, [currentUser, getUserPortfolio, id]);
 
   // Process comments into threaded structure
   const { commentMap, rootComments } = useMemo(() => {
@@ -586,7 +639,7 @@ export default function CharacterPage({
   return (
     <div className="bg-background">
       <div className="container mx-auto px-4 py-8">
-        <Link href="/">
+        <Link href="/market">
           <Button variant="ghost" className="mb-6">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Market
@@ -608,7 +661,14 @@ export default function CharacterPage({
               <h1 className="mb-2 text-2xl font-bold text-foreground">
                 {stock.characterName}
               </h1>
-              <p className="mb-4 text-muted-foreground">{stock.anime}</p>
+              <p className="mb-4 text-muted-foreground">
+                <Link
+                  href={`/anime/${animeSlug}`}
+                  className="hover:underline text-foreground"
+                >
+                  {stock.anime}
+                </Link>
+              </p>
               <p className="mb-6 text-sm text-muted-foreground">
                 {stock.description}
               </p>
@@ -664,9 +724,18 @@ export default function CharacterPage({
                 </div>
               </div>
 
-              <Button onClick={() => setShowBuyDialog(true)} className="w-full">
-                Buy Shares
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => setShowBuyDialog(true)}>
+                  Buy Shares
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSellDialog(true)}
+                  disabled={!currentUser || userShares <= 0}
+                >
+                  Sell Shares
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -895,21 +964,42 @@ export default function CharacterPage({
                       </p>
                     ) : (
                       <div className="space-y-4">
-                        {rootComments.map((thread) => (
-                          <CommentThread
-                            key={thread.id}
-                            comment={thread}
-                            commentMap={commentMap}
-                            users={users}
-                            currentUser={currentUser}
-                            onReply={handleAddReply}
-                            onEdit={handleEditComment}
-                            onDelete={handleDeleteComment}
-                            onReport={handleReportComment}
-                            onToggleReaction={toggleCommentReaction}
-                            level={0}
-                          />
-                        ))}
+                        {(() => {
+                          let lastDate = "";
+                          return rootComments.map((thread) => {
+                            const dateLabel =
+                              thread.timestamp.toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              });
+                            const showDate = dateLabel !== lastDate;
+                            lastDate = dateLabel;
+                            return (
+                              <div key={thread.id} className="space-y-2">
+                                {showDate && (
+                                  <div className="flex justify-center">
+                                    <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                                      {dateLabel}
+                                    </span>
+                                  </div>
+                                )}
+                                <CommentThread
+                                  comment={thread}
+                                  commentMap={commentMap}
+                                  users={users}
+                                  currentUser={currentUser}
+                                  onReply={handleAddReply}
+                                  onEdit={handleEditComment}
+                                  onDelete={handleDeleteComment}
+                                  onReport={handleReportComment}
+                                  onToggleReaction={toggleCommentReaction}
+                                  level={0}
+                                />
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </TabsContent>
@@ -974,6 +1064,13 @@ export default function CharacterPage({
 
       {showBuyDialog && (
         <BuyDialog stockId={id} onClose={() => setShowBuyDialog(false)} />
+      )}
+      {showSellDialog && (
+        <SellDialog
+          stockId={id}
+          maxShares={userShares}
+          onClose={() => setShowSellDialog(false)}
+        />
       )}
     </div>
   );

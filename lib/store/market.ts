@@ -15,6 +15,7 @@ import {
   transactionService,
   userService,
   priceHistoryService,
+  buybackOfferService,
 } from "../database";
 import type { StoreState } from "./types";
 
@@ -380,6 +381,14 @@ export function createMarketActions({
       console.warn("Failed to check awards:", error);
     });
 
+    // Check for early bird investor award (bought within 1 hour of stock creation)
+    const { unlockAward } = getState();
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    if (stock.createdAt >= oneHourAgo && unlockAward) {
+      unlockAward(currentUser.id, "early_bird_investor").catch(() => {});
+    }
+
     return true;
   };
 
@@ -501,7 +510,8 @@ export function createMarketActions({
   };
 
   const createStock = (stock: Omit<Stock, "id" | "createdAt">) => {
-    const { stocks, priceHistory, logAdminAction } = getState();
+    const { stocks, priceHistory, logAdminAction, users, sendNotification } =
+      getState();
     const newStock: Stock = {
       ...stock,
       id: `stock-${Date.now()}`,
@@ -522,6 +532,23 @@ export function createMarketActions({
       characterName: newStock.characterName,
       anime: newStock.anime,
       initialPrice: newStock.currentPrice,
+    });
+
+    // Broadcast IPO notification to all users
+    users.forEach((u) => {
+      sendNotification(
+        u.id,
+        "stock_ipo",
+        `New IPO: ${newStock.characterName}`,
+        `${newStock.characterName} (${
+          newStock.anime
+        }) just listed at $${newStock.currentPrice.toFixed(2)}.`,
+        {
+          stockId: newStock.id,
+          anime: newStock.anime,
+          price: newStock.currentPrice,
+        }
+      );
     });
   };
 
@@ -564,7 +591,8 @@ export function createMarketActions({
   };
 
   const createShares = (stockId: string, newShareCount: number) => {
-    const { stocks, priceHistory, logAdminAction } = getState();
+    const { stocks, priceHistory, logAdminAction, portfolios, unlockAward } =
+      getState();
     const stock = stocks.find((s) => s.id === stockId);
     if (!stock || newShareCount <= 0) return;
 
@@ -603,6 +631,16 @@ export function createMarketActions({
       newPrice: Number(newPrice.toFixed(2)),
       dilutionFactor: Number((shareDilutionFactor * 100).toFixed(2)),
     });
+
+    // Unlock dilution survivor award for all users holding this stock
+    if (unlockAward) {
+      const stockHolders = portfolios.filter((p) => p.stockId === stockId);
+      stockHolders.forEach((portfolio) => {
+        unlockAward(portfolio.userId, "stock_dilution_survivor").catch(
+          () => {}
+        );
+      });
+    }
   };
 
   const getUserPortfolio = (userId: string): Portfolio[] => {
@@ -646,7 +684,8 @@ export function createMarketActions({
     stockId: string,
     offeredPrice: number,
     targetUsers?: string[],
-    expiresInHours: number = 24
+    expiresInHours: number = 24,
+    targetShares?: number
   ) => {
     const { buybackOffers, users, stocks, logAdminAction } = getState();
     const timestamp = Date.now();
@@ -656,10 +695,28 @@ export function createMarketActions({
       offeredPrice,
       offeredBy: getState().currentUser?.id || "admin",
       targetUsers,
+      createdAt: new Date(timestamp),
       expiresAt: new Date(timestamp + expiresInHours * 60 * 60 * 1000),
       status: "active",
+      targetShares,
+      acceptedShares: 0,
+      acceptedByUsers: [],
     };
     setState({ buybackOffers: [...buybackOffers, newOffer] });
+
+    // Persist offer to database (best effort)
+    buybackOfferService
+      .create(newOffer)
+      .then((saved) => {
+        setState((state) => ({
+          buybackOffers: state.buybackOffers.map((o) =>
+            o.id === newOffer.id ? saved : o
+          ),
+        }));
+      })
+      .catch((error) => {
+        console.warn("Failed to persist buyback offer:", error);
+      });
 
     const targetUserIds = targetUsers || users.map((u) => u.id);
     targetUserIds.forEach((userId) => {
@@ -676,11 +733,18 @@ export function createMarketActions({
   };
 
   const acceptBuybackOffer = (offerId: string, shares: number) => {
-    const currentUser = getState().currentUser;
+    const state = getState();
+    const currentUser = state.currentUser;
     if (!currentUser) return;
 
-    const { buybackOffers, portfolios, stocks, users, transactions } =
-      getState();
+    const {
+      buybackOffers,
+      portfolios,
+      stocks,
+      users,
+      transactions,
+      unlockAward,
+    } = state;
     const offer = buybackOffers.find((o) => o.id === offerId);
     if (!offer || offer.status !== "active" || offer.expiresAt < new Date())
       return;
@@ -690,7 +754,16 @@ export function createMarketActions({
     );
     if (!userPortfolio || userPortfolio.shares < shares) return;
 
-    const totalAmount = offer.offeredPrice * shares;
+    // If offer has a targetShares cap, ensure we don't exceed remaining
+    const alreadyAccepted = offer.acceptedShares ?? 0;
+    const remainingCap = offer.targetShares
+      ? Math.max(offer.targetShares - alreadyAccepted, 0)
+      : undefined;
+    const allowedShares =
+      remainingCap !== undefined ? Math.min(shares, remainingCap) : shares;
+    if (allowedShares <= 0) return;
+
+    const totalAmount = offer.offeredPrice * allowedShares;
 
     const updatedUsers = users.map((u) =>
       u.id === currentUser.id ? { ...u, balance: u.balance + totalAmount } : u
@@ -698,32 +771,38 @@ export function createMarketActions({
     const updatedPortfolios = portfolios
       .map((p) =>
         p.userId === currentUser.id && p.stockId === offer.stockId
-          ? { ...p, shares: p.shares - shares }
+          ? { ...p, shares: p.shares - allowedShares }
           : p
       )
       .filter((p) => p.shares > 0);
     const updatedStocks = stocks.map((s) =>
       s.id === offer.stockId
-        ? { ...s, availableShares: s.availableShares + shares }
+        ? { ...s, availableShares: s.availableShares + allowedShares }
         : s
     );
-    const updatedOffers = buybackOffers.map((o) =>
-      o.id === offerId
-        ? {
-            ...o,
-            status: "accepted" as const,
-            acceptedBy: currentUser.id,
-            acceptedShares: shares,
-          }
-        : o
-    );
+    const newAcceptedShares = (offer.acceptedShares ?? 0) + allowedShares;
+    const reachedTarget =
+      offer.targetShares !== undefined &&
+      newAcceptedShares >= offer.targetShares;
+    const updatedOffers = buybackOffers.map((o) => {
+      if (o.id !== offerId) return o;
+      const existingUsers = new Set(o.acceptedByUsers ?? []);
+      existingUsers.add(currentUser.id);
+      return {
+        ...o,
+        acceptedBy: currentUser.id, // keep legacy field for backward compatibility
+        acceptedByUsers: Array.from(existingUsers),
+        acceptedShares: newAcceptedShares,
+        status: reachedTarget ? ("accepted" as const) : ("active" as const),
+      };
+    });
 
     const newTransaction: Transaction = {
       id: `tx-${Date.now()}`,
       userId: currentUser.id,
       stockId: offer.stockId,
       type: "sell",
-      shares,
+      shares: allowedShares,
       pricePerShare: offer.offeredPrice,
       totalAmount,
       timestamp: new Date(),
@@ -748,6 +827,34 @@ export function createMarketActions({
       shares,
       totalAmount,
     });
+
+    // Persist offer status change
+    buybackOfferService
+      .update(offerId, {
+        status: reachedTarget ? "accepted" : "active",
+        acceptedBy: currentUser.id,
+        acceptedByUsers: updatedOffers.find((o) => o.id === offerId)
+          ?.acceptedByUsers,
+        acceptedShares: newAcceptedShares,
+      })
+      .catch((error) => {
+        console.warn("Failed to persist buyback acceptance:", error);
+      });
+
+    // Count total accepted buyback offers for the user
+    const acceptedCount = updatedOffers.filter((o) =>
+      (o.acceptedByUsers ?? []).includes(currentUser.id)
+    ).length;
+
+    // Unlock buyback awards
+    if (unlockAward) {
+      if (acceptedCount === 1) {
+        unlockAward(currentUser.id, "buyback_starter").catch(() => {});
+      }
+      if (acceptedCount === 5) {
+        unlockAward(currentUser.id, "buyback_broker").catch(() => {});
+      }
+    }
   };
 
   const declineBuybackOffer = (offerId: string) => {
@@ -761,6 +868,48 @@ export function createMarketActions({
       action: "buyback_declined",
       offerId,
     });
+
+    // Persist offer decline
+    buybackOfferService
+      .update(offerId, { status: "declined" })
+      .catch((error) => {
+        console.warn("Failed to persist buyback decline:", error);
+      });
+  };
+
+  const cancelBuybackOffer = (offerId: string) => {
+    const { logAdminAction } = getState();
+    setState((state) => ({
+      buybackOffers: state.buybackOffers.map((o) =>
+        o.id === offerId ? { ...o, status: "expired" as const } : o
+      ),
+    }));
+    logAdminAction("stock_removal", getState().currentUser?.id || "unknown", {
+      action: "buyback_cancelled",
+      offerId,
+    });
+
+    buybackOfferService
+      .update(offerId, { status: "expired" })
+      .catch((error) => {
+        console.warn("Failed to persist buyback cancel:", error);
+      });
+  };
+
+  const removeBuybackOffer = async (offerId: string) => {
+    const { logAdminAction } = getState();
+    setState((state) => ({
+      buybackOffers: state.buybackOffers.filter((o) => o.id !== offerId),
+    }));
+    logAdminAction("stock_removal", getState().currentUser?.id || "unknown", {
+      action: "buyback_removed",
+      offerId,
+    });
+    try {
+      await buybackOfferService.delete(offerId);
+    } catch (error) {
+      console.warn("Failed to delete buyback offer:", error);
+    }
   };
 
   return {
@@ -777,5 +926,7 @@ export function createMarketActions({
     createBuybackOffer,
     acceptBuybackOffer,
     declineBuybackOffer,
+    cancelBuybackOffer,
+    removeBuybackOffer,
   };
 }

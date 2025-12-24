@@ -48,6 +48,9 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
   } = useStore();
 
   const [filterType, setFilterType] = useState<string>("all");
+  const [sellQuantities, setSellQuantities] = useState<Record<string, string>>(
+    {}
+  );
 
   const notifications = useMemo(
     () => (user?.id ? getUserNotifications(user.id) : []),
@@ -309,18 +312,49 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
                       const userShares =
                         userPortfolio.find((p) => p.stockId === stock.id)
                           ?.shares || 0;
+                      const sellQty =
+                        sellQuantities[notification.id] ??
+                        (userShares > 0 ? "" : "0");
+                      const remainingCap = offer.targetShares
+                        ? Math.max(
+                            offer.targetShares - (offer.acceptedShares ?? 0),
+                            0
+                          )
+                        : undefined;
+                      const maxSell =
+                        remainingCap !== undefined
+                          ? Math.min(userShares, remainingCap)
+                          : userShares;
                       return (
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex gap-2 items-center">
+                          <input
+                            type="number"
+                            min={1}
+                            max={Math.max(maxSell, 0)}
+                            value={sellQty}
+                            onChange={(e) =>
+                              setSellQuantities((prev) => ({
+                                ...prev,
+                                [notification.id]: e.target.value,
+                              }))
+                            }
+                            placeholder={maxSell > 0 ? `Max ${maxSell}` : "0"}
+                            className="w-24 rounded border px-2 py-1 text-sm"
+                          />
                           <Button
                             size="sm"
                             onClick={async (event) => {
                               event.stopPropagation();
-                              if (userShares > 0) {
-                                acceptBuybackOffer(offer.id, userShares);
+                              const qty = Number.parseInt(sellQty || "0");
+                              if (maxSell > 0 && qty > 0) {
+                                acceptBuybackOffer(
+                                  offer.id,
+                                  Math.min(qty, maxSell)
+                                );
                                 await handleMarkRead(notification.id);
                               }
                             }}
-                            disabled={userShares === 0}
+                            disabled={maxSell === 0}
                           >
                             Accept
                           </Button>

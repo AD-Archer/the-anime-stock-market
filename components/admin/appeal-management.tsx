@@ -15,27 +15,33 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { AppealStatus } from "@/lib/types";
 
-const statusMap: Record<AppealStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+const statusMap: Record<
+  AppealStatus,
+  {
+    label: string;
+    variant: "default" | "secondary" | "outline" | "destructive";
+  }
+> = {
   pending: { label: "Pending", variant: "secondary" },
   approved: { label: "Approved", variant: "default" },
   rejected: { label: "Rejected", variant: "destructive" },
 };
 
 export function AppealManagement() {
-  const { appeals, users, reviewAppeal } = useStore();
+  const { appeals, users, reviewAppeal, reopenAppeal } = useStore();
   const { toast } = useToast();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
 
   const sortedAppeals = useMemo(
-    () => [...appeals].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    () =>
+      [...appeals].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      ),
     [appeals]
   );
 
-  const handleReview = async (
-    appealId: string,
-    status: AppealStatus
-  ) => {
+  const handleReview = async (appealId: string, status: AppealStatus) => {
     setSubmitting(appealId + status);
     try {
       await reviewAppeal(appealId, status, notes[appealId]);
@@ -84,7 +90,18 @@ export function AppealManagement() {
                     Submitted {appeal.createdAt.toLocaleString()}
                   </CardDescription>
                 </div>
-                <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                  {appeal.status !== "pending" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void reopenAppeal(appeal.id)}
+                    >
+                      Reopen
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-left">
@@ -99,7 +116,8 @@ export function AppealManagement() {
               )}
               {appeal.status !== "pending" && appeal.resolvedAt && (
                 <p className="text-xs text-muted-foreground">
-                  Resolved {appeal.resolvedAt.toLocaleString()} by {appeal.resolvedBy || "admin"}
+                  Resolved {appeal.resolvedAt.toLocaleString()} by{" "}
+                  {appeal.resolvedBy || "admin"}
                 </p>
               )}
               {appeal.status === "pending" && (
@@ -108,7 +126,10 @@ export function AppealManagement() {
                     placeholder="Internal notes for this decision"
                     value={notes[appeal.id] ?? ""}
                     onChange={(event) =>
-                      setNotes((prev) => ({ ...prev, [appeal.id]: event.target.value }))
+                      setNotes((prev) => ({
+                        ...prev,
+                        [appeal.id]: event.target.value,
+                      }))
                     }
                   />
                   <div className="flex gap-2">

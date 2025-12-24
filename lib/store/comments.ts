@@ -188,16 +188,16 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
       };
     };
 
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === commentId ? applyReaction(comment) : comment
-      )
-    );
-
     const targetComment = getState().comments.find((c) => c.id === commentId);
     if (!targetComment) return;
 
     const updated = applyReaction(targetComment);
+
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === commentId ? updated : comment
+      )
+    );
 
     try {
       await commentService.update(commentId, {

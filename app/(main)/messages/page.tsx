@@ -5,6 +5,8 @@ import { useStore } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ReportModal } from "@/components/report-modal";
+import { MessageContent } from "@/components/chat/message-content";
 import {
   Card,
   CardContent,
@@ -30,8 +32,12 @@ import {
   Search,
   Plus,
   User as UserIcon,
+  CornerUpLeft,
+  Flag,
+  Pencil,
 } from "lucide-react";
 import type { Message, Conversation } from "@/lib/types";
+import { extractUrls, isExternalUrl } from "@/lib/chat/link-utils";
 
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -41,10 +47,13 @@ export default function MessagesPage() {
     messages,
     conversations,
     sendMessage,
+    editMessage,
+    deleteMessage,
     getConversationMessages,
     getUserConversations,
     createConversation,
     markMessagesAsRead,
+    reportMessage,
   } = useStore();
   const router = useRouter();
   const [selectedConversationId, setSelectedConversationId] = useState<
@@ -56,6 +65,25 @@ export default function MessagesPage() {
   const [recipientUsername, setRecipientUsername] = useState("");
   const [messageContent, setMessageContent] = useState("");
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(
+    null
+  );
+  const [reportPrefill, setReportPrefill] = useState<{
+    reason?:
+      | "spam"
+      | "harassment"
+      | "inappropriate"
+      | "nsfw"
+      | "spoiler"
+      | "other";
+    description?: string;
+  } | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
+    null
+  );
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -127,6 +155,12 @@ export default function MessagesPage() {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }, [messages, selectedConversationId]);
 
+  const conversationMessageMap = useMemo(() => {
+    return new Map(
+      conversationMessages.map((message) => [message.id, message])
+    );
+  }, [conversationMessages]);
+
   const otherParticipant = useMemo(() => {
     if (!selectedConversation || !currentUser) return null;
     const otherUserId = selectedConversation.participants.find(
@@ -154,10 +188,12 @@ export default function MessagesPage() {
 
     const message = await sendMessage(
       selectedConversationId,
-      newMessage.trim()
+      newMessage.trim(),
+      replyToMessageId || undefined
     );
     if (message) {
       setNewMessage("");
+      setReplyToMessageId(null);
     }
   };
 
@@ -191,6 +227,38 @@ export default function MessagesPage() {
       setRecipientUsername(users.find((u) => u.id === userId)?.username || "");
     }
     setSearchQuery("");
+  };
+
+  const handleStartReply = (messageId: string) => {
+    setReplyToMessageId(messageId);
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const handleStartEdit = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+    setReplyToMessageId(null);
+  };
+
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editingContent.trim()) return;
+    await editMessage(messageId, editingContent.trim());
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const handleReport = (messageId: string, description?: string) => {
+    setReportingMessageId(messageId);
+    setReportPrefill(description ? { reason: "spam", description } : null);
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!deletingMessageId) return;
+    const success = await deleteMessage(deletingMessageId);
+    if (success) {
+      setDeletingMessageId(null);
+    }
   };
 
   if (authLoading || !currentUser) {
@@ -466,69 +534,247 @@ export default function MessagesPage() {
                       <p>No messages yet. Start the conversation!</p>
                     </div>
                   ) : (
-                    conversationMessages.map((message) => {
-                      const isFromMe = message.senderId === currentUser.id;
+                    (() => {
+                      let lastDate = "";
+                      return conversationMessages.map((message) => {
+                        const isFromMe = message.senderId === currentUser.id;
+                        const dateLabel = message.createdAt.toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" }
+                        );
+                        const showDate = dateLabel !== lastDate;
+                        lastDate = dateLabel;
+                        const isEditing = editingMessageId === message.id;
+                        const replyMessage = message.replyToMessageId
+                          ? conversationMessageMap.get(message.replyToMessageId)
+                          : null;
+                        const replyAuthor = replyMessage
+                          ? users.find((u) => u.id === replyMessage.senderId)
+                          : null;
+                        const externalUrls = extractUrls(
+                          message.content
+                        ).filter(isExternalUrl);
 
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex gap-3 ${
-                            isFromMe ? "justify-end" : "justify-start"
-                          }`}
-                        >
-                          {!isFromMe && (
-                            <Link href={`/users/${message.senderId}`}>
-                              <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
-                                <AvatarFallback className="text-xs">
-                                  {otherParticipant.username
-                                    .slice(0, 2)
-                                    .toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                            </Link>
-                          )}
-                          <div
-                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                              isFromMe
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted"
-                            }`}
-                          >
-                            <p className="text-sm">{message.content}</p>
-                            <p className="text-xs opacity-70 mt-1">
-                              {message.createdAt.toLocaleTimeString()}
-                            </p>
+                        return (
+                          <div key={message.id} className="space-y-2">
+                            {showDate && (
+                              <div className="flex justify-center">
+                                <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                                  {dateLabel}
+                                </span>
+                              </div>
+                            )}
+                            <div
+                              className={`flex gap-3 ${
+                                isFromMe ? "justify-end" : "justify-start"
+                              }`}
+                            >
+                              {!isFromMe && (
+                                <Link href={`/users/${message.senderId}`}>
+                                  <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
+                                    <AvatarFallback className="text-xs">
+                                      {otherParticipant.username
+                                        .slice(0, 2)
+                                        .toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </Link>
+                              )}
+                              <div
+                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                  isFromMe
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted"
+                                }`}
+                              >
+                                {replyMessage && (
+                                  <div className="mb-2 rounded-md border border-muted/40 bg-background/60 p-2 text-xs">
+                                    <p className="font-medium">
+                                      {replyAuthor?.username || "Unknown"}
+                                    </p>
+                                    <p className="text-muted-foreground line-clamp-2">
+                                      {replyMessage.content}
+                                    </p>
+                                  </div>
+                                )}
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={editingContent}
+                                      onChange={(e) =>
+                                        setEditingContent(e.target.value)
+                                      }
+                                      rows={3}
+                                      className="text-sm"
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() =>
+                                          handleSaveEdit(message.id)
+                                        }
+                                      >
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setEditingMessageId(null);
+                                          setEditingContent("");
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <MessageContent
+                                    content={message.content}
+                                    linkClassName={
+                                      isFromMe
+                                        ? "text-primary-foreground underline"
+                                        : "text-primary underline"
+                                    }
+                                  />
+                                )}
+                                <div className="mt-2 flex items-center justify-between text-xs opacity-70">
+                                  <span>
+                                    {message.createdAt.toLocaleTimeString()}
+                                    {message.editedAt && (
+                                      <span className="ml-1">(edited)</span>
+                                    )}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() =>
+                                        handleStartReply(message.id)
+                                      }
+                                    >
+                                      <CornerUpLeft className="mr-1 h-3 w-3" />
+                                      Reply
+                                    </Button>
+                                    {isFromMe && !isEditing && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 text-xs"
+                                          onClick={() =>
+                                            handleStartEdit(message)
+                                          }
+                                        >
+                                          <Pencil className="mr-1 h-3 w-3" />
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 text-xs text-destructive"
+                                          onClick={() =>
+                                            setDeletingMessageId(message.id)
+                                          }
+                                        >
+                                          Delete
+                                        </Button>
+                                      </>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() => handleReport(message.id)}
+                                    >
+                                      <Flag className="mr-1 h-3 w-3" />
+                                      Report
+                                    </Button>
+                                    {externalUrls.length > 0 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={() =>
+                                          handleReport(
+                                            message.id,
+                                            `Suspicious link: ${externalUrls[0]}`
+                                          )
+                                        }
+                                      >
+                                        <Flag className="mr-1 h-3 w-3" />
+                                        Report Link
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {isFromMe && (
+                                <Link href={`/users/${currentUser.id}`}>
+                                  <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
+                                    <AvatarFallback className="text-xs">
+                                      {currentUser.username
+                                        .slice(0, 2)
+                                        .toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </Link>
+                              )}
+                            </div>
                           </div>
-                          {isFromMe && (
-                            <Link href={`/users/${currentUser.id}`}>
-                              <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
-                                <AvatarFallback className="text-xs">
-                                  {currentUser.username
-                                    .slice(0, 2)
-                                    .toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                            </Link>
-                          )}
-                        </div>
-                      );
-                    })
+                        );
+                      });
+                    })()
                   )}
                 </div>
-                <div className="flex gap-2 p-4 border-t">
-                  <Input
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                <div className="border-t p-4 space-y-2">
+                  {replyToMessageId &&
+                    (() => {
+                      const replyMessage =
+                        conversationMessageMap.get(replyToMessageId) || null;
+                      const replyUser = replyMessage
+                        ? users.find((u) => u.id === replyMessage.senderId)
+                        : null;
+                      if (!replyMessage) return null;
+                      return (
+                        <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-xs">
+                          <div>
+                            <p className="font-medium">
+                              Replying to {replyUser?.username || "Unknown"}
+                            </p>
+                            <p className="text-muted-foreground line-clamp-1">
+                              {replyMessage.content}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setReplyToMessageId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type a message..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" && handleSendMessage()
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim()}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </>
@@ -545,6 +791,46 @@ export default function MessagesPage() {
           )}
         </Card>
       </div>
+      <ReportModal
+        isOpen={Boolean(reportingMessageId)}
+        onClose={() => {
+          setReportingMessageId(null);
+          setReportPrefill(null);
+        }}
+        onSubmit={async (reason, description) => {
+          if (!reportingMessageId) return;
+          await reportMessage(reportingMessageId, reason, description);
+        }}
+        title="Report Message"
+        description="Report suspicious or inappropriate messages."
+        initialReason={reportPrefill?.reason ?? "other"}
+        initialDescription={reportPrefill?.description ?? ""}
+      />
+      <Dialog
+        open={Boolean(deletingMessageId)}
+        onOpenChange={(open) => !open && setDeletingMessageId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Message</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete this message? This action cannot be
+            undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeletingMessageId(null)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteMessage}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

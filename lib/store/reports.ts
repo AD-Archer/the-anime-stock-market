@@ -39,6 +39,7 @@ export function createReportActions({
       const newReport = await reportService.create({
         reporterId: currentUser.id,
         reportedUserId: comment.userId,
+        contentType: "comment",
         commentId,
         commentContent: comment.content,
         reason,
@@ -51,6 +52,35 @@ export function createReportActions({
       setState((state) => ({ reports: [...state.reports, newReport] }));
     } catch (error) {
       console.warn("Failed to create report:", error);
+    }
+  };
+
+  const reportMessage = async (
+    messageId: string,
+    reason: Report["reason"],
+    description?: string
+  ) => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return;
+
+    const message = getState().messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    try {
+      const newReport = await reportService.create({
+        reporterId: currentUser.id,
+        reportedUserId: message.senderId,
+        contentType: "message",
+        messageId,
+        messageContent: message.content,
+        reason,
+        description,
+        status: "pending",
+        createdAt: new Date(),
+      });
+      setState((state) => ({ reports: [...state.reports, newReport] }));
+    } catch (error) {
+      console.warn("Failed to create message report:", error);
     }
   };
 
@@ -104,35 +134,46 @@ export function createReportActions({
 
       if (resolution === "warn" || resolution === "ban") {
         const location =
-          targetReport.commentLocation ||
-          (() => {
-            const comment = getState().comments.find(
-              (c) => c.id === targetReport.commentId
-            );
-            if (!comment) return undefined;
-            return {
-              animeId: comment.animeId ?? "",
-              characterId: comment.characterId,
-            };
-          })();
+          targetReport.contentType === "comment"
+            ? targetReport.commentLocation ||
+              (() => {
+                const comment = getState().comments.find(
+                  (c) => c.id === targetReport.commentId
+                );
+                if (!comment) return undefined;
+                return {
+                  animeId: comment.animeId ?? "",
+                  characterId: comment.characterId,
+                };
+              })()
+            : undefined;
 
-        try {
-          await deleteComment(targetReport.commentId);
-        } catch (error) {
-          console.warn("Failed to auto-delete reported comment:", error);
+        if (targetReport.contentType !== "message" && targetReport.commentId) {
+          try {
+            await deleteComment(targetReport.commentId);
+          } catch (error) {
+            console.warn("Failed to auto-delete reported comment:", error);
+          }
         }
 
         const actionVerb = resolution === "ban" ? "banned" : "warned";
-        const locationText = describeCommentLocation(location);
+        const locationText =
+          targetReport.contentType === "message"
+            ? "a direct message"
+            : describeCommentLocation(location);
         const detail = targetReport.description
           ? `Reason provided: ${targetReport.description}.`
           : "";
+        const originalContent =
+          targetReport.contentType === "message"
+            ? targetReport.messageContent
+            : targetReport.commentContent;
         getState().sendNotification(
           targetReport.reportedUserId,
           "moderation",
           `You have been ${actionVerb}`,
-          `On ${targetReport.createdAt.toLocaleString()}, your comment in ${locationText} violated our guidelines and has been removed. ${detail} Original message: "${
-            targetReport.commentContent || "Unavailable"
+          `On ${targetReport.createdAt.toLocaleString()}, your ${locationText} violated our guidelines and has been removed. ${detail} Original message: "${
+            originalContent || "Unavailable"
           }".`,
           {
             reportId,
@@ -147,9 +188,48 @@ export function createReportActions({
     }
   };
 
+  const reopenReport = async (reportId: string) => {
+    const { currentUser, logAdminAction } = getState();
+    if (!currentUser || !currentUser.isAdmin) return;
+
+    const targetReport = getState().reports.find((r) => r.id === reportId);
+    if (!targetReport) return;
+
+    try {
+      await reportService.update(reportId, {
+        status: "pending",
+        resolvedAt: null,
+        resolvedBy: undefined,
+        resolution: undefined,
+      });
+      setState((state) => ({
+        reports: state.reports.map((r) =>
+          r.id === reportId
+            ? {
+                ...r,
+                status: "pending",
+                resolvedAt: undefined,
+                resolvedBy: undefined,
+                resolution: undefined,
+              }
+            : r
+        ),
+      }));
+
+      logAdminAction("ban", targetReport.reportedUserId, {
+        action: "report_reopened",
+        reportId,
+      });
+    } catch (error) {
+      console.warn("Failed to reopen report:", error);
+    }
+  };
+
   return {
     reportComment,
+    reportMessage,
     getReports,
     resolveReport,
+    reopenReport,
   };
 }

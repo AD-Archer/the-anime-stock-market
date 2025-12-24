@@ -24,7 +24,16 @@ import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ThumbsUp, ThumbsDown, Flag } from "lucide-react";
+import { MessageContent } from "@/components/chat/message-content";
 
 interface MarketDiscussionProps {
   currentUser: any;
@@ -106,8 +115,8 @@ export function MarketDiscussion({
   };
 
   return (
-    <div className="mb-8">
-      <Card className="h-[600px] flex flex-col">
+    <div className="mb-8 w-full min-w-0">
+      <Card className="h-[600px] flex flex-col min-w-0">
         <CardHeader className="flex-shrink-0">
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
@@ -119,25 +128,44 @@ export function MarketDiscussion({
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="flex-1 flex flex-col p-0">
+        <CardContent className="flex-1 flex flex-col p-0 min-w-0 overflow-hidden">
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0 overflow-x-hidden">
             {rootComments.length > 0 ? (
-              rootComments.map((thread) => (
-                <CommentThread
-                  key={thread.id}
-                  comment={thread}
-                  commentMap={commentMap}
-                  users={users}
-                  currentUser={currentUser}
-                  onReply={onAddReply}
-                  onEdit={onEditComment}
-                  onDelete={onDeleteComment}
-                  onReport={onReportComment}
-                  onToggleReaction={onToggleReaction}
-                  level={0}
-                />
-              ))
+              (() => {
+                let lastDate = "";
+                return rootComments.map((thread) => {
+                  const dateLabel = thread.timestamp.toLocaleDateString(
+                    "en-US",
+                    { month: "short", day: "numeric", year: "numeric" }
+                  );
+                  const showDate = dateLabel !== lastDate;
+                  lastDate = dateLabel;
+                  return (
+                    <div key={thread.id} className="space-y-2">
+                      {showDate && (
+                        <div className="flex justify-center">
+                          <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                            {dateLabel}
+                          </span>
+                        </div>
+                      )}
+                      <CommentThread
+                        comment={thread}
+                        commentMap={commentMap}
+                        users={users}
+                        currentUser={currentUser}
+                        onReply={onAddReply}
+                        onEdit={onEditComment}
+                        onDelete={onDeleteComment}
+                        onReport={onReportComment}
+                        onToggleReaction={onToggleReaction}
+                        level={0}
+                      />
+                    </div>
+                  );
+                });
+              })()
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
@@ -233,6 +261,7 @@ function CommentThread({
   const [isEditing, setIsEditing] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [replyTag, setReplyTag] = useState<"none" | ContentTag>("none");
   const [editContent, setEditContent] = useState(comment.content);
@@ -248,13 +277,17 @@ function CommentThread({
   const canDelete =
     currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
 
-  const userReaction = comment.userReactions?.[currentUser?.id || ""] || null;
-  const likeCount = Object.values(comment.reactions || {}).filter(
-    (r: any) => r === "like"
-  ).length;
-  const dislikeCount = Object.values(comment.reactions || {}).filter(
-    (r: any) => r === "dislike"
-  ).length;
+  const likedBy = comment.likedBy ?? [];
+  const dislikedBy = comment.dislikedBy ?? [];
+  const userReaction = !currentUser
+    ? null
+    : likedBy.includes(currentUser.id)
+    ? "like"
+    : dislikedBy.includes(currentUser.id)
+    ? "dislike"
+    : null;
+  const likeCount = likedBy.length;
+  const dislikeCount = dislikedBy.length;
 
   const handleReply = async () => {
     if (replyContent.trim()) {
@@ -274,9 +307,8 @@ function CommentThread({
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this comment?")) {
-      await onDelete(comment.id);
-    }
+    await onDelete(comment.id);
+    setShowDeleteDialog(false);
   };
 
   const handleReaction = async (reaction: "like" | "dislike") => {
@@ -305,7 +337,7 @@ function CommentThread({
           }
           defaultHidden={shouldHide}
         >
-          <p className="text-sm text-muted-foreground">{content}</p>
+          <MessageContent content={content} className="text-muted-foreground" />
         </ContentModeration>
       );
     }
@@ -324,7 +356,10 @@ function CommentThread({
           reason={reason}
           defaultHidden={!prefersNsfw}
         >
-          <p className="text-sm text-muted-foreground">{nsfwContent}</p>
+          <MessageContent
+            content={nsfwContent}
+            className="text-muted-foreground"
+          />
         </ContentModeration>
       );
     }
@@ -339,17 +374,28 @@ function CommentThread({
           reason={reason}
           defaultHidden={!prefersSpoilers}
         >
-          <p className="text-sm text-muted-foreground">{spoilerContent}</p>
+          <MessageContent
+            content={spoilerContent}
+            className="text-muted-foreground"
+          />
         </ContentModeration>
       );
     }
 
-    return <p className="text-sm text-muted-foreground">{content}</p>;
+    return (
+      <MessageContent content={content} className="text-muted-foreground" />
+    );
   };
 
   return (
-    <div className={`${level > 0 ? "ml-6 border-l-2 border-muted pl-4" : ""}`}>
-      <div className="rounded-lg border p-3 bg-card">
+    <div
+      className={`w-full min-w-0 max-w-full ${
+        level > 0
+          ? "ml-4 border-l-2 border-muted pl-4 box-border w-[calc(100%-1rem)]"
+          : ""
+      }`}
+    >
+      <div className="rounded-lg border p-3 bg-card max-w-full min-w-0 overflow-hidden">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link
@@ -399,7 +445,7 @@ function CommentThread({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 className="h-6 px-2 text-xs text-destructive hover:text-destructive"
               >
                 Delete
@@ -416,7 +462,7 @@ function CommentThread({
                 setEditContent(e.target.value)
               }
               rows={2}
-              className="text-sm"
+              className="text-sm max-h-32 overflow-y-auto"
             />
             <div className="flex gap-2">
               <Button size="sm" onClick={handleEdit}>
@@ -511,7 +557,7 @@ function CommentThread({
                 setReplyContent(e.target.value)
               }
               rows={2}
-              className="text-sm"
+              className="text-sm max-h-32 overflow-y-auto"
             />
             <Select
               value={replyTag}
@@ -548,17 +594,40 @@ function CommentThread({
         )}
       </div>
 
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this comment? This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         onSubmit={async (reason, description) => {
           await onReport(comment.id, reason, description);
         }}
-        commentId={comment.id}
+        title="Report Comment"
       />
 
       {showReplies && sortedReplies.length > 0 && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-2 min-w-0 max-w-full w-full">
           {sortedReplies.map((reply) => (
             <CommentThread
               key={reply.id}

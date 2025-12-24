@@ -197,7 +197,9 @@ const collections: CollectionPlan[] = [
     attributes: [
       { kind: "string", key: "reporterId", size: 64, required: true },
       { kind: "string", key: "reportedUserId", size: 64, required: true },
-      { kind: "string", key: "commentId", size: 64, required: true },
+      { kind: "string", key: "contentType", size: 16, required: false },
+      { kind: "string", key: "commentId", size: 64, required: false },
+      { kind: "string", key: "messageId", size: 64, required: false },
       { kind: "string", key: "reason", size: 32, required: true },
       { kind: "string", key: "description", size: 1000, required: false },
       { kind: "string", key: "status", size: 16, required: true },
@@ -217,6 +219,8 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "content", size: 10000, required: true },
       { kind: "string", key: "createdAt", size: 64, required: true },
       { kind: "string", key: "readBy", size: 64, required: false, array: true },
+      { kind: "string", key: "replyToMessageId", size: 64, required: false },
+      { kind: "string", key: "editedAt", size: 64, required: false },
     ],
   },
   {

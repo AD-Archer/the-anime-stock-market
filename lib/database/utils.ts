@@ -186,9 +186,12 @@ export const mapBuybackOffer = (doc: AppwriteDocument): BuybackOffer => ({
   offeredPrice: toNumberOr(docValue(doc, "offeredPrice")),
   offeredBy: toStringOr(docValue(doc, "offeredBy")),
   targetUsers: toArrayOr<string>(docValue(doc, "targetUsers"), []),
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   expiresAt: toDate(docValue(doc, "expiresAt")),
   status: (docValue(doc, "status") as BuybackOffer["status"]) ?? "active",
+  targetShares: toOptionalNumber(docValue(doc, "targetShares")),
   acceptedBy: toOptionalString(docValue(doc, "acceptedBy")),
+  acceptedByUsers: toArrayOr<string>(docValue(doc, "acceptedByUsers"), []),
   acceptedShares: toOptionalNumber(docValue(doc, "acceptedShares")),
 });
 
@@ -210,8 +213,12 @@ export const mapReport = (doc: AppwriteDocument): Report => {
     id: toStringOr(docValue(doc, "id"), doc.$id),
     reporterId: toStringOr(docValue(doc, "reporterId")),
     reportedUserId: toStringOr(docValue(doc, "reportedUserId")),
-    commentId: toStringOr(docValue(doc, "commentId")),
-    commentContent: toStringOr(metadata?.commentContent),
+    contentType:
+      (docValue(doc, "contentType") as Report["contentType"]) ?? "comment",
+    commentId: toOptionalString(docValue(doc, "commentId")),
+    messageId: toOptionalString(docValue(doc, "messageId")),
+    commentContent: toOptionalString(metadata?.commentContent),
+    messageContent: toOptionalString(metadata?.messageContent),
     reason:
       (docValue(doc, "reason") as
         | "spam"
@@ -277,6 +284,7 @@ const parseMetadata = (
 ):
   | {
       commentContent?: string;
+      messageContent?: string;
       threadContext?: CommentSnapshot[];
       commentLocation?: { animeId: string; characterId?: string };
       editedAt?: Date;
@@ -287,6 +295,7 @@ const parseMetadata = (
   try {
     const parsed = JSON.parse(value) as {
       commentContent?: string;
+      messageContent?: string;
       threadContext?: Array<{
         id: string;
         userId: string;
@@ -307,6 +316,7 @@ const parseMetadata = (
 
     return {
       commentContent: parsed.commentContent,
+      messageContent: parsed.messageContent,
       threadContext: parsed.threadContext?.map((snapshot) => ({
         ...snapshot,
         timestamp: toDate(snapshot.timestamp),
@@ -347,6 +357,8 @@ export const mapMessage = (doc: AppwriteDocument): Message => ({
   content: toStringOr(docValue(doc, "content")),
   createdAt: toDate(docValue(doc, "createdAt")),
   readBy: toArrayOr(docValue(doc, "readBy"), []),
+  replyToMessageId: toOptionalString(docValue(doc, "replyToMessageId")),
+  editedAt: toOptionalDate(docValue(doc, "editedAt")),
 });
 
 export const mapAppeal = (doc: AppwriteDocument): Appeal => ({

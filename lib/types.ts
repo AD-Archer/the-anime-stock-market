@@ -89,6 +89,8 @@ export interface Message {
   content: string;
   createdAt: Date;
   readBy: string[]; // Array of user IDs who have read this message
+  replyToMessageId?: string;
+  editedAt?: Date;
 }
 
 export interface Conversation {
@@ -115,10 +117,13 @@ export interface BuybackOffer {
   offeredPrice: number;
   offeredBy: string;
   targetUsers?: string[]; // specific users, or all users if empty
+  createdAt?: Date;
   expiresAt: Date;
   status: "active" | "expired" | "accepted" | "declined";
-  acceptedBy?: string;
-  acceptedShares?: number;
+  targetShares?: number;
+  acceptedBy?: string; // legacy single-user acceptance
+  acceptedByUsers?: string[]; // cumulative acceptors
+  acceptedShares?: number; // cumulative shares accepted so far
 }
 
 export interface Notification {
@@ -131,7 +136,8 @@ export interface Notification {
     | "system"
     | "moderation"
     | "direct_message"
-    | "friend_request";
+    | "friend_request"
+    | "stock_ipo";
   title: string;
   message: string;
   data?: any; // additional data like buyback offer details
@@ -143,8 +149,11 @@ export interface Report {
   id: string;
   reporterId: string;
   reportedUserId: string;
-  commentId: string;
-  commentContent: string;
+  contentType?: "comment" | "message";
+  commentId?: string;
+  messageId?: string;
+  commentContent?: string;
+  messageContent?: string;
   reason:
     | "spam"
     | "harassment"
@@ -216,7 +225,15 @@ export type AwardType =
   | "early_adopter"
   | "comment_master"
   | "social_butterfly"
-  | "welcome_bonus";
+  | "welcome_bonus"
+  | "admin_ally"
+  | "friend_network_5"
+  | "friend_network_10"
+  | "friend_network_25"
+  | "buyback_starter"
+  | "buyback_broker"
+  | "stock_dilution_survivor"
+  | "early_bird_investor";
 
 export type FriendStatus = "pending" | "accepted" | "declined";
 

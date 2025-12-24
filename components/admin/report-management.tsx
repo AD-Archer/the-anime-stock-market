@@ -40,7 +40,8 @@ import {
 import { AlertTriangle, CheckCircle, XCircle, Eye } from "lucide-react";
 
 export function ReportManagement() {
-  const { reports, resolveReport, getReports, comments, users } = useStore();
+  const { reports, resolveReport, reopenReport, getReports, comments, users } =
+    useStore();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [resolution, setResolution] = useState<"dismiss" | "ban" | "warn">(
     "dismiss"
@@ -51,13 +52,13 @@ export function ReportManagement() {
     return map;
   }, [users]);
 
-
   useEffect(() => {
     void getReports();
   }, [getReports]);
 
   const getThreadContext = useCallback(
     (report: Report): CommentSnapshot[] => {
+      if (report.contentType === "message") return [];
       if (report.threadContext && report.threadContext.length > 0) {
         return report.threadContext;
       }
@@ -168,9 +169,7 @@ export function ReportManagement() {
     });
 
     const sortNodes = (nodes: ThreadNode[]) => {
-      nodes.sort(
-        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-      );
+      nodes.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       nodes.forEach((child) => sortNodes(child.replies));
     };
 
@@ -218,10 +217,15 @@ export function ReportManagement() {
   const pendingReports = reports.filter((r) => r.status === "pending");
   const resolvedReports = reports.filter((r) => r.status !== "pending");
   const selectedThread = useMemo<ThreadNode[]>(() => {
-    if (!selectedReport) return [];
+    if (!selectedReport || selectedReport.contentType === "message") return [];
     const context = getThreadContext(selectedReport);
     return buildThreadTree(context);
   }, [selectedReport, getThreadContext]);
+
+  const getReportContent = (report: Report) =>
+    report.contentType === "message"
+      ? report.messageContent
+      : report.commentContent;
 
   return (
     <div className="space-y-6">
@@ -302,9 +306,9 @@ export function ReportManagement() {
                       <strong>Report ID:</strong> {report.id}
                     </p>
                     <p>
-                      <strong>Comment:</strong>{" "}
+                      <strong>Content:</strong>{" "}
                       <span className="text-sm text-muted-foreground">
-                        {report.commentContent || "Unavailable"}
+                        {getReportContent(report) || "Unavailable"}
                       </span>
                     </p>
                     {report.description && (
@@ -313,8 +317,19 @@ export function ReportManagement() {
                       </p>
                     )}
                     <p>
-                      <strong>Comment ID:</strong> {report.commentId}
+                      <strong>Content Type:</strong>{" "}
+                      {report.contentType || "comment"}
                     </p>
+                    {report.commentId && (
+                      <p>
+                        <strong>Comment ID:</strong> {report.commentId}
+                      </p>
+                    )}
+                    {report.messageId && (
+                      <p>
+                        <strong>Message ID:</strong> {report.messageId}
+                      </p>
+                    )}
                     <p>
                       <strong>Reported User ID:</strong> {report.reportedUserId}
                     </p>
@@ -346,6 +361,13 @@ export function ReportManagement() {
                         {report.status}
                       </Badge>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void reopenReport(report.id)}
+                    >
+                      Reopen
+                    </Button>
                   </div>
                   <CardDescription>
                     Reported on{" "}
@@ -362,9 +384,9 @@ export function ReportManagement() {
                       <strong>Report ID:</strong> {report.id}
                     </p>
                     <p>
-                      <strong>Comment:</strong>{" "}
+                      <strong>Content:</strong>{" "}
                       <span className="text-sm text-muted-foreground">
-                        {report.commentContent || "Unavailable"}
+                        {getReportContent(report) || "Unavailable"}
                       </span>
                     </p>
                     {report.description && (
@@ -373,8 +395,19 @@ export function ReportManagement() {
                       </p>
                     )}
                     <p>
-                      <strong>Comment ID:</strong> {report.commentId}
+                      <strong>Content Type:</strong>{" "}
+                      {report.contentType || "comment"}
                     </p>
+                    {report.commentId && (
+                      <p>
+                        <strong>Comment ID:</strong> {report.commentId}
+                      </p>
+                    )}
+                    {report.messageId && (
+                      <p>
+                        <strong>Message ID:</strong> {report.messageId}
+                      </p>
+                    )}
                     <p>
                       <strong>Reported User ID:</strong> {report.reportedUserId}
                     </p>
@@ -418,8 +451,19 @@ export function ReportManagement() {
                   </p>
                 )}
                 <p>
-                  <strong>Comment ID:</strong> {selectedReport.commentId}
+                  <strong>Content Type:</strong>{" "}
+                  {selectedReport.contentType || "comment"}
                 </p>
+                {selectedReport.commentId && (
+                  <p>
+                    <strong>Comment ID:</strong> {selectedReport.commentId}
+                  </p>
+                )}
+                {selectedReport.messageId && (
+                  <p>
+                    <strong>Message ID:</strong> {selectedReport.messageId}
+                  </p>
+                )}
                 <p>
                   <strong>Reported User ID:</strong>{" "}
                   {selectedReport.reportedUserId}
@@ -427,14 +471,20 @@ export function ReportManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label>Original Comment</Label>
+                <Label>
+                  Original{" "}
+                  {selectedReport.contentType === "message"
+                    ? "Message"
+                    : "Comment"}
+                </Label>
                 <p className="rounded bg-muted p-3 text-sm text-foreground">
-                  {selectedReport.commentContent || "Unavailable"}
+                  {getReportContent(selectedReport) || "Unavailable"}
                 </p>
               </div>
               <div className="space-y-2">
                 <Label>Thread Context</Label>
-                {selectedThread.length === 0 ? (
+                {selectedReport.contentType === "message" ||
+                selectedThread.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No additional context available.
                   </p>
@@ -442,7 +492,7 @@ export function ReportManagement() {
                   <div className="max-h-64 overflow-y-auto pr-2">
                     {renderThreadNodes(
                       selectedThread,
-                      selectedReport.commentId
+                      selectedReport.commentId || ""
                     )}
                   </div>
                 )}

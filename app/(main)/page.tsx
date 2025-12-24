@@ -53,8 +53,9 @@ export default function LandingPage() {
               <span className="text-primary">Anime Stock Exchange</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Trade your favorite anime characters like stocks. Invest in
-              heroes, villains, and icons from the anime universe.
+              A just-for-fun market game where anime characters become your
+              portfolio. No real money, no offsite purchases, and no pay-to-win
+              advantages.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/market">
@@ -74,6 +75,11 @@ export default function LandingPage() {
                 </Button>
               </Link>
             </div>
+            <p className="mt-6 text-sm text-muted-foreground">
+              This is a community game. All activity is simulated, accounts are
+              protected with encrypted passwords, and chat/messages are built
+              into the experience.
+            </p>
           </div>
         </div>
 
@@ -164,10 +170,10 @@ export default function LandingPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <TrendingUp className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Real-time Trading</CardTitle>
+                <CardTitle>Play-Money Trading</CardTitle>
                 <CardDescription>
-                  Buy and sell anime character stocks with live market data and
-                  instant transactions.
+                  Trade with simulated credits only. No real money and no
+                  offsite purchases.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -175,10 +181,10 @@ export default function LandingPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <Users className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Community Driven</CardTitle>
+                <CardTitle>Community + Chat</CardTitle>
                 <CardDescription>
-                  Join thousands of anime fans trading characters and competing
-                  on leaderboards.
+                  Join anime fans, trade characters, and use built-in chat and
+                  direct messages.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -199,8 +205,8 @@ export default function LandingPage() {
                 <Shield className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Secure Platform</CardTitle>
                 <CardDescription>
-                  Your investments are protected with enterprise-grade security
-                  and fair trading practices.
+                  Passwords are encrypted, data is protected, and trading stays
+                  fair with no paid advantages.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -219,10 +225,10 @@ export default function LandingPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <Star className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Premium Experience</CardTitle>
+                <CardTitle>Built for Fun</CardTitle>
                 <CardDescription>
-                  Enjoy a sleek, modern interface designed for the ultimate
-                  trading experience.
+                  A smooth experience focused on fun, transparency, and
+                  friendly competition.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -254,11 +260,11 @@ export default function LandingPage() {
       <section className="py-24">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Ready to Start Your Anime Investment Journey?
+            Ready to Jump In?
           </h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join the community of anime enthusiasts turning their passion into
-            profits. Start trading today!
+            Join the community of anime fans and compete for fun. No real
+            money, no offsite purchases, and no unfair advantages.
           </p>
           <Link href="/market">
             <Button size="lg" className="text-lg px-8 py-3">

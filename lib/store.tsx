@@ -184,7 +184,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           priceHistory:
             priceHistoryData.length > 0
               ? priceHistoryData
-              : initialPriceHistory,
+              : stocksData.length > 0
+              ? stocksData.map((s) => ({
+                  id: `ph-init-${s.id}`,
+                  stockId: s.id,
+                  price: s.currentPrice,
+                  timestamp: s.createdAt,
+                }))
+              : [],
           portfolios:
             portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
           appeals: appealsData.length > 0 ? appealsData : initialAppeals,
@@ -252,6 +259,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 .getState()
                 .unlockAward(matchedUser.id, "welcome_bonus");
             }
+
+            // Ensure early adopter is unlocked for accounts created before 2026-03-01
+            const earlyAdopterDate = new Date("2026-03-01");
+            const hasEarlyAdopter = awardsData.some(
+              (a) => a.userId === matchedUser.id && a.type === "early_adopter"
+            );
+            if (
+              !hasEarlyAdopter &&
+              matchedUser.createdAt instanceof Date &&
+              matchedUser.createdAt < earlyAdopterDate
+            ) {
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "early_adopter");
+            }
+
+            // Check portfolio-based awards on sign-in
+            const stateSnapshot = useStore.getState();
+            const userPortfolios = stateSnapshot.portfolios.filter(
+              (p) => p.userId === matchedUser!.id
+            );
+            const portfolioValue = userPortfolios.reduce((total, p) => {
+              const stock = stateSnapshot.stocks.find(
+                (s) => s.id === p.stockId
+              );
+              return total + (stock ? stock.currentPrice * p.shares : 0);
+            }, 0);
+
+            const hasPortfolio1k = awardsData.some(
+              (a) =>
+                a.userId === matchedUser.id && a.type === "portfolio_value_1000"
+            );
+            if (!hasPortfolio1k && portfolioValue >= 1000) {
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "portfolio_value_1000");
+            }
+
+            const hasPortfolio10k = awardsData.some(
+              (a) =>
+                a.userId === matchedUser.id &&
+                a.type === "portfolio_value_10000"
+            );
+            if (!hasPortfolio10k && portfolioValue >= 10000) {
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "portfolio_value_10000");
+            }
+
+            const uniqueStocks = new Set(userPortfolios.map((p) => p.stockId));
+            const hasDiversified = awardsData.some(
+              (a) =>
+                a.userId === matchedUser.id &&
+                a.type === "diversified_portfolio"
+            );
+            if (!hasDiversified && uniqueStocks.size >= 5) {
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "diversified_portfolio");
+            }
           }
         } else {
           // Not signed in: keep currentUser null (guest)
@@ -266,7 +333,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           users: initialUsers,
           stocks: initialStocks,
           transactions: initialTransactions,
-          priceHistory: initialPriceHistory,
+          priceHistory: initialStocks.map((s) => ({
+            id: `ph-init-${s.id}`,
+            stockId: s.id,
+            price: s.currentPrice,
+            timestamp: s.createdAt,
+          })),
           portfolios: initialPortfolios,
           comments: initialComments,
           buybackOffers: initialBuybackOffers,
@@ -374,7 +446,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         } else if (event.includes("delete")) {
           const deletedId = document.$id;
           useStore.setState((state) => ({
-            notifications: state.notifications.filter((n) => n.id !== deletedId),
+            notifications: state.notifications.filter(
+              (n) => n.id !== deletedId
+            ),
           }));
         }
       }

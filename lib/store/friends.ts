@@ -112,16 +112,54 @@ export function createFriendActions({ setState, getState }: StoreMutators) {
       return;
     }
 
-    // Unlock award for both users on first accepted friend
+    // Unlock awards for both users
     const unlock = state.unlockAward;
+    if (!unlock) return;
+
+    // Check friend counts and unlock network/butterfly awards
     const myFriends = getUserFriends(currentUser.id);
-    if (unlock && myFriends.length === 0) {
+    const myFriendCount = myFriends.length;
+    const other = request.requesterId;
+    const otherUser = state.users.find((u) => u.id === other);
+    const otherFriends = getUserFriends(other);
+    const otherFriendCount = otherFriends.length;
+
+    // First friend - social_butterfly
+    if (myFriendCount === 0) {
       await unlock(currentUser.id, "social_butterfly");
     }
-    const other = request.requesterId;
-    const otherFriends = getUserFriends(other);
-    if (unlock && otherFriends.length === 0) {
+    if (otherFriendCount === 0) {
       await unlock(other, "social_butterfly");
+    }
+
+    // Friend network milestones
+    if (myFriendCount === 5) {
+      await unlock(currentUser.id, "friend_network_5");
+    }
+    if (myFriendCount === 10) {
+      await unlock(currentUser.id, "friend_network_10");
+    }
+    if (myFriendCount === 25) {
+      await unlock(currentUser.id, "friend_network_25");
+    }
+
+    if (otherFriendCount === 5) {
+      await unlock(other, "friend_network_5");
+    }
+    if (otherFriendCount === 10) {
+      await unlock(other, "friend_network_10");
+    }
+    if (otherFriendCount === 25) {
+      await unlock(other, "friend_network_25");
+    }
+
+    // Admin ally - check if the other user is an admin
+    if (otherUser?.isAdmin) {
+      await unlock(currentUser.id, "admin_ally");
+    }
+    const currentUserData = state.users.find((u) => u.id === currentUser.id);
+    if (currentUserData?.isAdmin) {
+      await unlock(other, "admin_ally");
     }
   };
 

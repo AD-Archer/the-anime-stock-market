@@ -40,13 +40,20 @@ const isUserBanned = (user: User): boolean => {
 };
 
 export function BuybackManagement() {
-  const { stocks, buybackOffers, users, createBuybackOffer, getUserPortfolio } =
-    useStore();
+  const {
+    stocks,
+    buybackOffers,
+    users,
+    createBuybackOffer,
+    cancelBuybackOffer,
+    removeBuybackOffer,
+  } = useStore();
   const { toast } = useToast();
 
   const [selectedStock, setSelectedStock] = useState("");
   const [offeredPrice, setOfferedPrice] = useState("");
   const [expiresInHours, setExpiresInHours] = useState("24");
+  const [targetShares, setTargetShares] = useState("0");
   const [targetUsers, setTargetUsers] = useState<string[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -63,11 +70,13 @@ export function BuybackManagement() {
       return;
     }
 
+    const target = Number.parseInt(targetShares);
     createBuybackOffer(
       selectedStock,
       price,
       targetUsers.length > 0 ? targetUsers : undefined,
-      hours
+      hours,
+      Number.isFinite(target) && target > 0 ? target : undefined
     );
 
     toast({
@@ -82,6 +91,7 @@ export function BuybackManagement() {
     setOfferedPrice("");
     setExpiresInHours("24");
     setTargetUsers([]);
+    setTargetShares("0");
   };
 
   const getStatusColor = (status: string) => {
@@ -170,6 +180,16 @@ export function BuybackManagement() {
                   value={expiresInHours}
                   onChange={(e) => setExpiresInHours(e.target.value)}
                   placeholder="24"
+                />
+              </div>
+              <div>
+                <Label htmlFor="targetShares">Target Shares (auto-close)</Label>
+                <Input
+                  id="targetShares"
+                  type="number"
+                  value={targetShares}
+                  onChange={(e) => setTargetShares(e.target.value)}
+                  placeholder="0 (no cap)"
                 />
               </div>
               <div>
@@ -283,9 +303,15 @@ export function BuybackManagement() {
                         ${offer.offeredPrice.toFixed(2)}
                       </p>
                       <p className="text-sm text-muted-foreground">per share</p>
-                      {offer.acceptedShares && (
+                      {typeof offer.acceptedShares === "number" && (
                         <p className="text-sm text-green-600">
                           {offer.acceptedShares} shares accepted
+                          {offer.targetShares && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              / {offer.targetShares}
+                            </span>
+                          )}
                         </p>
                       )}
                     </div>
@@ -293,7 +319,27 @@ export function BuybackManagement() {
                   <div className="mt-4 pt-4 border-t">
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Expires: {offer.expiresAt.toLocaleString()}</span>
-                      <span>Created: {offer.expiresAt.toLocaleString()}</span>
+                      <span>
+                        Created:{" "}
+                        {(offer.createdAt ?? new Date()).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cancelBuybackOffer(offer.id)}
+                        disabled={offer.status !== "active"}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeBuybackOffer(offer.id)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

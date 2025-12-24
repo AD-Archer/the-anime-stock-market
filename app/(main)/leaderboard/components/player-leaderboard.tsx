@@ -138,6 +138,7 @@ export function PlayerLeaderboard() {
     switch (sortType) {
       case "richest":
         return `$${player.portfolioValue.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`;
       case "mostStocks":
@@ -275,7 +276,11 @@ export function PlayerLeaderboard() {
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Balance: ${player.balance.toLocaleString()}
+                    Balance: $
+                    {player.balance.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
 

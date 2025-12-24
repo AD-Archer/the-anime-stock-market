@@ -1,47 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
+import { TrendingUp } from "lucide-react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Line,
-  LineChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Legend,
-} from "recharts";
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--destructive))",
-  "hsl(var(--accent))",
-  "hsl(var(--secondary))",
-  "hsl(45 100% 50%)", // Yellow
-  "hsl(280 100% 70%)", // Purple
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--destructive)",
+  "var(--accent)",
+  "var(--secondary)",
+  "oklch(0.82 0.16 70)", // Warm yellow
+  "oklch(0.74 0.2 305)", // Vibrant purple
 ];
 
-type TimePeriod = "day" | "week" | "month" | "year";
+type TimePeriod = "day" | "week" | "biweekly" | "month" | "year";
 
 export function MarketChart() {
   const { stocks, getStockPriceHistory } = useStore();
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
   const [hiddenCharacters, setHiddenCharacters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -60,6 +72,17 @@ export function MarketChart() {
       (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
     )
     .slice(0, 10);
+
+  const chartConfig = useMemo<ChartConfig>(() => {
+    const entries = topStocks.map((stock, index) => [
+      stock.id,
+      {
+        label: stock.characterName,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      },
+    ]);
+    return Object.fromEntries(entries);
+  }, [topStocks]);
 
   if (topStocks.length === 0) {
     return (
@@ -92,6 +115,9 @@ export function MarketChart() {
         break;
       case "week":
         cutoff.setDate(now.getDate() - 7);
+        break;
+      case "biweekly":
+        cutoff.setDate(now.getDate() - 14);
         break;
       case "month":
         cutoff.setMonth(now.getMonth() - 1);
@@ -166,26 +192,35 @@ export function MarketChart() {
       priceDataByStock.set(stock.id, dateMap);
     });
 
-    const chartData = Array.from(allDates)
-      .sort((a, b) => {
-        // For day view, sort by time, otherwise by date
-        if (timePeriod === "day") {
-          return new Date(a).getTime() - new Date(b).getTime();
-        }
+    const sortedDates = Array.from(allDates).sort((a, b) => {
+      if (timePeriod === "day") {
         return new Date(a).getTime() - new Date(b).getTime();
-      })
+      }
+      return new Date(a).getTime() - new Date(b).getTime();
+    });
+
+    const lastValues = new Map<string, number | null>();
+    visibleStocks.forEach((stock) => lastValues.set(stock.id, null));
+
+    const chartData = sortedDates
       .map((date) => {
         const dataPoint: any = { date };
         visibleStocks.forEach((stock) => {
-          dataPoint[stock.characterName] =
-            priceDataByStock.get(stock.id)?.get(date) || null;
+          const value = priceDataByStock.get(stock.id)?.get(date);
+          const lastValue = lastValues.get(stock.id) ?? null;
+          const nextValue = value ?? lastValue;
+          dataPoint[stock.id] = nextValue;
+          if (value !== undefined) {
+            lastValues.set(stock.id, value);
+          }
         });
         return dataPoint;
       })
-      .filter(point => {
-        // Only include points where at least one stock has data
-        return visibleStocks.some(stock => point[stock.characterName] !== null);
-      });
+      .filter((point) =>
+        visibleStocks.some(
+          (stock) => point[stock.id] !== null
+        )
+      );
 
     if (chartData.length === 0) {
       return (
@@ -205,6 +240,7 @@ export function MarketChart() {
                 <SelectContent>
                   <SelectItem value="day">Last Day</SelectItem>
                   <SelectItem value="week">Last Week</SelectItem>
+                  <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
                   <SelectItem value="month">Last Month</SelectItem>
                   <SelectItem value="year">Last Year</SelectItem>
                 </SelectContent>
@@ -212,11 +248,19 @@ export function MarketChart() {
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
               {topStocks.map((stock, index) => (
-                <Badge key={stock.id} variant="default" className="gap-2 text-primary-foreground bg-primary">
+                <Badge
+                  key={stock.id}
+                  variant="outline"
+                  className="gap-2"
+                  style={{
+                    borderColor: CHART_COLORS[index % CHART_COLORS.length],
+                    color: CHART_COLORS[index % CHART_COLORS.length],
+                  }}
+                >
                   <div
                     className="h-3 w-3 rounded-full"
                     style={{
-                      backgroundColor: "hsl(var(--primary-foreground))",
+                      backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
                   {stock.characterName}
@@ -250,6 +294,7 @@ export function MarketChart() {
               <SelectContent>
                 <SelectItem value="day">Last Day</SelectItem>
                 <SelectItem value="week">Last Week</SelectItem>
+                <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
                 <SelectItem value="month">Last Month</SelectItem>
                 <SelectItem value="year">Last Year</SelectItem>
               </SelectContent>
@@ -262,8 +307,8 @@ export function MarketChart() {
                 <Badge
                   key={stock.id}
                   variant={isHidden ? "secondary" : "default"}
-                  className={`gap-2 cursor-pointer transition-opacity ${
-                    isHidden ? "text-muted-foreground bg-muted opacity-50" : "text-primary-foreground bg-primary"
+                  className={`gap-2 cursor-pointer transition-opacity border ${
+                    isHidden ? "text-muted-foreground bg-muted opacity-50" : ""
                   }`}
                   onClick={() => {
                     const newHidden = new Set(hiddenCharacters);
@@ -274,11 +319,23 @@ export function MarketChart() {
                     }
                     setHiddenCharacters(newHidden);
                   }}
+                  style={
+                    isHidden
+                      ? undefined
+                      : {
+                          borderColor:
+                            CHART_COLORS[index % CHART_COLORS.length],
+                          backgroundColor: "transparent",
+                          color: CHART_COLORS[index % CHART_COLORS.length],
+                        }
+                  }
                 >
                   <div
                     className="h-3 w-3 rounded-full"
                     style={{
-                      backgroundColor: isHidden ? "hsl(var(--muted-foreground))" : CHART_COLORS[index % CHART_COLORS.length],
+                      backgroundColor: isHidden
+                        ? "hsl(var(--muted-foreground))"
+                        : CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
                   {stock.characterName}
@@ -288,52 +345,68 @@ export function MarketChart() {
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-            <LineChart data={chartData}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-              />
-              <XAxis
-                dataKey="date"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={isMobile ? 10 : 12}
-                interval={isMobile ? 2 : 0}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={isMobile ? 10 : 12}
-                width={isMobile ? 40 : 60}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: isMobile ? "12px" : "14px",
+          <ChartContainer config={chartConfig}>
+            <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+              <LineChart
+                data={chartData}
+                margin={{
+                  left: 12,
+                  right: 12,
                 }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-              />
-              <Legend
-                wrapperStyle={{
-                  fontSize: isMobile ? "12px" : "14px",
-                }}
-              />
-              {visibleStocks.map((stock, index) => (
-                <Line
-                  key={`${stock.id}-${timePeriod}-${hiddenCharacters.size}`}
-                  type="monotone"
-                  dataKey={stock.characterName}
-                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                  strokeWidth={isMobile ? 2 : 3}
-                  dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], strokeWidth: 2, r: 4 }}
-                  connectNulls={true}
-                  activeDot={{ r: 6, stroke: CHART_COLORS[index % CHART_COLORS.length], strokeWidth: 2 }}
+              >
+                <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  fontSize={isMobile ? 10 : 12}
+                  interval={isMobile ? 2 : 0}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={isMobile ? 10 : 12}
+                  width={isMobile ? 40 : 60}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                {visibleStocks.map((stock) => (
+                  <Line
+                    key={`${stock.id}-${timePeriod}-${hiddenCharacters.size}`}
+                    type="monotone"
+                    dataKey={stock.id}
+                    stroke={
+                      chartConfig[stock.id]?.color ??
+                      "hsl(var(--foreground))"
+                    }
+                    strokeWidth={isMobile ? 2 : 3}
+                    dot={false}
+                    connectNulls
+                    activeDot={{
+                      r: 5,
+                      stroke:
+                        chartConfig[stock.id]?.color ??
+                        "hsl(var(--foreground))",
+                      strokeWidth: 2,
+                    }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </CardContent>
+        <CardFooter>
+          <div className="flex w-full items-start gap-2 text-sm">
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2 font-medium leading-none">
+                Top 10 market cap trends{" "}
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div className="flex items-center gap-2 leading-none text-muted-foreground">
+                Tap a character to hide or show their line
+              </div>
+            </div>
+          </div>
+        </CardFooter>
       </Card>
     );
   }

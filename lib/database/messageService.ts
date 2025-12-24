@@ -12,21 +12,38 @@ import {
 export const messageService = {
   // Create a new message
   async create(
-    message: Omit<Message, "id" | "createdAt" | "readBy">
+    message: Omit<Message, "id" | "createdAt" | "readBy" | "editedAt">
   ): Promise<Message> {
     const payload = normalizePayload({
       ...message,
       createdAt: new Date().toISOString(),
       readBy: [message.senderId], // Sender has read their own message
     });
+    const filteredPayload = Object.fromEntries(
+      Object.entries(payload).filter(([_, value]) => value !== undefined)
+    );
 
     const doc = await databases.createDocument(
       DATABASE_ID,
       MESSAGES_COLLECTION,
       ID.unique(),
-      payload
+      filteredPayload
     );
 
+    return mapMessage(doc);
+  },
+
+  async update(id: string, updates: Partial<Message>): Promise<Message> {
+    const payload = normalizePayload(updates);
+    const filteredPayload = Object.fromEntries(
+      Object.entries(payload).filter(([_, value]) => value !== undefined)
+    );
+    const doc = await databases.updateDocument(
+      DATABASE_ID,
+      MESSAGES_COLLECTION,
+      id,
+      filteredPayload
+    );
     return mapMessage(doc);
   },
 
@@ -138,5 +155,10 @@ export const messageService = {
     );
 
     return response.total;
+  },
+
+  // Delete a message
+  async delete(id: string): Promise<void> {
+    await databases.deleteDocument(DATABASE_ID, MESSAGES_COLLECTION, id);
   },
 };
