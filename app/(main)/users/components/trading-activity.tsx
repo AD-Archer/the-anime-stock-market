@@ -125,9 +125,9 @@ export function TradingActivity({
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <p className="text-muted-foreground">Avg Buy Price</p>
+                          <p className="text-muted-foreground">Shares Owned</p>
                           <p className="font-mono text-foreground">
-                            ${item.averageBuyPrice.toFixed(2)}
+                            {item.shares.toLocaleString()}
                           </p>
                         </div>
                         <div>

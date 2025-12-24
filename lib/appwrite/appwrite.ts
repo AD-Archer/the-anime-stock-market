@@ -18,4 +18,24 @@ if (endpoint && projectId) {
 export const account = new Account(client);
 export const databases = new Databases(client);
 
+export async function refreshAppwriteJwt(): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const jwtResponse = await account.createJWT();
+    client.setJWT(jwtResponse.jwt);
+    return jwtResponse.jwt;
+  } catch (error) {
+    console.warn("Failed to refresh Appwrite JWT", error);
+    client.setJWT("");
+    return null;
+  }
+}
+
+export function clearAppwriteJwt(): void {
+  client.setJWT("");
+}
+
 export { client };

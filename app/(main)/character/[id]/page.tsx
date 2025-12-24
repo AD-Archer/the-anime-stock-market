@@ -55,6 +55,7 @@ import { ComparisonChart } from "@/app/(main)/character/components/comparison-ch
 import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
+import { getUserProfileHref } from "@/lib/user-profile";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -228,7 +229,7 @@ function CommentThread({
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link
-              href={`/users/${comment.userId}`}
+              href={getUserProfileHref(user, comment.userId)}
               className="font-semibold text-foreground hover:underline"
             >
               {user?.username || "Unknown"}

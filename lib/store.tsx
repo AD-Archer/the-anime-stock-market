@@ -17,6 +17,7 @@ import {
   initialAdminActionLogs,
   initialAwards,
   initialFriends,
+  initialDailyRewards,
 } from "./data";
 import { databases } from "./appwrite/appwrite";
 import {
@@ -44,6 +45,7 @@ import {
   mapStock,
 } from "./database";
 import { awardService } from "./database/awardService";
+import { dailyRewardService } from "./database/dailyRewardService";
 import { createNotificationActions } from "./store/notifications";
 import { createCommentActions } from "./store/comments";
 import { createUserActions } from "./store/user-actions";
@@ -54,8 +56,10 @@ import { createAppealActions } from "./store/appeals";
 import { createAdminLogActions } from "./store/admin-log";
 import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
+import { createDailyRewardActions } from "./store/daily-rewards";
 import type { StoreState } from "./store/types";
 import type { User } from "./types";
+import { makeUniqueUsername } from "./usernames";
 
 export const useStore = create<StoreState>((set, get) => {
   const notificationActions = createNotificationActions({
@@ -85,6 +89,10 @@ export const useStore = create<StoreState>((set, get) => {
     getState: get,
   });
   const friendActions = createFriendActions({ setState: set, getState: get });
+  const dailyRewardActions = createDailyRewardActions({
+    setState: set,
+    getState: get,
+  });
 
   return {
     currentUser: null,
@@ -104,6 +112,7 @@ export const useStore = create<StoreState>((set, get) => {
     adminActionLogs: [],
     awards: [],
     friends: [],
+    dailyRewards: [],
     messages: [],
     conversations: [],
     ...notificationActions,
@@ -116,6 +125,7 @@ export const useStore = create<StoreState>((set, get) => {
     ...adminLogActions,
     ...awardActions,
     ...friendActions,
+    ...dailyRewardActions,
   };
 });
 
@@ -146,6 +156,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           adminLogData,
           awardsData,
           friendsData,
+          dailyRewardsData,
         ] = await Promise.all([
           userService.getAll(),
           stockService.getAll(),
@@ -160,6 +171,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           adminActionLogService.getAll(),
           awardService.getAll(),
           (await import("./database")).friendService.getAll(),
+          dailyRewardService.getAll().catch(() => []),
         ]);
 
         useStore.setState({
@@ -199,6 +211,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
           awards: awardsData.length > 0 ? awardsData : initialAwards,
           friends: friendsData.length > 0 ? friendsData : initialFriends,
+          dailyRewards:
+            dailyRewardsData.length > 0
+              ? dailyRewardsData
+              : initialDailyRewards,
         });
 
         await useStore.getState().processPendingDeletions();
@@ -216,14 +232,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             try {
               const created = await userService.create({
                 id: user.id,
-                username:
+                username: makeUniqueUsername(
                   user.name ||
-                  user.email.split("@")[0] ||
-                  `user-${Date.now().toString(36)}`,
+                    user.email.split("@")[0] ||
+                    `user-${Date.now().toString(36)}`,
+                  usersData.map((u) => u.username)
+                ),
                 email: user.email,
                 balance: 100,
                 isAdmin: false,
                 createdAt: new Date(),
+                avatarUrl: null,
                 bannedUntil: null,
                 showNsfw: true,
                 showSpoilers: true,

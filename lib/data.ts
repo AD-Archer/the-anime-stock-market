@@ -6,6 +6,11 @@ import type {
   Portfolio,
   Comment,
   Report,
+  Appeal,
+  AdminActionLog,
+  Award,
+  Friend,
+  DailyReward,
 } from "./types";
 
 // Initial users with $100 starting balance
@@ -323,14 +328,7 @@ export const initialComments: Comment[] = [
   },
 ];
 
-import type {
-  BuybackOffer,
-  Notification,
-  Appeal,
-  AdminActionLog,
-  Award,
-  Friend,
-} from "./types";
+import type { BuybackOffer, Notification } from "./types";
 
 // Initial buyback offers (empty)
 export const initialBuybackOffers: BuybackOffer[] = [];
@@ -345,3 +343,4 @@ export const initialAppeals: Appeal[] = [];
 export const initialAdminActionLogs: AdminActionLog[] = [];
 export const initialAwards: Award[] = [];
 export const initialFriends: Friend[] = [];
+export const initialDailyRewards: DailyReward[] = [];

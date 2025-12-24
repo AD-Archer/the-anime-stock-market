@@ -89,7 +89,7 @@ export function ReportManagement() {
         return current.id;
       };
 
-      const rootId = findRootId(report.commentId);
+      const rootId = report.commentId ? findRootId(report.commentId) : null;
       if (!rootId) return [];
 
       const snapshots: CommentSnapshot[] = [];

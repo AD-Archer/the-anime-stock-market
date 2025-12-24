@@ -198,7 +198,7 @@ export function createReportActions({
     try {
       await reportService.update(reportId, {
         status: "pending",
-        resolvedAt: null,
+        resolvedAt: undefined,
         resolvedBy: undefined,
         resolution: undefined,
       });

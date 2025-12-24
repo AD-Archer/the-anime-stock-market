@@ -59,9 +59,10 @@ const collections: CollectionPlan[] = [
       { kind: "float", key: "balance", required: true, default: 0 },
       { kind: "boolean", key: "isAdmin", required: false, default: false },
       { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "avatarUrl", size: 1024, required: false },
       { kind: "string", key: "bannedUntil", size: 64, required: false },
-      { kind: "boolean", key: "showNsfw", required: false, default: true },
-      { kind: "boolean", key: "showSpoilers", required: false, default: true },
+      { kind: "boolean", key: "showNsfw", required: false, default: false },
+      { kind: "boolean", key: "showSpoilers", required: false, default: false },
       {
         kind: "boolean",
         key: "isPortfolioPublic",
@@ -81,6 +82,12 @@ const collections: CollectionPlan[] = [
         default: false,
       },
       { kind: "string", key: "pendingDeletionAt", size: 64, required: false },
+      {
+        kind: "string",
+        key: "lastDailyRewardClaim",
+        size: 64,
+        required: false,
+      },
     ],
   },
   {
@@ -266,6 +273,18 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "status", size: 16, required: true },
       { kind: "string", key: "createdAt", size: 64, required: true },
       { kind: "string", key: "respondedAt", size: 64, required: false },
+    ],
+  },
+  {
+    id: "daily_rewards",
+    name: "Daily Rewards",
+    attributes: [
+      { kind: "string", key: "userId", size: 64, required: true },
+      { kind: "string", key: "lastClaimDate", size: 64, required: true },
+      { kind: "integer", key: "currentStreak", required: true, default: 0 },
+      { kind: "integer", key: "longestStreak", required: true, default: 0 },
+      { kind: "integer", key: "totalClaimed", required: true, default: 0 },
+      { kind: "float", key: "totalAmount", required: true, default: 0 },
     ],
   },
 ];

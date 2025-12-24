@@ -16,6 +16,7 @@ import type {
   Appeal,
   AdminActionLog,
   Award,
+  DailyReward,
 } from "../types";
 
 export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "";
@@ -37,6 +38,9 @@ export const APPEALS_COLLECTION = "appeals";
 export const ADMIN_ACTION_LOGS_COLLECTION = "admin_action_logs";
 export const AWARDS_COLLECTION = "awards";
 export const FRIENDS_COLLECTION = "friends";
+// Daily rewards collection - will gracefully fail if not created
+export const DAILY_REWARDS_COLLECTION =
+  process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
 
 type AppwriteDocument = Models.Document;
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -109,6 +113,7 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   balance: toNumberOr(docValue(doc, "balance"), 0),
   isAdmin: toBooleanOr(docValue(doc, "isAdmin")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  avatarUrl: toOptionalString(docValue(doc, "avatarUrl")),
   bannedUntil: docValue(doc, "bannedUntil")
     ? toDate(docValue(doc, "bannedUntil"))
     : null,
@@ -123,6 +128,7 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   pendingDeletionAt: docValue(doc, "pendingDeletionAt")
     ? toDate(docValue(doc, "pendingDeletionAt"))
     : null,
+  lastDailyRewardClaim: toOptionalDate(docValue(doc, "lastDailyRewardClaim")),
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({
@@ -400,4 +406,14 @@ export const mapFriend = (
     (docValue(doc, "status") as import("../types").FriendStatus) ?? "pending",
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   respondedAt: toOptionalDate(docValue(doc, "respondedAt")),
+});
+
+export const mapDailyReward = (doc: AppwriteDocument): DailyReward => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toStringOr(docValue(doc, "userId")),
+  lastClaimDate: toDate(docValue(doc, "lastClaimDate") ?? doc.$createdAt),
+  currentStreak: toNumberOr(docValue(doc, "currentStreak"), 0),
+  longestStreak: toNumberOr(docValue(doc, "longestStreak"), 0),
+  totalClaimed: toNumberOr(docValue(doc, "totalClaimed"), 0),
+  totalAmount: toNumberOr(docValue(doc, "totalAmount"), 0),
 });

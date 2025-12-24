@@ -29,9 +29,11 @@ export function Header() {
             <Link href="/market">
               <Button variant="ghost">Market</Button>
             </Link>
-            <Link href="/portfolio">
-              <Button variant="ghost">Portfolio</Button>
-            </Link>
+            {user && (
+              <Link href="/portfolio">
+                <Button variant="ghost">Portfolio</Button>
+              </Link>
+            )}
             <Link href="/leaderboard">
               <Button variant="ghost">Top 100</Button>
             </Link>
@@ -77,11 +79,13 @@ export function Header() {
                   Market
                 </Button>
               </Link>
-              <Link href="/portfolio" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start">
-                  Portfolio
-                </Button>
-              </Link>
+              {user && (
+                <Link href="/portfolio" onClick={() => setIsMenuOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Portfolio
+                  </Button>
+                </Link>
+              )}
               <Link href="/leaderboard" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
                   Leaderboard

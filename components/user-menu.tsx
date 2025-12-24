@@ -12,8 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, Bell, Crown, MessageCircle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
+import { getUserProfileHref } from "@/lib/user-profile";
+import { Badge } from "@/components/ui/badge";
+import { User, LogOut, Bell, Crown, MessageCircle, Gift } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +27,25 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
-  const { currentUser, notifications, markAllNotificationsRead } = useStore();
+  const {
+    currentUser,
+    notifications,
+    markAllNotificationsRead,
+    getDailyRewardInfo,
+    messages,
+    conversations,
+  } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
+  const rewardInfo = getDailyRewardInfo();
+
+  // Check for unread messages
+  const unreadMessagesCount = currentUser
+    ? messages.filter(
+        (msg) =>
+          msg.senderId !== currentUser.id &&
+          !msg.readBy.includes(currentUser.id)
+      ).length
+    : 0;
 
   if (!user || !currentUser) {
     return (
@@ -40,12 +60,7 @@ export function UserMenu() {
   }
 
   const displayName = user.name || user.email || "User";
-  const initials = displayName
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = getUserInitials(displayName);
 
   return (
     <div className="flex items-center gap-2">
@@ -66,6 +81,10 @@ export function UserMenu() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
+              <AvatarImage
+                src={getUserAvatarUrl(currentUser)}
+                alt={currentUser.username}
+              />
               <AvatarFallback className="bg-primary text-primary-foreground">
                 {initials}
               </AvatarFallback>
@@ -83,15 +102,54 @@ export function UserMenu() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <a href={`/users/${currentUser.id}`} className="flex items-center">
+            <a href="/rewards" className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Gift className="mr-2 h-4 w-4 text-yellow-600" />
+                <span className="font-semibold text-yellow-600">Rewards</span>
+              </div>
+              {rewardInfo?.canClaim && (
+                <Badge
+                  variant="default"
+                  className="ml-2 bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Available
+                </Badge>
+              )}
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href={getUserProfileHref(currentUser, currentUser.id)}
+              className="flex items-center"
+            >
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <a href="/messages" className="flex items-center">
-              <MessageCircle className="mr-2 h-4 w-4" />
-              <span>Messages</span>
+            <a href="/messages" className="flex items-center justify-between">
+              <div className="flex items-center">
+                <MessageCircle
+                  className={`mr-2 h-4 w-4 ${
+                    unreadMessagesCount > 0 ? "text-blue-600" : ""
+                  }`}
+                />
+                <span
+                  className={`${
+                    unreadMessagesCount > 0 ? "font-semibold text-blue-600" : ""
+                  }`}
+                >
+                  Messages
+                </span>
+              </div>
+              {unreadMessagesCount > 0 && (
+                <Badge
+                  variant="default"
+                  className="ml-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  {unreadMessagesCount}
+                </Badge>
+              )}
             </a>
           </DropdownMenuItem>
           {currentUser.isAdmin && (
@@ -119,7 +177,11 @@ export function UserMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={showNotifications} onOpenChange={setShowNotifications} modal={false}>
+      <Dialog
+        open={showNotifications}
+        onOpenChange={setShowNotifications}
+        modal={false}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Notifications</DialogTitle>

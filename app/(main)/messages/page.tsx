@@ -24,7 +24,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
+import { getUserProfileHref } from "@/lib/user-profile";
 import { Badge } from "@/components/ui/badge";
 import {
   MessageCircle,
@@ -457,21 +459,26 @@ export default function MessagesPage() {
                     >
                       <div className="flex items-center gap-3">
                         <Link
-                          href={`/users/${otherUserId}`}
+                          href={getUserProfileHref(otherUser, otherUserId)}
                           onClick={(e) => e.stopPropagation()}
                           className="flex-shrink-0"
                         >
                           <Avatar className="h-10 w-10 hover:opacity-80 transition-opacity">
+                            {otherUser && (
+                              <AvatarImage
+                                src={getUserAvatarUrl(otherUser)}
+                                alt={otherUser.username}
+                              />
+                            )}
                             <AvatarFallback>
-                              {otherUser?.username.slice(0, 2).toUpperCase() ||
-                                "??"}
+                              {getUserInitials(otherUser?.username || "??")}
                             </AvatarFallback>
                           </Avatar>
                         </Link>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <Link
-                              href={`/users/${otherUserId}`}
+                              href={getUserProfileHref(otherUser, otherUserId)}
                               onClick={(e) => e.stopPropagation()}
                               className="font-medium truncate hover:underline"
                             >
@@ -511,12 +518,16 @@ export default function MessagesPage() {
             <>
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-10 w-10">
+                  <AvatarImage
+                    src={getUserAvatarUrl(otherParticipant)}
+                    alt={otherParticipant.username}
+                  />
                   <AvatarFallback>
-                    {otherParticipant.username.slice(0, 2).toUpperCase()}
+                    {getUserInitials(otherParticipant.username)}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Link href={`/users/${otherParticipant.id}`}>
+                  <Link href={getUserProfileHref(otherParticipant, otherParticipant.id)}>
                     <CardTitle className="hover:underline cursor-pointer">
                       {otherParticipant.username}
                     </CardTitle>
@@ -551,6 +562,11 @@ export default function MessagesPage() {
                         const replyAuthor = replyMessage
                           ? users.find((u) => u.id === replyMessage.senderId)
                           : null;
+                        const sender =
+                          users.find((u) => u.id === message.senderId) ||
+                          (message.senderId === currentUser.id
+                            ? currentUser
+                            : null);
                         const externalUrls = extractUrls(
                           message.content
                         ).filter(isExternalUrl);
@@ -570,12 +586,23 @@ export default function MessagesPage() {
                               }`}
                             >
                               {!isFromMe && (
-                                <Link href={`/users/${message.senderId}`}>
+                                <Link
+                                  href={getUserProfileHref(
+                                    sender,
+                                    message.senderId
+                                  )}
+                                >
                                   <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
+                                    {sender && (
+                                      <AvatarImage
+                                        src={getUserAvatarUrl(sender)}
+                                        alt={sender.username}
+                                      />
+                                    )}
                                     <AvatarFallback className="text-xs">
-                                      {otherParticipant.username
-                                        .slice(0, 2)
-                                        .toUpperCase()}
+                                      {getUserInitials(
+                                        sender?.username || "??"
+                                      )}
                                     </AvatarFallback>
                                   </Avatar>
                                 </Link>
@@ -711,12 +738,19 @@ export default function MessagesPage() {
                                 </div>
                               </div>
                               {isFromMe && (
-                                <Link href={`/users/${currentUser.id}`}>
+                                <Link
+                                  href={getUserProfileHref(
+                                    currentUser,
+                                    currentUser.id
+                                  )}
+                                >
                                   <Avatar className="h-8 w-8 hover:opacity-80 transition-opacity cursor-pointer">
+                                    <AvatarImage
+                                      src={getUserAvatarUrl(currentUser)}
+                                      alt={currentUser.username}
+                                    />
                                     <AvatarFallback className="text-xs">
-                                      {currentUser.username
-                                        .slice(0, 2)
-                                        .toUpperCase()}
+                                      {getUserInitials(currentUser.username)}
                                     </AvatarFallback>
                                   </Avatar>
                                 </Link>

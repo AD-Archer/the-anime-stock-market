@@ -1,38 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import type { User } from "@/lib/types";
-import { account } from "@/lib/appwrite/appwrite";
-import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
+import type { Stock, User } from "@/lib/types";
+import { MessageCircle, LogIn } from "lucide-react";
 
 type ProfileSettingsProps = {
   authUser: { id: string; name?: string | null; email: string } | null;
   storeUser: User | null;
   authLoading: boolean;
+  stocks: Stock[];
   onUpdateName: (name: string) => Promise<void>;
-  onUpdatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  onUpdatePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<void>;
   onUpdatePreferences: (
-    key: "showSpoilers" | "showNsfw" | "isPortfolioPublic" | "hideTransactions" | "anonymousTransactions",
+    key:
+      | "showSpoilers"
+      | "showNsfw"
+      | "isPortfolioPublic"
+      | "hideTransactions"
+      | "anonymousTransactions",
     value: boolean
   ) => Promise<void>;
+  onUpdateAvatar: (avatarUrl: string | null) => Promise<void>;
+  onExportData: () => void;
+  onDeleteAccount: () => Promise<void>;
 };
 
 export function ProfileSettings({
   authUser,
   storeUser,
   authLoading,
+  stocks,
   onUpdateName,
   onUpdatePassword,
   onUpdatePreferences,
+  onUpdateAvatar,
+  onExportData,
+  onDeleteAccount,
 }: ProfileSettingsProps) {
   const [displayName, setDisplayName] = useState(authUser?.name || "");
   const [isEditingName, setIsEditingName] = useState(false);
-  const [jwt, setJwt] = useState<string | null>(null);
-  const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,12 +57,19 @@ export function ProfileSettings({
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [showSpoilersPreference, setShowSpoilersPreference] = useState(true);
   const [showNsfwPreference, setShowNsfwPreference] = useState(true);
-  const [portfolioPublicPreference, setPortfolioPublicPreference] = useState(false);
-  const [hideTransactionsPreference, setHideTransactionsPreference] = useState(false);
-  const [anonymousTransactionsPreference, setAnonymousTransactionsPreference] = useState(false);
+  const [portfolioPublicPreference, setPortfolioPublicPreference] =
+    useState(false);
+  const [hideTransactionsPreference, setHideTransactionsPreference] =
+    useState(false);
+  const [anonymousTransactionsPreference, setAnonymousTransactionsPreference] =
+    useState(false);
+  const [avatarSearch, setAvatarSearch] = useState("");
+  const [avatarUpdating, setAvatarUpdating] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [preferenceLoading, setPreferenceLoading] = useState<
     null | "spoilers" | "nsfw" | "portfolio" | "transactions"
   >(null);
+  const { signInWithGoogle } = useAuth();
 
   useEffect(() => {
     if (authUser) {
@@ -63,15 +87,40 @@ export function ProfileSettings({
     }
   }, [storeUser]);
 
-  const fetchJwt = async () => {
-    setJwtStatus(null);
+  const matchingCharacters = useMemo(() => {
+    const query = avatarSearch.trim().toLowerCase();
+    if (!query) return [];
+    return stocks
+      .filter((stock) => stock.characterName.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [avatarSearch, stocks]);
+
+  const handleAvatarSelect = async (avatarUrl: string | null) => {
+    if (avatarUpdating) return;
+    setAvatarUpdating(true);
     try {
-      const token = await account.createJWT();
-      setJwt(token.jwt);
-      setJwtStatus("JWT generated (valid 15 minutes).");
-    } catch (err) {
-      console.error("Failed to create JWT", err);
-      setJwtStatus("Failed to create JWT. Are you signed in?");
+      await onUpdateAvatar(avatarUrl);
+    } finally {
+      setAvatarUpdating(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!storeUser) return;
+    const confirmed = window.confirm(
+      "Are you sure? This schedules your account for deletion in 7 days."
+    );
+    if (!confirmed) return;
+
+    setDeleteStatus(null);
+    try {
+      await onDeleteAccount();
+      setDeleteStatus(
+        "Account deletion scheduled. You'll be removed in 7 days."
+      );
+    } catch (error) {
+      console.error("Failed to schedule deletion:", error);
+      setDeleteStatus("Failed to schedule deletion. Please try again.");
     }
   };
 
@@ -102,12 +151,19 @@ export function ProfileSettings({
       setConfirmPassword("");
     } catch (err) {
       console.error("Failed to update password", err);
-      setPasswordError("Failed to update password. Check your current password.");
+      setPasswordError(
+        "Failed to update password. Check your current password."
+      );
     }
   };
 
   const handlePreferenceChange = async (
-    key: "showSpoilers" | "showNsfw" | "isPortfolioPublic" | "hideTransactions" | "anonymousTransactions",
+    key:
+      | "showSpoilers"
+      | "showNsfw"
+      | "isPortfolioPublic"
+      | "hideTransactions"
+      | "anonymousTransactions",
     value: boolean
   ) => {
     const loadingKey =
@@ -202,6 +258,64 @@ export function ProfileSettings({
         </div>
       </div>
       <div className="space-y-2">
+        <label className="text-sm font-medium">Profile Picture</label>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-12 w-12">
+            <AvatarImage
+              src={getUserAvatarUrl(storeUser)}
+              alt={storeUser.username}
+            />
+            <AvatarFallback>
+              {getUserInitials(storeUser.username)}
+            </AvatarFallback>
+          </Avatar>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => handleAvatarSelect(null)}
+            disabled={!storeUser.avatarUrl || avatarUpdating}
+          >
+            Reset to Default
+          </Button>
+        </div>
+        <Input
+          placeholder="Search characters (e.g., Goku)"
+          value={avatarSearch}
+          onChange={(e) => setAvatarSearch(e.target.value)}
+        />
+        {avatarSearch.trim().length > 0 && (
+          <>
+            {matchingCharacters.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No character matches yet.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {matchingCharacters.map((stock) => (
+                  <button
+                    key={stock.id}
+                    type="button"
+                    onClick={() => handleAvatarSelect(stock.imageUrl)}
+                    disabled={avatarUpdating}
+                    className="flex items-center gap-2 rounded-md border border-border p-2 text-left text-xs hover:bg-muted"
+                  >
+                    <Image
+                      src={stock.imageUrl || "/placeholder.svg"}
+                      alt={stock.characterName}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
+                    <span className="font-medium">{stock.characterName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm font-medium">Change Password</label>
         <div className="space-y-2">
           <Input
@@ -225,7 +339,9 @@ export function ProfileSettings({
           <Button onClick={handlePasswordChange} size="sm">
             Update Password
           </Button>
-          {passwordError && <p className="text-sm text-red-500">{passwordError}</p>}
+          {passwordError && (
+            <p className="text-sm text-red-500">{passwordError}</p>
+          )}
           {passwordSuccess && (
             <p className="text-sm text-green-500">{passwordSuccess}</p>
           )}
@@ -243,20 +359,6 @@ export function ProfileSettings({
         <p className="text-sm text-muted-foreground">
           Your account is secured with Appwrite authentication.
         </p>
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">JWT (15 min)</label>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={fetchJwt}>
-            Generate JWT
-          </Button>
-          {jwtStatus && (
-            <span className="text-xs text-muted-foreground">{jwtStatus}</span>
-          )}
-        </div>
-        {jwt && (
-          <p className="text-xs break-all rounded bg-muted p-2 font-mono">{jwt}</p>
-        )}
       </div>
       <div className="space-y-3 border-t border-border pt-4">
         <label className="text-sm font-medium">Content Preferences</label>
@@ -341,7 +443,8 @@ export function ProfileSettings({
             <div>
               <p className="text-sm text-foreground">Anonymous Transactions</p>
               <p className="text-xs text-muted-foreground">
-                Make your transactions appear anonymous on leaderboards and public views.
+                Make your transactions appear anonymous on leaderboards and
+                public views.
               </p>
             </div>
             <input
@@ -359,6 +462,31 @@ export function ProfileSettings({
         </div>
       </div>
 
+      <div className="space-y-3 border-t border-border pt-4">
+        <label className="text-sm font-medium">Linked Accounts</label>
+        <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+          <div>
+            <h3 className="text-sm font-medium">Google</h3>
+            <p className="text-xs text-muted-foreground">
+              Link your Google account for one-click sign in.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!storeUser) return;
+              const origin = window.location.origin;
+              await signInWithGoogle({
+                successUrl: `${origin}/users/${storeUser.username}?linked=google`,
+                failureUrl: `${origin}/users/${storeUser.username}?oauth=failed`,
+              });
+            }}
+          >
+            <LogIn className="mr-2 h-4 w-4" /> Link Google
+          </Button>
+        </div>
+      </div>
       <div className="space-y-3 border-t border-border pt-4">
         <label className="text-sm font-medium">Messaging Settings</label>
         <div className="space-y-4">
@@ -422,7 +550,8 @@ export function ProfileSettings({
           <div className="p-4 border border-border rounded-lg">
             <h3 className="text-sm font-medium mb-2">Message History</h3>
             <p className="text-xs text-muted-foreground mb-3">
-              Your direct messages are stored securely and can be accessed from the Messages page.
+              Your direct messages are stored securely and can be accessed from
+              the Messages page.
             </p>
             <Link href="/messages">
               <Button variant="outline" size="sm">
@@ -431,6 +560,39 @@ export function ProfileSettings({
               </Button>
             </Link>
           </div>
+        </div>
+      </div>
+      <div className="space-y-3 border-t border-border pt-4">
+        <label className="text-sm font-medium">Account Data</label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-foreground">Export your data</p>
+            <p className="text-xs text-muted-foreground">
+              Download a JSON export of your profile, trades, comments, and
+              messages.
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={onExportData}>
+            Export Data
+          </Button>
+        </div>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm font-medium text-foreground">Delete account</p>
+          <p className="text-xs text-muted-foreground">
+            This schedules your account for deletion. You can contact support if
+            you need to cancel.
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="mt-3"
+            onClick={handleDeleteAccount}
+          >
+            Delete Account
+          </Button>
+          {deleteStatus && (
+            <p className="mt-2 text-xs text-muted-foreground">{deleteStatus}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">

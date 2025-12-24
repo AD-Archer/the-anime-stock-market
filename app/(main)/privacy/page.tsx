@@ -4,8 +4,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function PrivacyPage() {
+  const dataCollectionMarkdown = `
+We collect and store the following categories of data when you use the site:
+
+- **Account identifiers:** user ID, username, display name, email, and created date.
+- **Authentication data:** managed by Appwrite (passwords are never stored in this app).
+- **Profile details:** avatar selection and profile preferences.
+- **Trading data:** portfolio holdings, transactions, buy/sell history, and balances.
+- **Community activity:** comments, reactions, reports, and content tags you set (e.g. spoiler/NSFW).
+- **Messaging:** conversation membership and message content.
+- **Social graph:** friend requests and accepted friendships.
+- **Notifications & rewards:** notifications, awards, daily rewards, and appeals.
+- **Device/local data:** local UI preferences stored in your browser.
+`;
+
+  const usageMarkdown = `
+We use your information to:
+
+- operate the trading game and social features,
+- display your profile and activity to you (and others when public),
+- manage moderation, safety, and system events,
+- provide exports and account deletion tools.
+`;
+
+  const storageMarkdown = `
+Your account data is stored in Appwrite (auth + database). Local UI preferences are stored in your browser.
+We do **not** sell your data.
+`;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -19,9 +49,7 @@ export default function PrivacyPage() {
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Privacy Policy
           </h1>
-          <p className="text-muted-foreground">
-            Last updated: November 2, 2025
-          </p>
+          <p className="text-muted-foreground">Last updated: December 23th</p>
         </div>
 
         <div className="space-y-6">
@@ -67,36 +95,22 @@ export default function PrivacyPage() {
               <CardTitle>Information We Collect</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Account Information</h3>
-                  <p className="text-sm text-muted-foreground">
-                    When you create an account, we collect your username, email
-                    address, and account preferences. All data is stored locally
-                    in your browser and is not transmitted to any external
-                    servers.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Usage Data</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We collect anonymous usage statistics through Vercel
-                    Analytics to understand how the application is used and to
-                    improve the user experience. This data does not contain
-                    personally identifiable information.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Local Storage</h3>
-                  <p className="text-sm text-muted-foreground">
-                    The application uses browser local storage to save your
-                    portfolio data, transaction history, and user preferences.
-                    This data remains on your device and is not accessible by
-                    us.
-                  </p>
-                </div>
+              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-2">{children}</p>,
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-5">{children}</ul>
+                    ),
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    strong: ({ children }) => (
+                      <strong className="font-semibold">{children}</strong>
+                    ),
+                  }}
+                >
+                  {dataCollectionMarkdown}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>
@@ -106,19 +120,20 @@ export default function PrivacyPage() {
               <CardTitle>How We Use Your Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  • To provide and maintain the trading platform functionality
-                </li>
-                <li>• To save your portfolio and transaction data locally</li>
-                <li>
-                  • To improve the application based on anonymous usage patterns
-                </li>
-                <li>
-                  • To respond to copyright takedown requests and legal
-                  inquiries
-                </li>
-              </ul>
+              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-2">{children}</p>,
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-5">{children}</ul>
+                    ),
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                  }}
+                >
+                  {usageMarkdown}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
 
@@ -127,13 +142,19 @@ export default function PrivacyPage() {
               <CardTitle>Data Security</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Since all user data is stored locally in your browser, we do not
-                have access to your personal information or trading data. The
-                application does not transmit sensitive data to external
-                servers. However, we recommend using strong passwords and
-                keeping your browser updated for optimal security.
-              </p>
+              <div className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-2">{children}</p>,
+                    strong: ({ children }) => (
+                      <strong className="font-semibold">{children}</strong>
+                    ),
+                  }}
+                >
+                  {storageMarkdown}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
 

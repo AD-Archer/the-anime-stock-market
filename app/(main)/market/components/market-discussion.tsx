@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { ThumbsUp, ThumbsDown, Flag } from "lucide-react";
 import { MessageContent } from "@/components/chat/message-content";
+import { getUserProfileHref } from "@/lib/user-profile";
 
 interface MarketDiscussionProps {
   currentUser: any;
@@ -399,7 +400,7 @@ function CommentThread({
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link
-              href={`/users/${comment.userId}`}
+              href={getUserProfileHref(user, comment.userId)}
               className="font-semibold text-foreground hover:underline"
             >
               {user?.username || "Unknown"}

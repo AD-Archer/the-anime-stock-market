@@ -18,6 +18,7 @@ export interface User {
   balance: number;
   isAdmin: boolean;
   createdAt: Date;
+  avatarUrl?: string | null;
   bannedUntil: Date | null;
   showNsfw: boolean;
   showSpoilers: boolean;
@@ -25,6 +26,7 @@ export interface User {
   hideTransactions: boolean;
   anonymousTransactions: boolean;
   pendingDeletionAt: Date | null;
+  lastDailyRewardClaim?: Date;
 }
 
 export interface Stock {
@@ -251,6 +253,16 @@ export interface AwardDefinition {
   name: string;
   description: string;
   icon: string;
-  rarity: "common" | "rare" | "epic" | "legendary";
+  rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
   redeemableValue?: number;
+}
+
+export interface DailyReward {
+  id: string;
+  userId: string;
+  lastClaimDate: Date;
+  currentStreak: number;
+  longestStreak: number;
+  totalClaimed: number;
+  totalAmount: number;
 }

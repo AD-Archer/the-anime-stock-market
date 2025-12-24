@@ -1,10 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MarketChart } from "@/components/market-chart";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+
+function useCurrentTimestamp(updateIntervalMs = 60000) {
+  const [timestamp, setTimestamp] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => setTimestamp(Date.now()),
+      updateIntervalMs
+    );
+    return () => clearInterval(interval);
+  }, [updateIntervalMs]);
+
+  return timestamp;
+}
 
 export function MarketOverview() {
   const { stocks } = useStore();
@@ -16,9 +30,10 @@ export function MarketOverview() {
     )[0];
   }, [stocks]);
 
-  const isRecent = latestStock
-    ? Date.now() - latestStock.createdAt.getTime() <= 1000 * 60 * 60 * 24
-    : false;
+  const now = useCurrentTimestamp();
+  const isRecent =
+    latestStock &&
+    now - latestStock.createdAt.getTime() <= 1000 * 60 * 60 * 24;
 
   return (
     <div className="space-y-4">

@@ -17,6 +17,7 @@ import type {
   AppealStatus,
   AdminActionType,
   Friend,
+  DailyReward,
 } from "../types";
 
 export type AddCommentInput = {
@@ -46,6 +47,7 @@ export interface StoreContextType {
   adminActionLogs: AdminActionLog[];
   awards: Award[];
   friends: Friend[];
+  dailyRewards: DailyReward[];
   messages: Message[];
   conversations: Conversation[];
 
@@ -84,6 +86,7 @@ export interface StoreContextType {
     hideTransactions?: boolean;
     anonymousTransactions?: boolean;
   }) => Promise<void>;
+  setUserAvatar: (avatarUrl: string | null) => Promise<void>;
 
   makeUserAdmin: (userId: string) => void;
   removeUserAdmin: (userId: string) => void;
@@ -171,6 +174,20 @@ export interface StoreContextType {
   unlockAward: (userId: string, type: Award["type"]) => Promise<void>;
   getUserAwards: (userId: string) => Award[];
   redeemAward: (awardId: string) => Promise<boolean>;
+
+  // Daily reward actions
+  claimDailyReward: () => Promise<{
+    success: boolean;
+    amount?: number;
+    streak?: number;
+    message?: string;
+  }>;
+  getDailyRewardInfo: () => {
+    canClaim: boolean;
+    currentStreak: number;
+    nextRewardAmount: number;
+    hoursUntilNextClaim: number;
+  } | null;
 }
 
 export type StoreState = StoreContextType;

@@ -21,7 +21,6 @@ import {
 } from "../components/trading-activity";
 import { ProfileSettings } from "../components/profile-settings";
 import { CommentsSection } from "../components/comments-section";
-import { AwardsSection } from "../components/awards-section";
 import { FriendsList } from "../components/friends-list";
 
 export default function PublicProfilePage({
@@ -29,7 +28,7 @@ export default function PublicProfilePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
+  const { id: slug } = use(params);
   const router = useRouter();
   const {
     user: authUser,
@@ -46,12 +45,21 @@ export default function PublicProfilePage({
     createConversation,
     transactions,
     updateContentPreferences,
+    setUserAvatar,
+    deleteUser,
+    friends,
+    notifications,
+    dailyRewards,
+    messages,
+    conversations,
     isLoading,
     awards,
     getUserAwards,
   } = useStore();
 
-  const profileUser = users.find((user) => user.id === id);
+  const profileUser =
+    users.find((user) => user.username === slug) ||
+    users.find((user) => user.id === slug);
   const isOwnProfile = authUser?.id === profileUser?.id;
 
   const portfolio = useMemo(() => {
@@ -121,9 +129,7 @@ export default function PublicProfilePage({
 
   const userComments = useMemo(() => {
     if (!profileUser) return [];
-    return comments
-      .filter((comment) => comment.userId === profileUser.id)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return comments.filter((comment) => comment.userId === profileUser.id);
   }, [comments, profileUser]);
 
   const userAwards = useMemo(() => {
@@ -158,6 +164,52 @@ export default function PublicProfilePage({
   ) => {
     if (!isOwnProfile) return;
     await updateContentPreferences({ [key]: value });
+  };
+
+  const handleExportData = () => {
+    if (!profileUser) return;
+    const userId = profileUser.id;
+    const conversationIds = new Set(
+      conversations
+        .filter((conv) => conv.participants.includes(userId))
+        .map((conv) => conv.id)
+    );
+    const exportPayload = {
+      exportedAt: new Date().toISOString(),
+      user: profileUser,
+      portfolios: getUserPortfolio(userId),
+      transactions: transactions.filter((tx) => tx.userId === userId),
+      comments: comments.filter((comment) => comment.userId === userId),
+      awards: awards.filter((award) => award.userId === userId),
+      friends: friends.filter(
+        (friend) =>
+          friend.requesterId === userId || friend.receiverId === userId
+      ),
+      notifications: notifications.filter(
+        (notification) => notification.userId === userId
+      ),
+      dailyRewards: dailyRewards.filter((reward) => reward.userId === userId),
+      conversations: conversations.filter((conv) =>
+        conv.participants.includes(userId)
+      ),
+      messages: messages.filter((message) =>
+        conversationIds.has(message.conversationId)
+      ),
+    };
+
+    const data = JSON.stringify(exportPayload, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `anime-stock-market-data-${profileUser.username}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profileUser || !isOwnProfile) return;
+    await deleteUser(profileUser.id);
   };
 
   if (isLoading && !profileUser) {
@@ -254,9 +306,13 @@ export default function PublicProfilePage({
                 authUser={authUser}
                 storeUser={profileUser}
                 authLoading={authLoading}
+                stocks={stocks}
                 onUpdateName={updateName}
                 onUpdatePassword={updatePassword}
                 onUpdatePreferences={handlePreferenceChange}
+                onUpdateAvatar={setUserAvatar}
+                onExportData={handleExportData}
+                onDeleteAccount={handleDeleteAccount}
               />
             }
             activeTab={activeTab}
@@ -293,8 +349,7 @@ export default function PublicProfilePage({
                             {holding.stock.anime}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {holding.shares} shares @ $
-                            {holding.averageBuyPrice.toFixed(2)}
+                            {holding.shares} shares
                           </p>
                         </div>
                         <div className="text-right">
@@ -317,8 +372,6 @@ export default function PublicProfilePage({
         )}
 
         <CommentsSection comments={userComments} stocks={stocks} />
-
-        <AwardsSection awards={userAwards} isOwnProfile={!!isOwnProfile} />
 
         {isOwnProfile && <FriendsList />}
 

@@ -39,6 +39,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.bannedUntil !== undefined) {
         optionalKeys.push("bannedUntil");
       }
+      if (updates.avatarUrl !== undefined) {
+        optionalKeys.push("avatarUrl");
+      }
       if (updates.pendingDeletionAt !== undefined) {
         optionalKeys.push("pendingDeletionAt");
       }
@@ -53,12 +56,20 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       const buildPayload = (keys: (keyof User)[]) =>
         Object.fromEntries(keys.map((key) => [key, (merged as any)[key]]));
 
-      const payload = buildPayload([...baseKeys, ...optionalKeys, ...preferenceKeys]);
+      const payload = buildPayload([
+        ...baseKeys,
+        ...optionalKeys,
+        ...preferenceKeys,
+      ]);
 
       const preferenceValues =
         preferenceKeys.length > 0
-          ? Object.fromEntries(preferenceKeys.map((key) => [key, (merged as any)[key]]))
+          ? Object.fromEntries(
+              preferenceKeys.map((key) => [key, (merged as any)[key]])
+            )
           : {};
+      const avatarValues =
+        updates.avatarUrl !== undefined ? { avatarUrl: merged.avatarUrl } : {};
 
       try {
         const saved = await userService.update(userId, payload as Partial<User>);
@@ -70,8 +81,14 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       } catch (innerError: any) {
         const message = innerError?.message ?? "";
         const hasPrefs = preferenceKeys.length > 0;
-        if (hasPrefs && message.includes("Unknown attribute")) {
-          const fallbackPayload = buildPayload([...baseKeys, ...optionalKeys]);
+        const hasAvatar = updates.avatarUrl !== undefined;
+        if ((hasPrefs || hasAvatar) && message.includes("Unknown attribute")) {
+          const fallbackPayload = buildPayload(
+            [
+              ...baseKeys,
+              ...optionalKeys.filter((key) => key !== "avatarUrl"),
+            ]
+          );
           try {
             const saved = await userService.update(userId, fallbackPayload as Partial<User>);
             setState((state) => ({
@@ -81,14 +98,16 @@ export function createUserActions({ setState, getState }: StoreMutators) {
             // Keep local preference flags even if backend ignores them
             setState((state) => ({
               users: state.users.map((u) =>
-                u.id === userId ? { ...u, ...preferenceValues } : u
+                u.id === userId
+                  ? { ...u, ...preferenceValues, ...avatarValues }
+                  : u
               ),
               currentUser:
                 state.currentUser?.id === userId
-                  ? { ...state.currentUser, ...preferenceValues }
+                  ? { ...state.currentUser, ...preferenceValues, ...avatarValues }
                   : state.currentUser,
             }));
-            return { ...saved, ...preferenceValues } as User;
+            return { ...saved, ...preferenceValues, ...avatarValues } as User;
           } catch (retryError) {
             console.error("Failed to update user after stripping preferences:", retryError);
           }
@@ -131,6 +150,13 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     if (!currentUser) return;
 
     await persistUserUpdate(currentUser.id, preferences);
+  };
+
+  const setUserAvatar = async (avatarUrl: string | null) => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return;
+
+    await persistUserUpdate(currentUser.id, { avatarUrl });
   };
 
   const banUser = async (
@@ -377,6 +403,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
   return {
     updateContentPreferences,
+    setUserAvatar,
     banUser,
     unbanUser,
     deleteUser,

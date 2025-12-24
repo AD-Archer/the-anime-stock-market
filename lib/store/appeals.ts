@@ -57,7 +57,7 @@ export function createAppealActions({ setState, getState }: StoreMutators) {
 
     const updated = await appealService.update(appealId, {
       status: "pending",
-      resolvedAt: null,
+      resolvedAt: undefined,
       resolvedBy: undefined,
       resolutionNotes: undefined,
     });

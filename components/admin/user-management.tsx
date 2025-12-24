@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { getUserProfileHref } from "@/lib/user-profile";
 import {
   Select,
   SelectContent,
@@ -366,7 +367,7 @@ export function UserManagement() {
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-foreground">
                           <Link
-                            href={`/users/${user.id}`}
+                            href={getUserProfileHref(user, user.id)}
                             className="hover:underline"
                           >
                             {user.username}

@@ -13,20 +13,25 @@ import { UserPlus, Mail, Lock, IdCard, Loader2 } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const handleGoogle = async () => {
-    const origin = window.location.origin;
-    const success = `${origin}/auth/oauth/callback`;
-    const failure = `${origin}/auth/signup?oauth=failed`;
+    if (!termsAccepted || !privacyAccepted) {
+      setError(
+        "Please accept the Terms of Service and Privacy Policy to continue."
+      );
+      return;
+    }
     setError(null);
     try {
-      await account.createOAuth2Session(OAuthProvider.Google, success, failure);
+      await signInWithGoogle();
     } catch (err) {
       console.error("Google OAuth start failed", err);
       setError(
@@ -38,6 +43,12 @@ export default function SignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!termsAccepted || !privacyAccepted) {
+      setError(
+        "Please accept the Terms of Service and Privacy Policy to continue."
+      );
+      return;
+    }
     setLoading(true);
     try {
       await signUp(name.trim() || email.split("@")[0], email.trim(), password);
@@ -52,7 +63,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-3xl grid gap-6 md:grid-cols-[1.1fr_0.9fr] items-center">
+      <div className="w-full max-w-4xl grid gap-6 md:grid-cols-[1.1fr_0.9fr] items-center">
         <div className="space-y-4">
           <p className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             <UserPlus className="mr-1 h-4 w-4" /> Create your portfolio
@@ -73,8 +84,31 @@ export default function SignUpPage() {
               Sign up
             </h2>
             <p className="text-sm text-muted-foreground">
-              Create an account with your email and password.
+              Create an account with email/password or Google OAuth.
             </p>
+          </div>
+          {/* Notice to accept both Terms and Privacy */}
+          <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30 p-3">
+            <p className="text-xs text-blue-900 dark:text-blue-200">
+              <strong>Please accept Terms of Service AND Privacy Policy</strong>{" "}
+              before signing up.
+            </p>
+          </div>
+
+          {/* Google sign-up at the top to match sign-in */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogle}
+          >
+            <GoogleIcon className="mr-2 h-4 w-4" /> Continue with Google
+          </Button>
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            <span>or</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -127,7 +161,46 @@ export default function SignUpPage() {
                 {error}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="tos-accept-signup"
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="tos-accept-signup">
+                  I have read and agree to the{" "}
+                  <Link href="/terms" className="text-primary hover:underline">
+                    Terms of Service
+                  </Link>
+                </label>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="privacy-accept-signup"
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="privacy-accept-signup">
+                  I have read and agree to the{" "}
+                  <Link
+                    href="/privacy"
+                    className="text-primary hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !termsAccepted || !privacyAccepted}
+            >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" /> Creating
@@ -139,21 +212,6 @@ export default function SignUpPage() {
             </Button>
           </form>
 
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <span>or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogle}
-          >
-            Continue with Google
-          </Button>
-
           <p className="text-sm text-center text-muted-foreground">
             Already have an account?{" "}
             <Link href="/auth/signin" className="text-primary hover:underline">
@@ -163,5 +221,28 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5h-1.9V20H24v8h11.3c-1.6 4.6-6 8-11.3 8a12 12 0 1 1 0-24c3 0 5.8 1.1 7.9 2.9l5.7-5.7C34.3 6.8 29.4 5 24 5a19 19 0 1 0 0 38c9.7 0 17.7-6.9 19.3-16.1l.3-6.4z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.3 14.6l6.6 4.8C15 16 19.2 13 24 13c3 0 5.8 1.1 7.9 2.9l5.7-5.7C34.3 6.8 29.4 5 24 5c-7 0-13.2 3.4-17 8.6z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 43c5.6 0 10.4-2.1 14.1-5.5l-6.5-5.3c-2 1.5-4.6 2.4-7.6 2.4a12 12 0 0 1-11.3-8l-6.6 5.1C6 37.9 14.3 43 24 43z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.5h-1.9V20H24v8h11.3a12 12 0 0 1-4.1 5.3l6.5 5.3C39.4 35.7 43 30.6 43.6 24l.3-3.5z"
+      />
+    </svg>
   );
 }

@@ -1,12 +1,29 @@
 "use client";
 
 import { useMemo } from "react";
+import type { ComponentType, JSX } from "react";
 import ReactMarkdown from "react-markdown";
+import type { ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { extractUrls, isExternalUrl } from "@/lib/chat/link-utils";
 import { LinkPreviewList } from "@/components/chat/link-preview";
 import { SafeLink } from "@/components/chat/safe-link";
 import { cn } from "@/lib/utils";
+
+type MarkdownCodeProps =
+  JSX.IntrinsicElements["code"] & ExtraProps & { inline?: boolean };
+
+const MarkdownCode: ComponentType<MarkdownCodeProps> = ({
+  inline,
+  children,
+}) =>
+  inline ? (
+    <code className="rounded bg-muted px-1 py-0.5 text-xs">{children}</code>
+  ) : (
+    <pre className="rounded bg-muted p-2 text-xs overflow-x-auto max-w-full">
+      <code>{children}</code>
+    </pre>
+  );
 
 type MessageContentProps = {
   content: string;
@@ -57,16 +74,7 @@ export function MessageContent({
               {children}
             </blockquote>
           ),
-          code: ({ inline, children }) =>
-            inline ? (
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                {children}
-              </code>
-            ) : (
-              <pre className="rounded bg-muted p-2 text-xs overflow-x-auto max-w-full">
-                <code>{children}</code>
-              </pre>
-            ),
+          code: MarkdownCode,
         }}
       >
         {content}

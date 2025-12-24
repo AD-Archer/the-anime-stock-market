@@ -7,10 +7,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Share2, User, MessageSquare, Settings } from "lucide-react";
+import { Share2, MessageSquare, Settings } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import type { User as StoreUser } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { Badge } from "@/components/ui/badge";
 
 type UserHeaderProps = {
   profileUser: StoreUser;
@@ -39,12 +42,14 @@ export function UserHeader({
     acceptFriendRequest,
   } = useStore();
   const { user } = useAuth();
-  const isFriend = !!friends.find(
+  const friendship = friends.find(
     (f) =>
       f.status === "accepted" &&
       ((f.requesterId === currentUser?.id && f.receiverId === profileUser.id) ||
         (f.requesterId === profileUser.id && f.receiverId === currentUser?.id))
   );
+  const isFriend = !!friendship;
+  const friendsSince = friendship?.respondedAt ?? friendship?.createdAt;
   const pendingIncoming = getPendingFriendRequests(currentUser?.id || "").find(
     (f) => f.requesterId === profileUser.id
   );
@@ -59,16 +64,28 @@ export function UserHeader({
     <Card>
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <User className="h-8 w-8 text-primary" />
-          </div>
+          <Avatar className="h-16 w-16">
+            <AvatarImage
+              src={getUserAvatarUrl(profileUser)}
+              alt={profileUser.username}
+            />
+            <AvatarFallback className="bg-primary/10 text-primary text-xl">
+              {getUserInitials(profileUser.username)}
+            </AvatarFallback>
+          </Avatar>
           <div>
-            <CardTitle className="text-3xl text-foreground">
-              {profileUser.username}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-3xl text-foreground">
+                {profileUser.username}
+              </CardTitle>
+              {profileUser.isAdmin && <Badge variant="secondary">Admin</Badge>}
+            </div>
             <CardDescription>
-              Member since{" "}
-              {new Date(profileUser.createdAt).toLocaleDateString()}
+              {isFriend && friendsSince
+                ? `Friends since ${friendsSince.toLocaleDateString()}`
+                : `Member since ${new Date(
+                    profileUser.createdAt
+                  ).toLocaleDateString()}`}
             </CardDescription>
           </div>
         </div>

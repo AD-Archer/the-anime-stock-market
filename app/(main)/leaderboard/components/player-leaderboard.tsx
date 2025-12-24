@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { getUserProfileHref } from "@/lib/user-profile";
 import {
   Card,
   CardContent,
@@ -257,7 +258,7 @@ export function PlayerLeaderboard() {
                 {/* Player Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Link href={`/users/${player.id}`}>
+                    <Link href={getUserProfileHref(player, player.id)}>
                       <h3
                         className={`font-bold truncate hover:underline cursor-pointer ${
                           isCurrentUser ? "text-primary" : "text-foreground"

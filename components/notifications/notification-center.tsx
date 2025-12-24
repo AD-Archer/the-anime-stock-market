@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Bell, Check, X, Filter } from "lucide-react";
 import type { Notification } from "@/lib/types";
+import { getUserProfileHref } from "@/lib/user-profile";
 
 export function NotificationCenter({ modal = false }: { modal?: boolean }) {
   const { user } = useAuth();
@@ -38,8 +39,8 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
     currentUser,
     sendNotification,
     stocks,
-    notifications: storeNotifications,
     friends,
+    users,
     acceptFriendRequest,
     declineFriendRequest,
     acceptBuybackOffer,
@@ -52,10 +53,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
     {}
   );
 
-  const notifications = useMemo(
-    () => (user?.id ? getUserNotifications(user.id) : []),
-    [user?.id, getUserNotifications, storeNotifications]
-  );
+  const notifications = user?.id ? getUserNotifications(user.id) : [];
 
   useEffect(() => {
     if (!modal) return;
@@ -72,6 +70,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
 
   useEffect(() => {
     if (user?.id) {
+      const currentNotifications = getUserNotifications(user.id);
       const activeBuyback = buybackOffers.find(
         (offer) =>
           offer.status === "active" &&
@@ -80,7 +79,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
       );
 
       if (activeBuyback) {
-        const existingNotification = notifications.find(
+        const existingNotification = currentNotifications.find(
           (n) => n.data?.buybackOfferId === activeBuyback.id
         );
 
@@ -98,7 +97,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
         }
       }
     }
-  }, [user?.id, buybackOffers, sendNotification, stocks, notifications]);
+  }, [user?.id, buybackOffers, sendNotification, stocks, getUserNotifications]);
 
   const filteredNotifications = notifications.filter((notification) => {
     if (filterType === "all") return true;
@@ -124,7 +123,8 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
     } else if (notification.type === "friend_request") {
       const userId = notification.data?.requesterId as string | undefined;
       if (userId) {
-        router.push(`/users/${userId}`);
+        const requester = users.find((u) => u.id === userId);
+        router.push(getUserProfileHref(requester, userId));
       }
     }
     await handleMarkRead(notification.id);
@@ -202,11 +202,6 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               onClick={async () => {
                 if (currentUser) {
                   await markAllNotificationsRead(currentUser.id);
-                  setNotifications((prev) =>
-                    prev.map((n) =>
-                      n.userId === currentUser.id ? { ...n, read: true } : n
-                    )
-                  );
                 }
               }}
             >

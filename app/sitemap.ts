@@ -109,7 +109,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     })),
     ...users.map((user) => ({
-      url: `${baseUrl}/users/${user.id}`,
+      url: `${baseUrl}/users/${encodeURIComponent(user.username)}`,
       lastModified: user.createdAt,
       changeFrequency: 'monthly' as const,
       priority: 0.5,

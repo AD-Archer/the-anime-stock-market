@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { SafeLink } from "@/components/chat/safe-link";
 import { cn } from "@/lib/utils";
 
@@ -45,12 +46,6 @@ function LinkPreviewCard({ url }: LinkPreviewProps) {
     };
   }, [url]);
 
-  if (failed) return null;
-
-  const display = data ?? {
-    url,
-    title: url,
-  };
   const hostname = useMemo(() => {
     try {
       return new URL(url).hostname.replace(/^www\./, "");
@@ -58,6 +53,13 @@ function LinkPreviewCard({ url }: LinkPreviewProps) {
       return url;
     }
   }, [url]);
+
+  if (failed) return null;
+
+  const display = data ?? {
+    url,
+    title: url,
+  };
 
   return (
     <SafeLink
@@ -67,11 +69,12 @@ function LinkPreviewCard({ url }: LinkPreviewProps) {
       <div className="flex gap-3 p-3 min-w-0">
         {display.image && (
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-            <img
+            <Image
               src={display.image}
-              alt=""
+              alt={display.title || hostname}
+              width={64}
+              height={64}
               className="h-full w-full object-cover"
-              loading="lazy"
             />
           </div>
         )}

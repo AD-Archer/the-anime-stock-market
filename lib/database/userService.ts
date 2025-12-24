@@ -7,6 +7,7 @@ import {
   mapUser,
   normalizePayload,
 } from "./utils";
+import { Query } from "appwrite";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
@@ -34,6 +35,21 @@ export const userService = {
       return mapUser(response);
     } catch (error) {
       console.warn("Failed to fetch user from database:", error);
+      return null;
+    }
+  },
+
+  async getByEmail(email: string): Promise<User | null> {
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        USERS_COLLECTION,
+        [Query.equal("email", email)]
+      );
+      if (!response.documents.length) return null;
+      return mapUser(response.documents[0]);
+    } catch (error) {
+      console.warn("Failed to fetch user by email from database:", error);
       return null;
     }
   },
