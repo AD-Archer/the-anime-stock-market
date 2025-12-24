@@ -36,6 +36,7 @@ export const MESSAGES_COLLECTION = "messages";
 export const APPEALS_COLLECTION = "appeals";
 export const ADMIN_ACTION_LOGS_COLLECTION = "admin_action_logs";
 export const AWARDS_COLLECTION = "awards";
+export const FRIENDS_COLLECTION = "friends";
 
 type AppwriteDocument = Models.Document;
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
@@ -115,7 +116,10 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   showSpoilers: toBooleanOr(docValue(doc, "showSpoilers"), true),
   isPortfolioPublic: toBooleanOr(docValue(doc, "isPortfolioPublic"), false),
   hideTransactions: toBooleanOr(docValue(doc, "hideTransactions"), false),
-  anonymousTransactions: toBooleanOr(docValue(doc, "anonymousTransactions"), false),
+  anonymousTransactions: toBooleanOr(
+    docValue(doc, "anonymousTransactions"),
+    false
+  ),
   pendingDeletionAt: docValue(doc, "pendingDeletionAt")
     ? toDate(docValue(doc, "pendingDeletionAt"))
     : null,
@@ -160,18 +164,21 @@ export const mapPortfolio = (doc: AppwriteDocument): Portfolio => ({
   averageBuyPrice: toNumberOr(docValue(doc, "averageBuyPrice")),
 });
 
-export const mapComment = (doc: AppwriteDocument): Comment => ({
-  id: toStringOr(docValue(doc, "id"), doc.$id),
-  userId: toStringOr(docValue(doc, "userId")),
-  animeId: toOptionalString(docValue(doc, "animeId")),
-  characterId: toOptionalString(docValue(doc, "characterId")),
-  content: toStringOr(docValue(doc, "content")),
-  timestamp: toDate(docValue(doc, "timestamp") ?? doc.$createdAt),
-  parentId: toOptionalString(docValue(doc, "parentId")),
-  tags: toArrayOr<ContentTag>(docValue(doc, "tags"), []),
-  likedBy: toArrayOr<string>(docValue(doc, "likedBy"), []),
-  dislikedBy: toArrayOr<string>(docValue(doc, "dislikedBy"), []),
-});
+export const mapComment = (doc: AppwriteDocument): Comment => {
+  return {
+    id: toStringOr(docValue(doc, "id"), doc.$id),
+    userId: toStringOr(docValue(doc, "userId")),
+    animeId: toOptionalString(docValue(doc, "animeId")),
+    characterId: toOptionalString(docValue(doc, "characterId")),
+    content: toStringOr(docValue(doc, "content")),
+    timestamp: toDate(docValue(doc, "timestamp") ?? doc.$createdAt),
+    parentId: toOptionalString(docValue(doc, "parentId")),
+    tags: toArrayOr<ContentTag>(docValue(doc, "tags"), []),
+    likedBy: toArrayOr<string>(docValue(doc, "likedBy"), []),
+    dislikedBy: toArrayOr<string>(docValue(doc, "dislikedBy"), []),
+    editedAt: toOptionalDate(docValue(doc, "editedAt")),
+  };
+};
 
 export const mapBuybackOffer = (doc: AppwriteDocument): BuybackOffer => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
@@ -196,31 +203,35 @@ export const mapNotification = (doc: AppwriteDocument): Notification => ({
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
 });
 
-export const mapReport = (doc: AppwriteDocument): Report => ({
-  id: toStringOr(docValue(doc, "id"), doc.$id),
-  reporterId: toStringOr(docValue(doc, "reporterId")),
-  reportedUserId: toStringOr(docValue(doc, "reportedUserId")),
-  commentId: toStringOr(docValue(doc, "commentId")),
-  commentContent: toStringOr(docValue(doc, "commentContent")),
-  reason:
-    (docValue(doc, "reason") as
-      | "spam"
-      | "harassment"
-      | "inappropriate"
-      | "nsfw"
-      | "spoiler"
-      | "other") ?? "other",
-  description: toOptionalString(docValue(doc, "description")),
-  status:
-    (docValue(doc, "status") as "pending" | "resolved" | "dismissed") ??
-    "pending",
-  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
-  resolvedAt: toOptionalDate(docValue(doc, "resolvedAt")),
-  resolvedBy: toOptionalString(docValue(doc, "resolvedBy")),
-  resolution: docValue(doc, "resolution") as "dismiss" | "warn" | "ban",
-  threadContext: parseThreadContext(docValue(doc, "threadContext")),
-  commentLocation: parseLocation(docValue(doc, "commentLocation")),
-});
+export const mapReport = (doc: AppwriteDocument): Report => {
+  const metadata = parseMetadata(docValue(doc, "metadata"));
+
+  return {
+    id: toStringOr(docValue(doc, "id"), doc.$id),
+    reporterId: toStringOr(docValue(doc, "reporterId")),
+    reportedUserId: toStringOr(docValue(doc, "reportedUserId")),
+    commentId: toStringOr(docValue(doc, "commentId")),
+    commentContent: toStringOr(metadata?.commentContent),
+    reason:
+      (docValue(doc, "reason") as
+        | "spam"
+        | "harassment"
+        | "inappropriate"
+        | "nsfw"
+        | "spoiler"
+        | "other") ?? "other",
+    description: toOptionalString(docValue(doc, "description")),
+    status:
+      (docValue(doc, "status") as "pending" | "resolved" | "dismissed") ??
+      "pending",
+    createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+    resolvedAt: toOptionalDate(docValue(doc, "resolvedAt")),
+    resolvedBy: toOptionalString(docValue(doc, "resolvedBy")),
+    resolution: docValue(doc, "resolution") as "dismiss" | "warn" | "ban",
+    threadContext: metadata?.threadContext,
+    commentLocation: metadata?.commentLocation,
+  };
+};
 
 const parseThreadContext = (value: unknown): CommentSnapshot[] | undefined => {
   if (typeof value !== "string" || !value.trim()) return undefined;
@@ -261,6 +272,55 @@ const parseLocation = (
   }
 };
 
+const parseMetadata = (
+  value: unknown
+):
+  | {
+      commentContent?: string;
+      threadContext?: CommentSnapshot[];
+      commentLocation?: { animeId: string; characterId?: string };
+      editedAt?: Date;
+      originalContent?: string;
+    }
+  | undefined => {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(value) as {
+      commentContent?: string;
+      threadContext?: Array<{
+        id: string;
+        userId: string;
+        animeId: string;
+        characterId?: string;
+        content: string;
+        parentId?: string;
+        timestamp: string;
+        tags?: ContentTag[];
+      }>;
+      commentLocation?: {
+        animeId: string;
+        characterId?: string;
+      };
+      editedAt?: string;
+      originalContent?: string;
+    };
+
+    return {
+      commentContent: parsed.commentContent,
+      threadContext: parsed.threadContext?.map((snapshot) => ({
+        ...snapshot,
+        timestamp: toDate(snapshot.timestamp),
+        tags: snapshot.tags ?? [],
+      })),
+      commentLocation: parsed.commentLocation,
+      editedAt: parsed.editedAt ? toDate(parsed.editedAt) : undefined,
+      originalContent: parsed.originalContent,
+    };
+  } catch {
+    return undefined;
+  }
+};
+
 const parseRecord = (value: unknown): Record<string, unknown> | undefined => {
   if (!value) return undefined;
   if (typeof value === "string") {
@@ -270,7 +330,7 @@ const parseRecord = (value: unknown): Record<string, unknown> | undefined => {
         return parsed as Record<string, unknown>;
       }
     } catch {
-      return undefined;
+      // ignore
     }
   }
   if (typeof value === "object" && !Array.isArray(value)) {
@@ -302,7 +362,8 @@ export const mapAppeal = (doc: AppwriteDocument): Appeal => ({
 
 export const mapAdminActionLog = (doc: AppwriteDocument): AdminActionLog => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
-  action: (docValue(doc, "action") as AdminActionLog["action"]) ?? "money_grant",
+  action:
+    (docValue(doc, "action") as AdminActionLog["action"]) ?? "money_grant",
   performedBy: toStringOr(docValue(doc, "performedBy")),
   targetUserId: toStringOr(docValue(doc, "targetUserId")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
@@ -315,4 +376,16 @@ export const mapAward = (doc: AppwriteDocument): Award => ({
   type: (docValue(doc, "type") as Award["type"]) ?? "first_trade",
   unlockedAt: toDate(docValue(doc, "unlockedAt") ?? doc.$createdAt),
   redeemed: toBooleanOr(docValue(doc, "redeemed"), false),
+});
+
+export const mapFriend = (
+  doc: AppwriteDocument
+): import("../types").Friend => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  requesterId: toStringOr(docValue(doc, "requesterId")),
+  receiverId: toStringOr(docValue(doc, "receiverId")),
+  status:
+    (docValue(doc, "status") as import("../types").FriendStatus) ?? "pending",
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  respondedAt: toOptionalDate(docValue(doc, "respondedAt")),
 });

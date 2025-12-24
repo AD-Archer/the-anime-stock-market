@@ -100,18 +100,19 @@ export function createNotificationActions({
     const userNotifs = getState().notifications.filter((n) => n.userId === userId);
     if (userNotifs.length === 0) return;
 
-    setNotifications((prev) => prev.filter((n) => n.userId !== userId));
-
+    setNotifications((prev) =>
+      prev.map((n) => (n.userId === userId ? { ...n, read: true } : n))
+    );
     try {
       await Promise.all(
         userNotifs.map((n) =>
-          notificationService.delete(n.id).catch((error) => {
-            console.warn("Failed to delete notification:", error);
+          notificationService.update(n.id, { read: true }).catch((error) => {
+            console.warn("Failed to mark notification read:", error);
           })
         )
       );
     } catch (error) {
-      console.warn("Bulk delete notifications failed:", error);
+      console.warn("Bulk mark read failed:", error);
     }
   };
 

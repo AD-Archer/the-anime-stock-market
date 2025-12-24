@@ -12,8 +12,25 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Trophy, Medal, Award, Crown, Users, DollarSign, Activity, Calendar } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  TrendingUp,
+  TrendingDown,
+  Trophy,
+  Medal,
+  Award,
+  Crown,
+  Users,
+  DollarSign,
+  Activity,
+  Calendar,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { User, Portfolio, Transaction } from "@/lib/types";
@@ -36,17 +53,22 @@ export function PlayerLeaderboard() {
   const playersWithStats = useMemo(() => {
     return users.map((user): PlayerWithStats => {
       // Calculate portfolio value
-      const userPortfolios = portfolios.filter(p => p.userId === user.id);
+      const userPortfolios = portfolios.filter((p) => p.userId === user.id);
       const portfolioValue = userPortfolios.reduce((total, portfolio) => {
-        const stock = stocks.find(s => s.id === portfolio.stockId);
+        const stock = stocks.find((s) => s.id === portfolio.stockId);
         return total + (stock ? stock.currentPrice * portfolio.shares : 0);
       }, 0);
 
       // Calculate total stocks owned
-      const totalStocks = userPortfolios.reduce((total, p) => total + p.shares, 0);
+      const totalStocks = userPortfolios.reduce(
+        (total, p) => total + p.shares,
+        0
+      );
 
       // Calculate transaction count
-      const transactionCount = transactions.filter(t => t.userId === user.id).length;
+      const transactionCount = transactions.filter(
+        (t) => t.userId === user.id
+      ).length;
 
       return {
         ...user,
@@ -81,31 +103,43 @@ export function PlayerLeaderboard() {
     }));
   }, [playersWithStats, sortType]);
 
-  const currentUserRank = sortedPlayers.find(p => p.id === currentUser?.id)?.rank;
+  const currentUserRank = sortedPlayers.find(
+    (p) => p.id === currentUser?.id
+  )?.rank;
   const displayedPlayers = sortedPlayers.slice(0, showCount);
 
   const getSortIcon = (type: PlayerSortType) => {
     switch (type) {
-      case "richest": return <DollarSign className="h-4 w-4" />;
-      case "mostStocks": return <Trophy className="h-4 w-4" />;
-      case "mostActive": return <Activity className="h-4 w-4" />;
-      case "longestMember": return <Calendar className="h-4 w-4" />;
+      case "richest":
+        return <DollarSign className="h-4 w-4" />;
+      case "mostStocks":
+        return <Trophy className="h-4 w-4" />;
+      case "mostActive":
+        return <Activity className="h-4 w-4" />;
+      case "longestMember":
+        return <Calendar className="h-4 w-4" />;
     }
   };
 
   const getSortLabel = (type: PlayerSortType) => {
     switch (type) {
-      case "richest": return "Richest";
-      case "mostStocks": return "Most Stocks";
-      case "mostActive": return "Most Active";
-      case "longestMember": return "Longest Member";
+      case "richest":
+        return "Richest";
+      case "mostStocks":
+        return "Most Stocks";
+      case "mostActive":
+        return "Most Active";
+      case "longestMember":
+        return "Longest Member";
     }
   };
 
   const getValueDisplay = (player: PlayerWithStats) => {
     switch (sortType) {
       case "richest":
-        return `$${player.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        return `$${player.portfolioValue.toLocaleString(undefined, {
+          maximumFractionDigits: 2,
+        })}`;
       case "mostStocks":
         return `${player.totalStocks.toLocaleString()} shares`;
       case "mostActive":
@@ -135,7 +169,10 @@ export function PlayerLeaderboard() {
               Leaderboard of the most successful traders
             </CardDescription>
           </div>
-          <Select value={sortType} onValueChange={(value: PlayerSortType) => setSortType(value)}>
+          <Select
+            value={sortType}
+            onValueChange={(value: PlayerSortType) => setSortType(value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -173,7 +210,14 @@ export function PlayerLeaderboard() {
         {currentUser && currentUserRank && currentUserRank > showCount && (
           <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
             <p className="text-sm text-muted-foreground">
-              Your rank: <span className="font-semibold text-foreground">#{currentUserRank}</span> - {getValueDisplay(sortedPlayers.find(p => p.id === currentUser.id)!)}
+              Your rank:{" "}
+              <span className="font-semibold text-foreground">
+                #{currentUserRank}
+              </span>{" "}
+              -{" "}
+              {getValueDisplay(
+                sortedPlayers.find((p) => p.id === currentUser.id)!
+              )}
             </p>
           </div>
         )}
@@ -192,9 +236,11 @@ export function PlayerLeaderboard() {
                 {/* Rank */}
                 <div className="flex w-12 items-center justify-center">
                   {getRankIcon(player.rank) || (
-                    <span className={`text-2xl font-bold ${
-                      isCurrentUser ? "text-primary" : "text-muted-foreground"
-                    }`}>
+                    <span
+                      className={`text-2xl font-bold ${
+                        isCurrentUser ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    >
                       {player.rank}
                     </span>
                   )}
@@ -210,12 +256,18 @@ export function PlayerLeaderboard() {
                 {/* Player Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className={`font-bold truncate ${
-                      isCurrentUser ? "text-primary" : "text-foreground"
-                    }`}>
-                      {player.username}
-                      {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
-                    </h3>
+                    <Link href={`/users/${player.id}`}>
+                      <h3
+                        className={`font-bold truncate hover:underline cursor-pointer ${
+                          isCurrentUser ? "text-primary" : "text-foreground"
+                        }`}
+                      >
+                        {player.username}
+                        {isCurrentUser && (
+                          <span className="ml-2 text-xs">(You)</span>
+                        )}
+                      </h3>
+                    </Link>
                     {player.isAdmin && (
                       <Badge variant="secondary" className="text-xs">
                         Admin
@@ -229,9 +281,11 @@ export function PlayerLeaderboard() {
 
                 {/* Value */}
                 <div className="text-right">
-                  <p className={`text-lg font-bold ${
-                    isCurrentUser ? "text-primary" : "text-foreground"
-                  }`}>
+                  <p
+                    className={`text-lg font-bold ${
+                      isCurrentUser ? "text-primary" : "text-foreground"
+                    }`}
+                  >
                     {getValueDisplay(player)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -250,7 +304,8 @@ export function PlayerLeaderboard() {
               variant="outline"
               onClick={() => setShowCount(Math.min(showCount + 25, 100))}
             >
-              Show More ({Math.min(showCount + 25, sortedPlayers.length)} of {sortedPlayers.length})
+              Show More ({Math.min(showCount + 25, sortedPlayers.length)} of{" "}
+              {sortedPlayers.length})
             </Button>
           </div>
         )}

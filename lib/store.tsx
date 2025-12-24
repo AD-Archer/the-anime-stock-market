@@ -16,6 +16,7 @@ import {
   initialAppeals,
   initialAdminActionLogs,
   initialAwards,
+  initialFriends,
 } from "./data";
 import { databases } from "./appwrite/appwrite";
 import {
@@ -32,9 +33,13 @@ import {
   adminActionLogService,
   DATABASE_ID,
   COMMENTS_COLLECTION,
+  FRIENDS_COLLECTION,
+  NOTIFICATIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
   mapComment,
+  mapFriend,
+  mapNotification,
   mapPriceHistory,
   mapStock,
 } from "./database";
@@ -48,11 +53,15 @@ import { createMessageActions } from "./store/messages";
 import { createAppealActions } from "./store/appeals";
 import { createAdminLogActions } from "./store/admin-log";
 import { createAwardActions } from "./store/awards";
+import { createFriendActions } from "./store/friends";
 import type { StoreState } from "./store/types";
 import type { User } from "./types";
 
 export const useStore = create<StoreState>((set, get) => {
-  const notificationActions = createNotificationActions({ setState: set, getState: get });
+  const notificationActions = createNotificationActions({
+    setState: set,
+    getState: get,
+  });
   const commentActions = createCommentActions({ setState: set, getState: get });
   const userActions = createUserActions({ setState: set, getState: get });
   const awardActions = createAwardActions({ setState: set, getState: get });
@@ -71,7 +80,11 @@ export const useStore = create<StoreState>((set, get) => {
   });
   const messageActions = createMessageActions({ setState: set, getState: get });
   const appealActions = createAppealActions({ setState: set, getState: get });
-  const adminLogActions = createAdminLogActions({ setState: set, getState: get });
+  const adminLogActions = createAdminLogActions({
+    setState: set,
+    getState: get,
+  });
+  const friendActions = createFriendActions({ setState: set, getState: get });
 
   return {
     currentUser: null,
@@ -90,6 +103,7 @@ export const useStore = create<StoreState>((set, get) => {
     appeals: [],
     adminActionLogs: [],
     awards: [],
+    friends: [],
     messages: [],
     conversations: [],
     ...notificationActions,
@@ -101,6 +115,7 @@ export const useStore = create<StoreState>((set, get) => {
     ...appealActions,
     ...adminLogActions,
     ...awardActions,
+    ...friendActions,
   };
 });
 
@@ -112,7 +127,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
 
     const loadData = async () => {
-      useStore.setState({ isLoading: true, authUser: user ? { id: user.id } : null });
+      useStore.setState({
+        isLoading: true,
+        authUser: user ? { id: user.id } : null,
+      });
       try {
         const [
           usersData,
@@ -127,6 +145,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           appealsData,
           adminLogData,
           awardsData,
+          friendsData,
         ] = await Promise.all([
           userService.getAll(),
           stockService.getAll(),
@@ -140,13 +159,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           appealService.getAll(),
           adminActionLogService.getAll(),
           awardService.getAll(),
+          (await import("./database")).friendService.getAll(),
         ]);
 
         useStore.setState({
           users: usersData.length > 0 ? usersData : initialUsers,
           stocks: stocksData.length > 0 ? stocksData : initialStocks,
-          transactions: transactionsData.length > 0 ? transactionsData : initialTransactions,
-          buybackOffers: buybackOffersData.length > 0 ? buybackOffersData : initialBuybackOffers,
+          transactions:
+            transactionsData.length > 0
+              ? transactionsData
+              : initialTransactions,
+          buybackOffers:
+            buybackOffersData.length > 0
+              ? buybackOffersData
+              : initialBuybackOffers,
           comments: commentsData.length > 0 ? commentsData : initialComments,
           reports: (reportsData.length > 0 ? reportsData : initialReports).sort(
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -154,15 +180,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notifications: (notificationsData.length > 0
             ? notificationsData
             : initialNotifications
-          ).sort(
-            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-          ),
-          priceHistory: priceHistoryData.length > 0 ? priceHistoryData : initialPriceHistory,
-          portfolios: portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
+          ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+          priceHistory:
+            priceHistoryData.length > 0
+              ? priceHistoryData
+              : initialPriceHistory,
+          portfolios:
+            portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
           appeals: appealsData.length > 0 ? appealsData : initialAppeals,
           adminActionLogs:
             adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
           awards: awardsData.length > 0 ? awardsData : initialAwards,
+          friends: friendsData.length > 0 ? friendsData : initialFriends,
         });
 
         await useStore.getState().processPendingDeletions();
@@ -197,7 +226,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 pendingDeletionAt: null,
               });
               matchedUser = created;
-              useStore.setState((state) => ({ users: [...state.users, created] }));
+              useStore.setState((state) => ({
+                users: [...state.users, created],
+              }));
 
               // Give new accounts a claimable welcome bonus achievement.
               await useStore.getState().unlockAward(user.id, "welcome_bonus");
@@ -213,9 +244,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             useStore.setState({ currentUser: matchedUser });
 
             // Ensure all users have the welcome bonus available (one-time claimable).
-            const hasWelcomeBonus = awardsData.some(a => a.userId === matchedUser.id && a.type === "welcome_bonus");
+            const hasWelcomeBonus = awardsData.some(
+              (a) => a.userId === matchedUser.id && a.type === "welcome_bonus"
+            );
             if (!hasWelcomeBonus) {
-              await useStore.getState().unlockAward(matchedUser.id, "welcome_bonus");
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "welcome_bonus");
             }
           }
         } else {
@@ -314,6 +349,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
+    const notificationsUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${NOTIFICATIONS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create")) {
+          const newNotification = mapNotification(document);
+          useStore.setState((state) => ({
+            notifications: state.notifications.some(
+              (n) => n.id === newNotification.id
+            )
+              ? state.notifications
+              : [...state.notifications, newNotification],
+          }));
+        } else if (event.includes("update")) {
+          const updatedNotification = mapNotification(document);
+          useStore.setState((state) => ({
+            notifications: state.notifications.map((n) =>
+              n.id === updatedNotification.id ? updatedNotification : n
+            ),
+          }));
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => ({
+            notifications: state.notifications.filter((n) => n.id !== deletedId),
+          }));
+        }
+      }
+    );
+
+    const friendsUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${FRIENDS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create")) {
+          const newFriend = mapFriend(document);
+          useStore.setState((state) => ({
+            friends: state.friends.some((f) => f.id === newFriend.id)
+              ? state.friends
+              : [...state.friends, newFriend],
+          }));
+        } else if (event.includes("update")) {
+          const updatedFriend = mapFriend(document);
+          useStore.setState((state) => ({
+            friends: state.friends.map((f) =>
+              f.id === updatedFriend.id ? updatedFriend : f
+            ),
+          }));
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => ({
+            friends: state.friends.filter((f) => f.id !== deletedId),
+          }));
+        }
+      }
+    );
+
+    return () => {
+      try {
+        notificationsUnsub();
+      } catch {}
+      try {
+        friendsUnsub();
+      } catch {}
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
     const stockUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${STOCKS_COLLECTION}.documents`,
       (response) => {
@@ -322,7 +430,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (event.includes("create")) {
           const newStock = mapStock(document);
-          useStore.setState((state) => ({ stocks: [...state.stocks, newStock] }));
+          useStore.setState((state) => ({
+            stocks: [...state.stocks, newStock],
+          }));
         } else if (event.includes("update")) {
           const updatedStock = mapStock(document);
           useStore.setState((state) => ({

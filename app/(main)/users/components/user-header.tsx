@@ -1,9 +1,16 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Share2, User, MessageSquare, Settings } from "lucide-react";
 import type { User as StoreUser } from "@/lib/types";
+import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 
 type UserHeaderProps = {
   profileUser: StoreUser;
@@ -24,6 +31,30 @@ export function UserHeader({
   onMessage,
   onToggleSettings,
 }: UserHeaderProps) {
+  const {
+    currentUser,
+    sendFriendRequest,
+    friends,
+    getPendingFriendRequests,
+    acceptFriendRequest,
+  } = useStore();
+  const { user } = useAuth();
+  const isFriend = !!friends.find(
+    (f) =>
+      f.status === "accepted" &&
+      ((f.requesterId === currentUser?.id && f.receiverId === profileUser.id) ||
+        (f.requesterId === profileUser.id && f.receiverId === currentUser?.id))
+  );
+  const pendingIncoming = getPendingFriendRequests(currentUser?.id || "").find(
+    (f) => f.requesterId === profileUser.id
+  );
+  const pendingOutgoing = friends.find(
+    (f) =>
+      f.status === "pending" &&
+      f.requesterId === currentUser?.id &&
+      f.receiverId === profileUser.id
+  );
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -52,15 +83,44 @@ export function UserHeader({
               {isSettingsOpen ? "Hide Settings" : "Edit Profile"}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              onClick={onMessage}
-              disabled={!canMessage}
-              title={canMessage ? "" : "Sign in to send direct messages"}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Send Message
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={onMessage}
+                disabled={!canMessage}
+                title={canMessage ? "" : "Sign in to send direct messages"}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Send Message
+              </Button>
+              {currentUser &&
+                user &&
+                (pendingIncoming ? (
+                  <Button
+                    variant="default"
+                    onClick={() => acceptFriendRequest(pendingIncoming.id)}
+                    title="Accept friend request"
+                  >
+                    Accept Friend
+                  </Button>
+                ) : isFriend ? (
+                  <Button variant="secondary" disabled>
+                    Friends
+                  </Button>
+                ) : pendingOutgoing ? (
+                  <Button variant="secondary" disabled>
+                    Request Sent
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    onClick={() => sendFriendRequest(profileUser.id)}
+                    title={currentUser ? "" : "Sign in to add friends"}
+                  >
+                    Add Friend
+                  </Button>
+                ))}
+            </>
           )}
         </div>
       </CardHeader>

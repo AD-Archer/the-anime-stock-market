@@ -24,7 +24,8 @@ export function createAppealActions({ setState, getState }: StoreMutators) {
     status: AppealStatus,
     notes?: string
   ): Promise<void> => {
-    const admin = getState().currentUser;
+    const { currentUser, logAdminAction } = getState();
+    const admin = currentUser;
     if (!admin) return;
 
     const updated = await appealService.update(appealId, {
@@ -39,6 +40,14 @@ export function createAppealActions({ setState, getState }: StoreMutators) {
         appeal.id === appealId ? updated : appeal
       ),
     }));
+
+    const appeal = getState().appeals.find((a) => a.id === appealId);
+    logAdminAction("ban", appeal?.userId || "unknown", {
+      action: "appeal_reviewed",
+      appealId,
+      status,
+      notes,
+    });
   };
 
   return {

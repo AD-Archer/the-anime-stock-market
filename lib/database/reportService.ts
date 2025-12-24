@@ -12,26 +12,29 @@ type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
 const serializeReportPayload = (report: Partial<Report>) => {
   const payload: Record<string, unknown> = {};
+  const metadata: Record<string, unknown> = {};
 
-  Object.entries(report as Record<string, unknown>).forEach(
-    ([key, value]) => {
-      if (value === undefined) return;
-      if (key === "threadContext" && Array.isArray(value)) {
-        payload.threadContext = JSON.stringify(
-          value.map((snapshot: any) => ({
-            ...snapshot,
-            timestamp: snapshot.timestamp
-              ? new Date(snapshot.timestamp).toISOString()
-              : new Date().toISOString(),
-          }))
-        );
-      } else if (key === "commentLocation") {
-        payload.commentLocation = JSON.stringify(value);
-      } else {
-        payload[key] = value;
-      }
+  Object.entries(report as Record<string, unknown>).forEach(([key, value]) => {
+    if (value === undefined) return;
+    if (key === "commentContent") {
+      metadata.commentContent = value;
+    } else if (key === "threadContext" && Array.isArray(value)) {
+      metadata.threadContext = value.map((snapshot: any) => ({
+        ...snapshot,
+        timestamp: snapshot.timestamp
+          ? new Date(snapshot.timestamp).toISOString()
+          : new Date().toISOString(),
+      }));
+    } else if (key === "commentLocation") {
+      metadata.commentLocation = value;
+    } else {
+      payload[key] = value;
     }
-  );
+  });
+
+  if (Object.keys(metadata).length > 0) {
+    payload.metadata = JSON.stringify(metadata);
+  }
 
   return payload;
 };
@@ -68,7 +71,7 @@ export const reportService = {
     try {
       const documentId = report.id ?? ID.unique();
       const { id: _ignored, ...data } = report as any;
-       const payload = serializeReportPayload(data);
+      const payload = serializeReportPayload(data);
       const response = await databases.createDocument(
         DATABASE_ID,
         REPORTS_COLLECTION,

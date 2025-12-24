@@ -79,6 +79,7 @@ export interface Comment {
   dislikedBy: string[];
   reactions?: Record<string, "like" | "dislike">;
   userReactions?: Record<string, "like" | "dislike">;
+  editedAt?: Date;
 }
 
 export interface Message {
@@ -129,7 +130,8 @@ export interface Notification {
     | "admin_message"
     | "system"
     | "moderation"
-    | "direct_message";
+    | "direct_message"
+    | "friend_request";
   title: string;
   message: string;
   data?: any; // additional data like buyback offer details
@@ -215,6 +217,17 @@ export type AwardType =
   | "comment_master"
   | "social_butterfly"
   | "welcome_bonus";
+
+export type FriendStatus = "pending" | "accepted" | "declined";
+
+export interface Friend {
+  id: string;
+  requesterId: string;
+  receiverId: string;
+  status: FriendStatus;
+  createdAt: Date;
+  respondedAt?: Date;
+}
 
 export interface AwardDefinition {
   type: AwardType;

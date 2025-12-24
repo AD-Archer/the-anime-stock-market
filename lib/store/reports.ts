@@ -1,10 +1,5 @@
 import type { StoreApi } from "zustand";
-import type {
-  Comment,
-  CommentSnapshot,
-  Notification,
-  Report,
-} from "../types";
+import type { Comment, CommentSnapshot, Notification, Report } from "../types";
 import { reportService } from "../database";
 import type { StoreState } from "./types";
 
@@ -77,7 +72,7 @@ export function createReportActions({
     reportId: string,
     resolution: "dismiss" | "warn" | "ban"
   ) => {
-    const currentUser = getState().currentUser;
+    const { currentUser, logAdminAction } = getState();
     if (!currentUser || !currentUser.isAdmin) return;
 
     const targetReport = getState().reports.find((r) => r.id === reportId);

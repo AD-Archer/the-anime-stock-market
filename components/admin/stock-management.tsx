@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useStore } from "@/lib/store"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -13,55 +13,84 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { useToast } from "@/hooks/use-toast"
-import { Trash2, Edit } from "lucide-react"
-import Image from "next/image"
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Trash2, Edit } from "lucide-react";
+import Image from "next/image";
 
 export function StockManagement() {
-  const { stocks, deleteStock, updateStockPrice, getStockPriceHistory } = useStore()
-  const { toast } = useToast()
-  const [editingStock, setEditingStock] = useState<string | null>(null)
-  const [newPrice, setNewPrice] = useState("")
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const {
+    stocks,
+    deleteStock,
+    updateStockPrice,
+    getStockPriceHistory,
+    createShares,
+  } = useStore();
+  const { toast } = useToast();
+  const [editingStock, setEditingStock] = useState<string | null>(null);
+  const [newPrice, setNewPrice] = useState("");
+  const [sharesStock, setSharesStock] = useState<string | null>(null);
+  const [newShares, setNewShares] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const handleUpdatePrice = (stockId: string) => {
-    const price = Number.parseFloat(newPrice)
+    const price = Number.parseFloat(newPrice);
     if (isNaN(price) || price <= 0) {
       toast({
         title: "Invalid Price",
         description: "Please enter a valid price greater than 0.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    updateStockPrice(stockId, price)
+    updateStockPrice(stockId, price);
     toast({
       title: "Price Updated",
       description: `Stock price has been updated to $${price.toFixed(2)}`,
-    })
-    setEditingStock(null)
-    setNewPrice("")
-  }
+    });
+    setEditingStock(null);
+    setNewPrice("");
+  };
 
   const handleDelete = (stockId: string) => {
-    deleteStock(stockId)
+    deleteStock(stockId);
     toast({
       title: "Stock Deleted",
       description: "The stock has been removed from the market.",
-    })
-    setDeleteConfirm(null)
-  }
+    });
+    setDeleteConfirm(null);
+  };
+
+  const handleCreateShares = (stockId: string) => {
+    const shares = Number.parseInt(newShares);
+    if (isNaN(shares) || shares <= 0) {
+      toast({
+        title: "Invalid Share Count",
+        description: "Please enter a valid number of shares greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createShares(stockId, shares);
+    toast({
+      title: "Shares Created",
+      description: `${shares.toLocaleString()} new shares have been minted. Stock price adjusted for dilution.`,
+    });
+    setSharesStock(null);
+    setNewShares("");
+  };
 
   return (
     <div className="space-y-4">
       {stocks.map((stock) => {
-        const priceHistory = getStockPriceHistory(stock.id)
-        let priceChange = 0
+        const priceHistory = getStockPriceHistory(stock.id);
+        let priceChange = 0;
         if (priceHistory.length >= 2) {
-          const previousPrice = priceHistory[priceHistory.length - 2].price
-          priceChange = ((stock.currentPrice - previousPrice) / previousPrice) * 100
+          const previousPrice = priceHistory[priceHistory.length - 2].price;
+          priceChange =
+            ((stock.currentPrice - previousPrice) / previousPrice) * 100;
         }
 
         return (
@@ -78,9 +107,15 @@ export function StockManagement() {
                     />
                   </div>
                   <div>
-                    <CardTitle className="text-foreground">{stock.characterName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{stock.anime}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{stock.description}</p>
+                    <CardTitle className="text-foreground">
+                      {stock.characterName}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {stock.anime}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {stock.description}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -88,13 +123,23 @@ export function StockManagement() {
                     variant="outline"
                     size="icon"
                     onClick={() => {
-                      setEditingStock(stock.id)
-                      setNewPrice(stock.currentPrice.toString())
+                      setEditingStock(stock.id);
+                      setNewPrice(stock.currentPrice.toString());
                     }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => setDeleteConfirm(stock.id)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSharesStock(stock.id)}
+                  >
+                    Create Shares
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setDeleteConfirm(stock.id)}
+                  >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -104,12 +149,16 @@ export function StockManagement() {
               <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground">Current Price</p>
-                  <p className="font-mono text-lg font-bold text-foreground">${stock.currentPrice.toFixed(2)}</p>
+                  <p className="font-mono text-lg font-bold text-foreground">
+                    ${stock.currentPrice.toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Price Change</p>
                   <p
-                    className={`font-mono text-lg font-bold ${priceChange >= 0 ? "text-chart-4" : "text-destructive"}`}
+                    className={`font-mono text-lg font-bold ${
+                      priceChange >= 0 ? "text-chart-4" : "text-destructive"
+                    }`}
                   >
                     {priceChange >= 0 ? "+" : ""}
                     {priceChange.toFixed(2)}%
@@ -123,12 +172,14 @@ export function StockManagement() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Shares</p>
-                  <p className="font-mono text-lg font-bold text-foreground">{stock.totalShares.toLocaleString()}</p>
+                  <p className="font-mono text-lg font-bold text-foreground">
+                    {stock.totalShares.toLocaleString()}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        )
+        );
       })}
 
       {/* Edit Price Dialog */}
@@ -138,7 +189,8 @@ export function StockManagement() {
             <DialogHeader>
               <DialogTitle>Update Stock Price</DialogTitle>
               <DialogDescription>
-                Set a new price for {stocks.find((s) => s.id === editingStock)?.characterName}
+                Set a new price for{" "}
+                {stocks.find((s) => s.id === editingStock)?.characterName}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -159,7 +211,9 @@ export function StockManagement() {
               <Button variant="outline" onClick={() => setEditingStock(null)}>
                 Cancel
               </Button>
-              <Button onClick={() => handleUpdatePrice(editingStock)}>Update Price</Button>
+              <Button onClick={() => handleUpdatePrice(editingStock)}>
+                Update Price
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -172,21 +226,69 @@ export function StockManagement() {
             <DialogHeader>
               <DialogTitle>Delete Stock</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete {stocks.find((s) => s.id === deleteConfirm)?.characterName}? This action
-                cannot be undone and will remove all associated data.
+                Are you sure you want to delete{" "}
+                {stocks.find((s) => s.id === deleteConfirm)?.characterName}?
+                This action cannot be undone and will remove all associated
+                data.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={() => handleDelete(deleteConfirm)}>
+              <Button
+                variant="destructive"
+                onClick={() => handleDelete(deleteConfirm)}
+              >
                 Delete Stock
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Create Shares Dialog */}
+      {sharesStock && (
+        <Dialog open onOpenChange={() => setSharesStock(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Shares</DialogTitle>
+              <DialogDescription>
+                Mint new shares for{" "}
+                {stocks.find((s) => s.id === sharesStock)?.characterName}. This
+                will dilute the stock price based on the new share count.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="shares">Number of Shares to Create</Label>
+                <Input
+                  id="shares"
+                  type="number"
+                  min="1"
+                  value={newShares}
+                  onChange={(e) => setNewShares(e.target.value)}
+                  placeholder="1000"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Current total:{" "}
+                  {stocks
+                    .find((s) => s.id === sharesStock)
+                    ?.totalShares.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSharesStock(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => handleCreateShares(sharesStock)}>
+                Create Shares
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
-  )
+  );
 }

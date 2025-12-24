@@ -329,6 +329,7 @@ import type {
   Appeal,
   AdminActionLog,
   Award,
+  Friend,
 } from "./types";
 
 // Initial buyback offers (empty)
@@ -343,3 +344,4 @@ export const initialReports: Report[] = [];
 export const initialAppeals: Appeal[] = [];
 export const initialAdminActionLogs: AdminActionLog[] = [];
 export const initialAwards: Award[] = [];
+export const initialFriends: Friend[] = [];

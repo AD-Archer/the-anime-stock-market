@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, type ChangeEvent } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useRef, type ChangeEvent } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,11 +31,22 @@ interface MarketDiscussionProps {
   marketComments: Comment[];
   users: any[];
   onAddComment: (content: string, tags: ContentTag[]) => Promise<void>;
-  onAddReply: (parentId: string, content: string, tags?: ContentTag[]) => Promise<void>;
+  onAddReply: (
+    parentId: string,
+    content: string,
+    tags?: ContentTag[]
+  ) => Promise<void>;
   onEditComment: (commentId: string, content: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
-  onReportComment: (commentId: string, reason: string, description?: string) => Promise<void>;
-  onToggleReaction: (commentId: string, reaction: "like" | "dislike") => Promise<void>;
+  onReportComment: (
+    commentId: string,
+    reason: string,
+    description?: string
+  ) => Promise<void>;
+  onToggleReaction: (
+    commentId: string,
+    reaction: "like" | "dislike"
+  ) => Promise<void>;
 }
 
 export function MarketDiscussion({
@@ -47,7 +64,7 @@ export function MarketDiscussion({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Process comments into threaded structure
-  const { commentMap, rootComments } = useState(() => {
+  const { commentMap, rootComments } = useMemo(() => {
     const commentMap = new Map<string, Comment & { replies: Comment[] }>();
     const rootComments: (Comment & { replies: Comment[] })[] = [];
 
@@ -72,7 +89,7 @@ export function MarketDiscussion({
     rootComments.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return { commentMap, rootComments };
-  })[0];
+  }, [marketComments]);
 
   const handleSendMessage = async () => {
     if (message.trim() && currentUser) {
@@ -82,7 +99,7 @@ export function MarketDiscussion({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -97,7 +114,8 @@ export function MarketDiscussion({
             Market Chat
           </CardTitle>
           <CardDescription>
-            Live discussion about the market, trading strategies, and anime stocks
+            Live discussion about the market, trading strategies, and anime
+            stocks
           </CardDescription>
         </CardHeader>
 
@@ -133,6 +151,14 @@ export function MarketDiscussion({
           {/* Message Input */}
           {currentUser ? (
             <div className="border-t p-4 flex-shrink-0">
+              <div className="mb-2 flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  No NSFW
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  No Spoilers
+                </Badge>
+              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Type your message..."
@@ -185,11 +211,22 @@ function CommentThread({
   commentMap: Map<string, Comment & { replies: Comment[] }>;
   users: any[];
   currentUser: any;
-  onReply: (parentId: string, content: string, tags?: ContentTag[]) => Promise<void>;
+  onReply: (
+    parentId: string,
+    content: string,
+    tags?: ContentTag[]
+  ) => Promise<void>;
   onEdit: (commentId: string, content: string) => Promise<void>;
   onDelete: (commentId: string) => Promise<void>;
-  onReport: (commentId: string, reason: string, description?: string) => Promise<void>;
-  onToggleReaction: (commentId: string, reaction: "like" | "dislike") => Promise<void>;
+  onReport: (
+    commentId: string,
+    reason: string,
+    description?: string
+  ) => Promise<void>;
+  onToggleReaction: (
+    commentId: string,
+    reaction: "like" | "dislike"
+  ) => Promise<void>;
   level: number;
 }) {
   const [isReplying, setIsReplying] = useState(false);
@@ -206,12 +243,18 @@ function CommentThread({
     .map((reply) => commentMap.get(reply.id)!)
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  const canEdit = currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
-  const canDelete = currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
+  const canEdit =
+    currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
+  const canDelete =
+    currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
 
   const userReaction = comment.userReactions?.[currentUser?.id || ""] || null;
-  const likeCount = Object.values(comment.reactions || {}).filter((r: any) => r === "like").length;
-  const dislikeCount = Object.values(comment.reactions || {}).filter((r: any) => r === "dislike").length;
+  const likeCount = Object.values(comment.reactions || {}).filter(
+    (r: any) => r === "like"
+  ).length;
+  const dislikeCount = Object.values(comment.reactions || {}).filter(
+    (r: any) => r === "dislike"
+  ).length;
 
   const handleReply = async () => {
     if (replyContent.trim()) {
@@ -338,6 +381,9 @@ function CommentThread({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+              {comment.editedAt && (
+                <span className="ml-1 text-xs opacity-60">(edited)</span>
+              )}
             </p>
             {canEdit && (
               <Button
@@ -366,7 +412,9 @@ function CommentThread({
           <div className="space-y-2">
             <Textarea
               value={editContent}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditContent(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                setEditContent(e.target.value)
+              }
               rows={2}
               className="text-sm"
             />
@@ -395,9 +443,7 @@ function CommentThread({
             variant="ghost"
             size="sm"
             className={`h-7 px-2 text-xs ${
-              userReaction === "like"
-                ? "text-chart-4"
-                : "text-muted-foreground"
+              userReaction === "like" ? "text-chart-4" : "text-muted-foreground"
             }`}
             disabled={!currentUser}
             onClick={() => handleReaction("like")}
@@ -432,7 +478,7 @@ function CommentThread({
               Reply
             </Button>
           )}
-          {currentUser && currentUser.id !== comment.userId && (
+          {currentUser && (
             <Button
               variant="ghost"
               size="sm"
@@ -461,7 +507,9 @@ function CommentThread({
             <Textarea
               placeholder="Write a reply..."
               value={replyContent}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setReplyContent(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                setReplyContent(e.target.value)
+              }
               rows={2}
               className="text-sm"
             />

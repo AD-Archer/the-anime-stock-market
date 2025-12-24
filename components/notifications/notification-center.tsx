@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -22,16 +22,13 @@ import {
 import { Bell, Check, X, Filter } from "lucide-react";
 import type { Notification } from "@/lib/types";
 
-export function NotificationCenter({
-  modal = false,
-}: {
-  modal?: boolean;
-}) {
+export function NotificationCenter({ modal = false }: { modal?: boolean }) {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryToggleEnabled = !modal;
-  const isOpen = queryToggleEnabled && searchParams.get("notifications") === "open";
+  const isOpen =
+    queryToggleEnabled && searchParams.get("notifications") === "open";
   const {
     getUserNotifications,
     markNotificationRead,
@@ -41,11 +38,21 @@ export function NotificationCenter({
     currentUser,
     sendNotification,
     stocks,
+    notifications: storeNotifications,
+    friends,
+    acceptFriendRequest,
+    declineFriendRequest,
+    acceptBuybackOffer,
+    declineBuybackOffer,
+    getUserPortfolio,
   } = useStore();
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showBuybackModal, setShowBuybackModal] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+
+  const notifications = useMemo(
+    () => (user?.id ? getUserNotifications(user.id) : []),
+    [user?.id, getUserNotifications, storeNotifications]
+  );
 
   useEffect(() => {
     if (!modal) return;
@@ -53,17 +60,15 @@ export function NotificationCenter({
     if (isOpen) {
       const newSearchParams = new URLSearchParams(searchParams);
       newSearchParams.delete("notifications");
-      router.replace(searchParams.toString() ? "?" + newSearchParams.toString() : "?");
+      router.replace(
+        searchParams.toString() ? "?" + newSearchParams.toString() : "?"
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal, isOpen]);
 
   useEffect(() => {
     if (user?.id) {
-      const userNotifications = getUserNotifications(user.id);
-
-      setNotifications(userNotifications);
-
       const activeBuyback = buybackOffers.find(
         (offer) =>
           offer.status === "active" &&
@@ -72,7 +77,7 @@ export function NotificationCenter({
       );
 
       if (activeBuyback) {
-        const existingNotification = userNotifications.find(
+        const existingNotification = notifications.find(
           (n) => n.data?.buybackOfferId === activeBuyback.id
         );
 
@@ -90,7 +95,7 @@ export function NotificationCenter({
         }
       }
     }
-  }, [user?.id, getUserNotifications, buybackOffers, sendNotification, stocks]);
+  }, [user?.id, buybackOffers, sendNotification, stocks, notifications]);
 
   const filteredNotifications = notifications.filter((notification) => {
     if (filterType === "all") return true;
@@ -102,9 +107,6 @@ export function NotificationCenter({
 
   const handleMarkRead = async (notificationId: string) => {
     await markNotificationRead(notificationId);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-    );
   };
 
   const handleNotificationClick = async (notification: Notification) => {
@@ -116,8 +118,52 @@ export function NotificationCenter({
         "Buyback notification clicked:",
         notification.data?.buybackOfferId
       );
+    } else if (notification.type === "friend_request") {
+      const userId = notification.data?.requesterId as string | undefined;
+      if (userId) {
+        router.push(`/users/${userId}`);
+      }
     }
     await handleMarkRead(notification.id);
+  };
+
+  const getPendingRequestForNotification = (notification: Notification) => {
+    if (!currentUser || notification.type !== "friend_request") return null;
+    const data = notification.data as {
+      requesterId?: string;
+      requestId?: string;
+    };
+    const byId = data?.requestId
+      ? friends.find(
+          (f) =>
+            f.id === data.requestId &&
+            f.receiverId === currentUser.id &&
+            f.status === "pending"
+        )
+      : undefined;
+    if (byId) return byId;
+    if (!data?.requesterId) return null;
+    return (
+      friends.find(
+        (f) =>
+          f.requesterId === data.requesterId &&
+          f.receiverId === currentUser.id &&
+          f.status === "pending"
+      ) ?? null
+    );
+  };
+
+  const getBuybackOfferForNotification = (notification: Notification) => {
+    if (notification.type !== "buyback_offer") return null;
+    const buybackOfferId = notification.data?.buybackOfferId as
+      | string
+      | undefined;
+    if (!buybackOfferId) return null;
+    return (
+      buybackOffers.find(
+        (o) => o.id === buybackOfferId && o.status === "active"
+      ) ?? null
+    );
   };
 
   const notificationContent = (
@@ -141,6 +187,7 @@ export function NotificationCenter({
               <SelectItem value="system">System Notifications</SelectItem>
               <SelectItem value="moderation">Moderation</SelectItem>
               <SelectItem value="direct_message">Direct Messages</SelectItem>
+              <SelectItem value="friend_request">Friend Requests</SelectItem>
             </SelectContent>
           </Select>
 
@@ -169,9 +216,7 @@ export function NotificationCenter({
               onClick={async () => {
                 if (currentUser) {
                   await clearNotifications(currentUser.id);
-                  setNotifications((prev) =>
-                    prev.filter((n) => n.userId !== currentUser.id)
-                  );
+                  setFilterType("unread");
                 }
               }}
             >
@@ -200,23 +245,99 @@ export function NotificationCenter({
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
+                  <p className="text-sm font-medium break-words whitespace-normal">
                     {notification.title}
                   </p>
                   <div className="flex items-center gap-1 mb-1">
-                    <Badge variant="secondary" className="text-[10px] uppercase">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] uppercase"
+                    >
                       {notification.type.replace("_", " ")}
                     </Badge>
                     {!notification.read && (
                       <span className="text-[10px] text-primary">New</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground break-words whitespace-normal">
                     {notification.message}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {notification.createdAt.toLocaleDateString()}
                   </p>
+                  {notification.type === "friend_request" &&
+                    currentUser &&
+                    (() => {
+                      const pending =
+                        getPendingRequestForNotification(notification);
+                      if (!pending) return null;
+                      return (
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await acceptFriendRequest(pending.id);
+                              await handleMarkRead(notification.id);
+                            }}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await declineFriendRequest(pending.id);
+                              await handleMarkRead(notification.id);
+                            }}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                  {notification.type === "buyback_offer" &&
+                    currentUser &&
+                    (() => {
+                      const offer =
+                        getBuybackOfferForNotification(notification);
+                      if (!offer) return null;
+                      const stock = stocks.find((s) => s.id === offer.stockId);
+                      if (!stock) return null;
+                      const userPortfolio = getUserPortfolio(currentUser.id);
+                      const userShares =
+                        userPortfolio.find((p) => p.stockId === stock.id)
+                          ?.shares || 0;
+                      return (
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              if (userShares > 0) {
+                                acceptBuybackOffer(offer.id, userShares);
+                                await handleMarkRead(notification.id);
+                              }
+                            }}
+                            disabled={userShares === 0}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              declineBuybackOffer(offer.id);
+                              await handleMarkRead(notification.id);
+                            }}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      );
+                    })()}
                 </div>
               </div>
             ))}

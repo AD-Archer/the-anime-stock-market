@@ -68,7 +68,12 @@ const collections: CollectionPlan[] = [
         required: false,
         default: false,
       },
-      { kind: "boolean", key: "hideTransactions", required: false, default: false },
+      {
+        kind: "boolean",
+        key: "hideTransactions",
+        required: false,
+        default: false,
+      },
       {
         kind: "boolean",
         key: "anonymousTransactions",
@@ -130,7 +135,7 @@ const collections: CollectionPlan[] = [
     name: "Comments",
     attributes: [
       { kind: "string", key: "userId", size: 64, required: true },
-      { kind: "string", key: "animeId", size: 64, required: true },
+      { kind: "string", key: "animeId", size: 64, required: false },
       { kind: "string", key: "characterId", size: 64, required: false },
       { kind: "string", key: "content", size: 10000, required: true },
       { kind: "string", key: "timestamp", size: 64, required: true },
@@ -150,6 +155,7 @@ const collections: CollectionPlan[] = [
         required: false,
         array: true,
       },
+      { kind: "string", key: "editedAt", size: 64, required: false },
     ],
   },
   {
@@ -192,7 +198,6 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "reporterId", size: 64, required: true },
       { kind: "string", key: "reportedUserId", size: 64, required: true },
       { kind: "string", key: "commentId", size: 64, required: true },
-      { kind: "string", key: "commentContent", size: 10000, required: false },
       { kind: "string", key: "reason", size: 32, required: true },
       { kind: "string", key: "description", size: 1000, required: false },
       { kind: "string", key: "status", size: 16, required: true },
@@ -200,8 +205,7 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "resolvedAt", size: 64, required: false },
       { kind: "string", key: "resolvedBy", size: 64, required: false },
       { kind: "string", key: "resolution", size: 16, required: false },
-      { kind: "string", key: "threadContext", size: 20000, required: false },
-      { kind: "string", key: "commentLocation", size: 512, required: false },
+      { kind: "string", key: "metadata", size: 20000, required: false },
     ],
   },
   {
@@ -247,6 +251,17 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "type", size: 32, required: true },
       { kind: "string", key: "unlockedAt", size: 64, required: true },
       { kind: "boolean", key: "redeemed", required: false, default: false },
+    ],
+  },
+  {
+    id: "friends",
+    name: "Friends",
+    attributes: [
+      { kind: "string", key: "requesterId", size: 64, required: true },
+      { kind: "string", key: "receiverId", size: 64, required: true },
+      { kind: "string", key: "status", size: 16, required: true },
+      { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "respondedAt", size: 64, required: false },
     ],
   },
 ];

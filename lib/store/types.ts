@@ -16,6 +16,7 @@ import type {
   Award,
   AppealStatus,
   AdminActionType,
+  Friend,
 } from "../types";
 
 export type AddCommentInput = {
@@ -44,6 +45,7 @@ export interface StoreContextType {
   appeals: Appeal[];
   adminActionLogs: AdminActionLog[];
   awards: Award[];
+  friends: Friend[];
   messages: Message[];
   conversations: Conversation[];
 
@@ -52,6 +54,7 @@ export interface StoreContextType {
   createStock: (stock: Omit<Stock, "id" | "createdAt">) => void;
   updateStockPrice: (stockId: string, newPrice: number) => void;
   deleteStock: (stockId: string) => void;
+  createShares: (stockId: string, newShareCount: number) => void;
   banUser: (
     userId: string,
     duration: "week" | "month" | "year" | "forever" | Date
@@ -84,8 +87,16 @@ export interface StoreContextType {
   removeUserAdmin: (userId: string) => void;
   giveUserMoney: (userId: string, amount: number) => Promise<void>;
   takeUserMoney: (userId: string, amount: number) => Promise<void>;
-  giveUserStocks: (userId: string, stockId: string, shares: number) => Promise<void>;
-  removeUserStocks: (userId: string, stockId: string, shares: number) => Promise<void>;
+  giveUserStocks: (
+    userId: string,
+    stockId: string,
+    shares: number
+  ) => Promise<void>;
+  removeUserStocks: (
+    userId: string,
+    stockId: string,
+    shares: number
+  ) => Promise<void>;
   inflateMarket: (percentage: number) => void;
   createBuybackOffer: (
     stockId: string,
@@ -106,6 +117,13 @@ export interface StoreContextType {
   markNotificationRead: (notificationId: string) => void;
   markAllNotificationsRead: (userId: string) => Promise<void>;
   clearNotifications: (userId: string) => Promise<void>;
+
+  // Friends
+  sendFriendRequest: (targetUserId: string) => Promise<void>;
+  acceptFriendRequest: (requestId: string) => Promise<void>;
+  declineFriendRequest: (requestId: string) => Promise<void>;
+  getUserFriends: (userId: string) => User[];
+  getPendingFriendRequests: (userId: string) => Friend[];
 
   reportComment: (
     commentId: string,

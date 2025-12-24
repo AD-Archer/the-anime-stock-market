@@ -112,8 +112,7 @@ function CommentThread({
 
   const handleReply = async () => {
     if (replyContent.trim()) {
-      const tags =
-        replyTag === "none" ? [] : ([replyTag] as ContentTag[]);
+      const tags = replyTag === "none" ? [] : ([replyTag] as ContentTag[]);
       await onReply(comment.id, replyContent, tags);
       setReplyContent("");
       setReplyTag("none");
@@ -239,6 +238,9 @@ function CommentThread({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+              {comment.editedAt && (
+                <span className="ml-1 text-xs opacity-60">(edited)</span>
+              )}
             </p>
             {canEdit && (
               <Button
@@ -296,9 +298,7 @@ function CommentThread({
             variant="ghost"
             size="sm"
             className={`h-7 px-2 text-xs ${
-              userReaction === "like"
-                ? "text-chart-4"
-                : "text-muted-foreground"
+              userReaction === "like" ? "text-chart-4" : "text-muted-foreground"
             }`}
             disabled={!currentUser}
             onClick={() => handleReaction("like")}
@@ -537,8 +537,7 @@ export default function CharacterPage({
 
   const handleAddComment = async () => {
     if (comment.trim()) {
-      const tags =
-        commentTag === "none" ? [] : ([commentTag] as ContentTag[]);
+      const tags = commentTag === "none" ? [] : ([commentTag] as ContentTag[]);
       await addComment({
         animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
         content: comment,

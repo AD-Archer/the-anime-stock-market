@@ -10,6 +10,17 @@ import {
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
+const serializeCommentPayload = (comment: Partial<Comment>) => {
+  const payload: Record<string, unknown> = {};
+
+  Object.entries(comment as Record<string, unknown>).forEach(([key, value]) => {
+    if (value === undefined) return;
+    payload[key] = value;
+  });
+
+  return payload;
+};
+
 export const commentService = {
   async getAll(): Promise<Comment[]> {
     try {
@@ -42,11 +53,19 @@ export const commentService = {
     try {
       const documentId = comment.id ?? ID.unique();
       const { id: _ignored, ...data } = comment as any;
+      const payload = serializeCommentPayload(data);
+      const normalizedData = normalizePayload(payload);
+      // Filter out undefined values as Appwrite doesn't allow them
+      const filteredData = Object.fromEntries(
+        Object.entries(normalizedData).filter(
+          ([_, value]) => value !== undefined
+        )
+      );
       const response = await databases.createDocument(
         DATABASE_ID,
         COMMENTS_COLLECTION,
         documentId,
-        normalizePayload(data)
+        filteredData
       );
       return mapComment(response);
     } catch (error) {
@@ -57,11 +76,19 @@ export const commentService = {
 
   async update(id: string, comment: Partial<Comment>): Promise<Comment> {
     try {
+      const payload = serializeCommentPayload(comment);
+      const normalizedData = normalizePayload(payload);
+      // Filter out undefined values as Appwrite doesn't allow them
+      const filteredData = Object.fromEntries(
+        Object.entries(normalizedData).filter(
+          ([_, value]) => value !== undefined
+        )
+      );
       const response = await databases.updateDocument(
         DATABASE_ID,
         COMMENTS_COLLECTION,
         id,
-        normalizePayload(comment)
+        filteredData
       );
       return mapComment(response);
     } catch (error) {

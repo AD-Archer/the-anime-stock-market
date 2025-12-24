@@ -195,7 +195,12 @@ export default function MessagesPage() {
 
   if (authLoading || !currentUser) {
     return (
-      <div className="container mx-auto px-4 py-8" role="status" aria-busy="true" aria-live="polite">
+      <div
+        className="container mx-auto px-4 py-8"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
         <div className="space-y-6">
           <div className="space-y-2">
             <div className="h-10 w-44 rounded-md bg-muted" />
@@ -443,7 +448,11 @@ export default function MessagesPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle>{otherParticipant.username}</CardTitle>
+                  <Link href={`/users/${otherParticipant.id}`}>
+                    <CardTitle className="hover:underline cursor-pointer">
+                      {otherParticipant.username}
+                    </CardTitle>
+                  </Link>
                   <CardDescription>
                     Conversation with {otherParticipant.username}
                   </CardDescription>

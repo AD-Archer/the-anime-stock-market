@@ -20,9 +20,7 @@ import type { StoreState } from "./types";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
-const buildMarketData = (
-  priceHistory: PriceHistory[]
-): MarketDataPoint[] => {
+const buildMarketData = (priceHistory: PriceHistory[]): MarketDataPoint[] => {
   const dateMap = new Map<string, { prices: number[]; count: number }>();
 
   priceHistory.forEach((ph) => {
@@ -46,11 +44,16 @@ const buildMarketData = (
     });
   });
 
-  return marketData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  return marketData.sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
 };
 
 const applyPriceImpact = (stock: Stock, sharesDelta: number): number => {
-  const liquidityFactor = Math.max(0.05, Math.min(0.5, sharesDelta / stock.totalShares));
+  const liquidityFactor = Math.max(
+    0.05,
+    Math.min(0.5, sharesDelta / stock.totalShares)
+  );
   const impact = liquidityFactor * 0.5; // scale to avoid extreme swings
   const newPrice = stock.currentPrice * (1 + impact);
   return Math.max(0.01, Number(newPrice.toFixed(2)));
@@ -69,7 +72,10 @@ export function createMarketActions({
     message: string,
     data?: any
   ) => void;
-  unlockAward: (userId: string, type: import("../types").Award["type"]) => Promise<void>;
+  unlockAward: (
+    userId: string,
+    type: import("../types").Award["type"]
+  ) => Promise<void>;
 }) {
   const notifyLiquidityRequest = (stock: Stock, requestedShares: number) => {
     const currentUser = getState().currentUser;
@@ -78,7 +84,8 @@ export function createMarketActions({
     const { portfolios, notifications } = getState();
     const holders = portfolios
       .filter(
-        (p) => p.stockId === stock.id && p.shares > 0 && p.userId !== currentUser.id
+        (p) =>
+          p.stockId === stock.id && p.shares > 0 && p.userId !== currentUser.id
       )
       .map((p) => p.userId);
 
@@ -135,7 +142,9 @@ export function createMarketActions({
     const user = state.users.find((u) => u.id === userId);
     if (!user) return;
 
-    const userTransactions = state.transactions.filter((t) => t.userId === userId);
+    const userTransactions = state.transactions.filter(
+      (t) => t.userId === userId
+    );
     const userPortfolios = state.portfolios.filter((p) => p.userId === userId);
     const userComments = state.comments.filter((c) => c.userId === userId);
     const userAwards = state.awards.filter((a) => a.userId === userId);
@@ -171,7 +180,10 @@ export function createMarketActions({
     if (!unlockedTypes.has("portfolio_value_1000") && portfolioValue >= 1000) {
       await unlockAward(userId, "portfolio_value_1000");
     }
-    if (!unlockedTypes.has("portfolio_value_10000") && portfolioValue >= 10000) {
+    if (
+      !unlockedTypes.has("portfolio_value_10000") &&
+      portfolioValue >= 10000
+    ) {
       await unlockAward(userId, "portfolio_value_10000");
     }
 
@@ -186,9 +198,12 @@ export function createMarketActions({
       await unlockAward(userId, "comment_master");
     }
 
-    // Early adopter (if user created before a certain date YYYY-MM-DD) 
+    // Early adopter (if user created before a certain date YYYY-MM-DD)
     const earlyAdopterDate = new Date("2026-03-01");
-    if (!unlockedTypes.has("early_adopter") && user.createdAt < earlyAdopterDate) {
+    if (
+      !unlockedTypes.has("early_adopter") &&
+      user.createdAt < earlyAdopterDate
+    ) {
       await unlockAward(userId, "early_adopter");
     }
 
@@ -218,11 +233,15 @@ export function createMarketActions({
     }
   };
 
-  const buyStock = async (stockId: string, shares: number): Promise<boolean> => {
+  const buyStock = async (
+    stockId: string,
+    shares: number
+  ): Promise<boolean> => {
     const authUser = getState().authUser;
     const currentUser = getState().currentUser;
     if (!authUser || !currentUser) return false;
-    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date()) return false;
+    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
+      return false;
 
     const { stocks, users, portfolios, transactions } = getState();
     const stock = stocks.find((s) => s.id === stockId);
@@ -248,7 +267,11 @@ export function createMarketActions({
     const newPrice = applyPriceImpact(stock, shares);
     const updatedStocks = stocks.map((s) =>
       s.id === stockId
-        ? { ...s, availableShares: s.availableShares - shares, currentPrice: newPrice }
+        ? {
+            ...s,
+            availableShares: s.availableShares - shares,
+            currentPrice: newPrice,
+          }
         : s
     );
     setState({ stocks: updatedStocks });
@@ -320,11 +343,12 @@ export function createMarketActions({
           availableShares: stock.availableShares - shares,
           currentPrice: newPrice,
         }),
-        userService.update(currentUser.id, { balance: currentUser.balance - totalCost }),
+        userService.update(currentUser.id, {
+          balance: currentUser.balance - totalCost,
+        }),
         existingPortfolio
           ? portfolioService.update(`${currentUser.id}-${stockId}`, {
-              shares:
-                (existingPortfolio?.shares ?? 0) + shares,
+              shares: (existingPortfolio?.shares ?? 0) + shares,
               averageBuyPrice:
                 ((existingPortfolio?.averageBuyPrice ?? 0) *
                   (existingPortfolio?.shares ?? 0) +
@@ -359,10 +383,14 @@ export function createMarketActions({
     return true;
   };
 
-  const sellStock = async (stockId: string, shares: number): Promise<boolean> => {
+  const sellStock = async (
+    stockId: string,
+    shares: number
+  ): Promise<boolean> => {
     const currentUser = getState().currentUser;
     if (!currentUser) return false;
-    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date()) return false;
+    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
+      return false;
 
     const { portfolios, stocks, users, transactions } = getState();
     const portfolio = portfolios.find(
@@ -380,7 +408,10 @@ export function createMarketActions({
     );
     setState({
       users: updatedUsers,
-      currentUser: { ...currentUser, balance: currentUser.balance + totalRevenue },
+      currentUser: {
+        ...currentUser,
+        balance: currentUser.balance + totalRevenue,
+      },
     });
 
     const updatedStocks = stocks.map((s) =>
@@ -441,7 +472,9 @@ export function createMarketActions({
           availableShares: stock.availableShares + shares,
           currentPrice: newPrice,
         }),
-        userService.update(currentUser.id, { balance: currentUser.balance + totalRevenue }),
+        userService.update(currentUser.id, {
+          balance: currentUser.balance + totalRevenue,
+        }),
         portfolioPromise,
         transactionService.create(newTransaction),
         priceHistoryService.create({
@@ -451,7 +484,10 @@ export function createMarketActions({
       ]);
 
       setState((state) => ({
-        priceHistory: [...state.priceHistory, { ...priceHistoryEntry, price: newPrice }],
+        priceHistory: [
+          ...state.priceHistory,
+          { ...priceHistoryEntry, price: newPrice },
+        ],
         stocks: state.stocks.map((s) =>
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
         ),
@@ -465,7 +501,7 @@ export function createMarketActions({
   };
 
   const createStock = (stock: Omit<Stock, "id" | "createdAt">) => {
-    const { stocks, priceHistory } = getState();
+    const { stocks, priceHistory, logAdminAction } = getState();
     const newStock: Stock = {
       ...stock,
       id: `stock-${Date.now()}`,
@@ -480,9 +516,17 @@ export function createMarketActions({
       timestamp: new Date(),
     };
     setState({ priceHistory: [...priceHistory, newPriceHistory] });
+
+    logAdminAction("stock_grant", newStock.createdBy, {
+      stockId: newStock.id,
+      characterName: newStock.characterName,
+      anime: newStock.anime,
+      initialPrice: newStock.currentPrice,
+    });
   };
 
   const updateStockPrice = (stockId: string, newPrice: number) => {
+    const { logAdminAction } = getState();
     setState((state) => ({
       stocks: state.stocks.map((s) =>
         s.id === stockId ? { ...s, currentPrice: newPrice } : s
@@ -497,14 +541,67 @@ export function createMarketActions({
         },
       ],
     }));
+    const stock = getState().stocks.find((s) => s.id === stockId);
+    logAdminAction("stock_grant", stock?.createdBy || "unknown", {
+      stockId,
+      newPrice,
+      action: "price_update",
+    });
   };
 
   const deleteStock = (stockId: string) => {
-    const { stocks, priceHistory, portfolios } = getState();
+    const { stocks, priceHistory, portfolios, logAdminAction } = getState();
+    const stock = stocks.find((s) => s.id === stockId);
     setState({
       stocks: stocks.filter((s) => s.id !== stockId),
       priceHistory: priceHistory.filter((ph) => ph.stockId !== stockId),
       portfolios: portfolios.filter((p) => p.stockId !== stockId),
+    });
+    logAdminAction("stock_removal", stock?.createdBy || "unknown", {
+      stockId,
+      characterName: stock?.characterName,
+    });
+  };
+
+  const createShares = (stockId: string, newShareCount: number) => {
+    const { stocks, priceHistory, logAdminAction } = getState();
+    const stock = stocks.find((s) => s.id === stockId);
+    if (!stock || newShareCount <= 0) return;
+
+    const shareDilutionFactor = newShareCount / stock.totalShares;
+    const newPrice = stock.currentPrice / (1 + shareDilutionFactor);
+    const totalNewShares = stock.totalShares + newShareCount;
+
+    setState((state) => ({
+      stocks: state.stocks.map((s) =>
+        s.id === stockId
+          ? {
+              ...s,
+              totalShares: totalNewShares,
+              availableShares: s.availableShares + newShareCount,
+              currentPrice: Number(newPrice.toFixed(2)),
+            }
+          : s
+      ),
+      priceHistory: [
+        ...state.priceHistory,
+        {
+          id: `ph-${Date.now()}`,
+          stockId,
+          price: Number(newPrice.toFixed(2)),
+          timestamp: new Date(),
+        },
+      ],
+    }));
+
+    logAdminAction("stock_grant", stock.createdBy, {
+      action: "shares_created",
+      stockId,
+      newShareCount,
+      totalNewShares,
+      oldPrice: stock.currentPrice,
+      newPrice: Number(newPrice.toFixed(2)),
+      dilutionFactor: Number((shareDilutionFactor * 100).toFixed(2)),
     });
   };
 
@@ -522,7 +619,7 @@ export function createMarketActions({
     buildMarketData(getState().priceHistory);
 
   const inflateMarket = (percentage: number) => {
-    const { stocks, priceHistory } = getState();
+    const { stocks, priceHistory, logAdminAction } = getState();
     const multiplier = 1 + percentage / 100;
     const updatedStocks = stocks.map((stock) => ({
       ...stock,
@@ -538,6 +635,11 @@ export function createMarketActions({
       stocks: updatedStocks,
       priceHistory: [...priceHistory, ...newPriceHistory],
     });
+    logAdminAction("stock_grant", getState().currentUser?.id || "unknown", {
+      action: "market_inflation",
+      percentage,
+      multiplier,
+    });
   };
 
   const createBuybackOffer = (
@@ -546,7 +648,7 @@ export function createMarketActions({
     targetUsers?: string[],
     expiresInHours: number = 24
   ) => {
-    const { buybackOffers, users, stocks } = getState();
+    const { buybackOffers, users, stocks, logAdminAction } = getState();
     const timestamp = Date.now();
     const newOffer: BuybackOffer = {
       id: `buyback-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
@@ -577,7 +679,8 @@ export function createMarketActions({
     const currentUser = getState().currentUser;
     if (!currentUser) return;
 
-    const { buybackOffers, portfolios, stocks, users, transactions } = getState();
+    const { buybackOffers, portfolios, stocks, users, transactions } =
+      getState();
     const offer = buybackOffers.find((o) => o.id === offerId);
     if (!offer || offer.status !== "active" || offer.expiresAt < new Date())
       return;
@@ -628,20 +731,36 @@ export function createMarketActions({
 
     setState({
       users: updatedUsers,
-      currentUser: { ...currentUser, balance: currentUser.balance + totalAmount },
+      currentUser: {
+        ...currentUser,
+        balance: currentUser.balance + totalAmount,
+      },
       portfolios: updatedPortfolios,
       stocks: updatedStocks,
       buybackOffers: updatedOffers,
       transactions: [...transactions, newTransaction],
     });
+
+    const { logAdminAction } = getState();
+    logAdminAction("stock_removal", currentUser.id, {
+      action: "buyback_accepted",
+      offerId,
+      shares,
+      totalAmount,
+    });
   };
 
   const declineBuybackOffer = (offerId: string) => {
+    const { logAdminAction } = getState();
     setState((state) => ({
       buybackOffers: state.buybackOffers.map((o) =>
         o.id === offerId ? { ...o, status: "declined" as const } : o
       ),
     }));
+    logAdminAction("stock_grant", getState().currentUser?.id || "unknown", {
+      action: "buyback_declined",
+      offerId,
+    });
   };
 
   return {
@@ -650,6 +769,7 @@ export function createMarketActions({
     createStock,
     updateStockPrice,
     deleteStock,
+    createShares,
     getUserPortfolio,
     getStockPriceHistory,
     getMarketData,

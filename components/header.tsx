@@ -7,7 +7,6 @@ import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
-import { NotificationCenter } from "@/components/notifications/notification-center";
 
 export function Header() {
   const { currentUser } = useStore();
@@ -102,7 +101,6 @@ export function Header() {
               )}
               <div className="border-t border-border pt-2 mt-2">
                 <div className="flex justify-center gap-2">
-                  <NotificationCenter />
                   <UserMenu />
                 </div>
               </div>

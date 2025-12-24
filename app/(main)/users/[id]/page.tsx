@@ -22,6 +22,7 @@ import {
 import { ProfileSettings } from "../components/profile-settings";
 import { CommentsSection } from "../components/comments-section";
 import { AwardsSection } from "../components/awards-section";
+import { FriendsList } from "../components/friends-list";
 
 export default function PublicProfilePage({
   params,
@@ -67,7 +68,8 @@ export default function PublicProfilePage({
         const currentValue = stock.currentPrice * p.shares;
         const invested = p.averageBuyPrice * p.shares;
         const profitLoss = currentValue - invested;
-        const profitLossPercent = invested > 0 ? (profitLoss / invested) * 100 : 0;
+        const profitLossPercent =
+          invested > 0 ? (profitLoss / invested) * 100 : 0;
 
         const portfolioItem: PortfolioWithDetails = {
           ...p,
@@ -92,9 +94,11 @@ export default function PublicProfilePage({
     );
   }, [portfolio, stocks]);
 
-  const { portfolioWithDetails, totalPortfolioValue, totalInvested } = portfolioStats;
+  const { portfolioWithDetails, totalPortfolioValue, totalInvested } =
+    portfolioStats;
   const totalProfitLoss = totalPortfolioValue - totalInvested;
-  const totalProfitLossPercent = totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
+  const totalProfitLossPercent =
+    totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
   const totalAssets = (profileUser?.balance || 0) + totalPortfolioValue;
 
   const userTransactions = useMemo(() => {
@@ -127,9 +131,9 @@ export default function PublicProfilePage({
     return getUserAwards(profileUser.id);
   }, [getUserAwards, profileUser]);
 
-  const [activeTab, setActiveTab] = useState<"portfolio" | "history" | "settings">(
-    "portfolio"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "portfolio" | "history" | "settings"
+  >("portfolio");
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -144,7 +148,12 @@ export default function PublicProfilePage({
   };
 
   const handlePreferenceChange = async (
-    key: "showSpoilers" | "showNsfw" | "isPortfolioPublic" | "hideTransactions" | "anonymousTransactions",
+    key:
+      | "showSpoilers"
+      | "showNsfw"
+      | "isPortfolioPublic"
+      | "hideTransactions"
+      | "anonymousTransactions",
     value: boolean
   ) => {
     if (!isOwnProfile) return;
@@ -173,7 +182,10 @@ export default function PublicProfilePage({
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="rounded-xl border bg-card p-6 shadow-sm">
+              <div
+                key={idx}
+                className="rounded-xl border bg-card p-6 shadow-sm"
+              >
                 <div className="space-y-3">
                   <div className="h-4 w-28 rounded-md bg-muted" />
                   <div className="h-8 w-40 rounded-md bg-muted" />
@@ -218,7 +230,9 @@ export default function PublicProfilePage({
           onShare={handleShare}
           onMessage={handleMessage}
           onToggleSettings={() =>
-            setActiveTab((prev) => (prev === "settings" ? "portfolio" : "settings"))
+            setActiveTab((prev) =>
+              prev === "settings" ? "portfolio" : "settings"
+            )
           }
         />
 
@@ -261,7 +275,9 @@ export default function PublicProfilePage({
             <CardContent>
               {profileUser.isPortfolioPublic ? (
                 portfolioWithDetails.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No holdings available.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No holdings available.
+                  </p>
                 ) : (
                   <div className="space-y-4">
                     {portfolioWithDetails.map((holding) => (
@@ -273,21 +289,28 @@ export default function PublicProfilePage({
                           <CardTitle className="text-base font-semibold">
                             {holding.stock.characterName}
                           </CardTitle>
-                          <p className="text-xs text-muted-foreground">{holding.stock.anime}</p>
                           <p className="text-xs text-muted-foreground">
-                            {holding.shares} shares @ ${holding.averageBuyPrice.toFixed(2)}
+                            {holding.stock.anime}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {holding.shares} shares @ $
+                            {holding.averageBuyPrice.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Value</p>
-                          <p className="text-lg font-bold">${holding.currentValue.toFixed(2)}</p>
+                          <p className="text-lg font-bold">
+                            ${holding.currentValue.toFixed(2)}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )
               ) : (
-                <p className="text-sm text-muted-foreground">Portfolio is private.</p>
+                <p className="text-sm text-muted-foreground">
+                  Portfolio is private.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -296,6 +319,8 @@ export default function PublicProfilePage({
         <CommentsSection comments={userComments} stocks={stocks} />
 
         <AwardsSection awards={userAwards} isOwnProfile={!!isOwnProfile} />
+
+        {isOwnProfile && <FriendsList />}
 
         {!isOwnProfile && profileUser.hideTransactions && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

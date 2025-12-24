@@ -5,18 +5,16 @@ import type { StoreState } from "./types";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
-const applyUpdater = <T,>(
-  current: T,
-  updater: T | ((prev: T) => T)
-): T => (typeof updater === "function" ? (updater as (prev: T) => T)(current) : updater);
+const applyUpdater = <T>(current: T, updater: T | ((prev: T) => T)): T =>
+  typeof updater === "function"
+    ? (updater as (prev: T) => T)(current)
+    : updater;
 
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 export function createCommentActions({ setState, getState }: StoreMutators) {
-  const setComments = (
-    updater: Comment[] | ((prev: Comment[]) => Comment[])
-  ) =>
+  const setComments = (updater: Comment[] | ((prev: Comment[]) => Comment[])) =>
     setState((state) => ({
       comments: applyUpdater(state.comments, updater),
     }));
@@ -77,7 +75,9 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
         (a) => a.userId === currentUser.id && a.type === "comment_master"
       );
       if (!hasCommentMaster) {
-        const count = state.comments.filter((c) => c.userId === currentUser.id).length;
+        const count = state.comments.filter(
+          (c) => c.userId === currentUser.id
+        ).length;
         if (count >= 50) {
           // Unlock immediately once achieved.
           state.unlockAward(currentUser.id, "comment_master").catch(() => {});
@@ -93,12 +93,27 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     const currentUser = getState().currentUser;
     if (!currentUser) return;
 
+    const comment = getState().comments.find((c) => c.id === commentId);
+    if (!comment) return;
+
+    // Store original content if this is the first edit
+    const updateData: Partial<Comment> = {
+      content,
+      editedAt: new Date(),
+    };
+
+    // Optimistically update the UI
+    setComments((prev) =>
+      prev.map((c) => (c.id === commentId ? { ...c, ...updateData } : c))
+    );
+
     try {
-      await commentService.update(commentId, { content });
+      await commentService.update(commentId, updateData);
     } catch (error) {
       console.warn("Failed to update comment:", error);
+      // Revert the optimistic update
       setComments((prev) =>
-        prev.map((c) => (c.id === commentId ? { ...c, content } : c))
+        prev.map((c) => (c.id === commentId ? comment : c))
       );
     }
   };
@@ -201,7 +216,9 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
 
   const buildThreadContext = (targetCommentId: string): CommentSnapshot[] => {
     const comments = getState().comments;
-    const commentMap = new Map(comments.map((comment) => [comment.id, comment]));
+    const commentMap = new Map(
+      comments.map((comment) => [comment.id, comment])
+    );
     const childrenMap = new Map<string, string[]>();
 
     comments.forEach((comment) => {
