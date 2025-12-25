@@ -21,6 +21,7 @@ import {
   adminActionLogService,
 } from "../database";
 import { databases } from "../appwrite/appwrite";
+import { Query } from "appwrite";
 import type { Stock } from "../types";
 
 interface CharacterStockData {
@@ -127,6 +128,124 @@ async function findExistingStock(
   }
 }
 
+async function deleteWithBackoff(id: string, maxAttempts = 5) {
+  let attempt = 0;
+  let backoff = 500;
+  while (attempt < maxAttempts) {
+    try {
+      await stockService.delete(id);
+      return;
+    } catch (err: any) {
+      attempt++;
+      const code = err?.code ?? err?.status ?? null;
+      if (code === 429 && attempt < maxAttempts) {
+        await new Promise((res) => setTimeout(res, backoff));
+        backoff = Math.min(backoff * 2, 5000);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+async function mergeDuplicatesByCharacter(
+  anilistCharacterId: number,
+  maybeName?: string
+) {
+  if (!DATABASE_ID) return;
+  try {
+    const queries = [Query.equal("anilistCharacterId", anilistCharacterId)];
+    let docs = (
+      await databases.listDocuments(DATABASE_ID, STOCKS_COLLECTION, queries)
+    ).documents;
+
+    // fallback to name-based matching if no ID hits
+    if (docs.length <= 1 && maybeName) {
+      const allDocs = await databases.listDocuments(
+        DATABASE_ID,
+        STOCKS_COLLECTION,
+        [Query.limit(100)]
+      );
+      docs = allDocs.documents.filter(
+        (doc: any) =>
+          doc.characterName &&
+          isSameName(String(doc.characterName), String(maybeName))
+      );
+    }
+
+    if (docs.length <= 1) return;
+
+    const stocks: Stock[] = docs.map((doc: any) => ({
+      id: doc.$id,
+      characterName: doc.characterName,
+      characterSlug: doc.characterSlug,
+      anilistCharacterId: Number(doc.anilistCharacterId),
+      anilistMediaIds: doc.anilistMediaIds || [],
+      anime: doc.anime,
+      anilistRank: doc.anilistRank,
+      currentPrice: doc.currentPrice,
+      totalShares: doc.totalShares,
+      availableShares: doc.availableShares,
+      imageUrl: doc.imageUrl,
+      animeImageUrl: doc.animeImageUrl,
+      description: doc.description,
+      createdBy: doc.createdBy,
+      createdAt: new Date(doc.createdAt || doc.$createdAt || Date.now()),
+      source: doc.source,
+    }));
+
+    const [primary, ...toMerge] = stocks.sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    );
+
+    const mergedMedia = Array.from(
+      new Set([
+        ...(primary.anilistMediaIds || []),
+        ...toMerge.flatMap((t) => t.anilistMediaIds || []),
+      ])
+    );
+    const imageUrl =
+      primary.imageUrl || toMerge.find((t) => t.imageUrl)?.imageUrl;
+    const animeImageUrl =
+      primary.animeImageUrl ||
+      toMerge.find((t) => t.animeImageUrl)?.animeImageUrl;
+    const description = [
+      primary.description,
+      ...toMerge.map((t) => t.description || ""),
+    ].sort((a, b) => b.length - a.length)[0];
+
+    try {
+      await stockService.update(primary.id, {
+        anilistMediaIds: mergedMedia,
+        imageUrl,
+        animeImageUrl,
+        description,
+      });
+    } catch (err) {
+      console.warn(
+        `[mergeDuplicatesByCharacter] Failed to update primary ${primary.id}:`,
+        err
+      );
+    }
+
+    for (const duplicate of toMerge) {
+      try {
+        await deleteWithBackoff(duplicate.id);
+      } catch (err) {
+        console.warn(
+          `[mergeDuplicatesByCharacter] Failed to delete duplicate ${duplicate.id}:`,
+          err
+        );
+      }
+    }
+  } catch (error) {
+    console.warn(
+      `[mergeDuplicatesByCharacter] Failed to merge duplicates for ${anilistCharacterId}:`,
+      error
+    );
+  }
+}
+
 /**
  * Get all media IDs that contain a character
  */
@@ -199,6 +318,8 @@ async function addCharacterStock(
         });
       }
 
+      await mergeDuplicatesByCharacter(anilistCharacterId, characterName);
+
       return {
         added: false,
         id: existingStock.id,
@@ -233,6 +354,8 @@ async function addCharacterStock(
     console.log(
       `[addCharacterStock] New stock created: ${newStock.id} for ${characterName}`
     );
+
+    await mergeDuplicatesByCharacter(characterId, characterName);
 
     return {
       added: true,
