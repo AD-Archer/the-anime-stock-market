@@ -81,18 +81,23 @@ export function StockCard({ stock, onBuy }: StockCardProps) {
                 {!isPositive && !isNegative && (
                   <Minus className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span
-                  className={`text-sm font-medium ${
+                <Badge
+                  variant={
                     isPositive
-                      ? "text-chart-4"
+                      ? "default"
                       : isNegative
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                  }`}
+                      ? "destructive"
+                      : "secondary"
+                  }
+                  className={
+                    isPositive
+                      ? "bg-chart-4 text-background hover:bg-chart-4/80"
+                      : ""
+                  }
                 >
                   {isPositive && "+"}
                   {priceChangePercent.toFixed(2)}%
-                </span>
+                </Badge>
               </div>
             )}
           </div>

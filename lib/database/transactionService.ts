@@ -1,4 +1,4 @@
-import { ID } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { Transaction } from "../types";
 import {
@@ -15,11 +15,24 @@ export const transactionService = {
   async getAll(): Promise<Transaction[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(
-        dbId,
-        TRANSACTIONS_COLLECTION
-      );
-      return response.documents.map(mapTransaction);
+      const allTransactions: Transaction[] = [];
+      let offset = 0;
+      const limit = 100; // Appwrite max limit is 100
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          TRANSACTIONS_COLLECTION,
+          [Query.limit(limit), Query.offset(offset)]
+        );
+        const mapped = response.documents.map(mapTransaction);
+        allTransactions.push(...mapped);
+
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return allTransactions;
     } catch (error) {
       console.warn("Failed to fetch transactions from database:", error);
       return [];

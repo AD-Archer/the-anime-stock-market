@@ -60,16 +60,16 @@ export default function PublicProfilePage({
   const profileUser =
     users.find(
       (user) =>
-        user.displaySlug === slug ||
-        user.username === slug ||
-        user.id === slug
+        user.displaySlug === slug || user.username === slug || user.id === slug
     ) || users.find((user) => user.id === slug);
   const isOwnProfile = authUser?.id === profileUser?.id;
 
   const portfolio = useMemo(() => {
     if (!profileUser) return [];
-    return getUserPortfolio(profileUser.id);
-  }, [getUserPortfolio, profileUser]);
+    return getUserPortfolio(profileUser.id).filter((p) =>
+      stocks.some((s) => s.id === p.stockId)
+    );
+  }, [getUserPortfolio, profileUser, stocks]);
 
   const portfolioStats = useMemo(() => {
     return portfolio.reduce(
@@ -125,10 +125,23 @@ export default function PublicProfilePage({
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .map((tx) => {
         const stock = stocks.find((s) => s.id === tx.stockId);
-        if (!stock) return null;
-        return { ...tx, stock };
-      })
-      .filter(Boolean) as Array<Transaction & { stock: Stock }>;
+        const stockData = stock || {
+          id: tx.stockId,
+          characterName: "Deleted Stock",
+          characterSlug: "",
+          anilistCharacterId: 0,
+          anilistMediaIds: [],
+          anime: "",
+          currentPrice: 0,
+          createdBy: "",
+          createdAt: new Date(),
+          imageUrl: "",
+          description: "",
+          totalShares: 0,
+          availableShares: 0,
+        };
+        return { ...tx, stock: stockData };
+      }) as Array<Transaction & { stock: Stock }>;
   }, [isOwnProfile, profileUser, stocks, transactions]);
 
   const userComments = useMemo(() => {

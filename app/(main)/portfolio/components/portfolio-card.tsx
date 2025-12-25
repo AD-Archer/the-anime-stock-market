@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { SellDialog } from "../../../../components/sell-dialog";
 
 interface PortfolioCardProps {
@@ -32,20 +33,24 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden">
-        <CardHeader className="p-0">
-          <div className="relative aspect-video w-full overflow-hidden bg-muted">
-            <Image
-              src={stock.imageUrl || "/placeholder.svg"}
-              alt={stock.characterName}
-              fill
-              className="object-cover"
-            />
-          </div>
-        </CardHeader>
+      <Card className="overflow-hidden hover:shadow-lg transition-all">
+        <Link href={`/character/${stock.characterSlug || stock.id}`}>
+          <CardHeader className="p-0 cursor-pointer">
+            <div className="relative aspect-video w-full overflow-hidden bg-muted">
+              <Image
+                src={stock.imageUrl || "/placeholder.svg"}
+                alt={stock.characterName}
+                fill
+                className="object-cover"
+              />
+            </div>
+          </CardHeader>
+        </Link>
         <CardContent className="p-4">
           <div className="mb-3">
-            <h3 className="font-bold text-foreground">{stock.characterName}</h3>
+            <Link href={`/character/${stock.characterSlug || stock.id}`}>
+              <h3 className="font-bold text-foreground hover:text-primary transition-colors cursor-pointer">{stock.characterName}</h3>
+            </Link>
             <p className="text-sm text-muted-foreground">{stock.anime}</p>
           </div>
 

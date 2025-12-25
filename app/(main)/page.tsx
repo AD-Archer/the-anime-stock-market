@@ -28,7 +28,7 @@ import { useRouter } from "next/navigation";
 import type { Stock } from "@/lib/types";
 
 export default function LandingPage() {
-  const { stocks, users, transactions, currentUser } = useStore();
+  const { stocks, users, transactions, currentUser, getStockPriceHistory } = useStore();
   const router = useRouter();
 
   const activeTraders = users.length;
@@ -39,12 +39,20 @@ export default function LandingPage() {
   );
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
-  // Sort stocks by market cap (price * total shares) descending
-  const sortedStocks = [...stocks].sort(
-    (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-  );
+  // Calculate percentage change from start price and sort by that
+  const sortedStocks = [...stocks]
+    .map(stock => {
+      const priceHistory = getStockPriceHistory(stock.id);
+      let priceChangePercent = 0;
+      if (priceHistory.length >= 2) {
+        const previousPrice = priceHistory[priceHistory.length - 2].price;
+        priceChangePercent = ((stock.currentPrice - previousPrice) / previousPrice) * 100;
+      }
+      return { ...stock, priceChangePercent };
+    })
+    .sort((a, b) => b.priceChangePercent - a.priceChangePercent);
 
-  // Top 100 characters
+  // Top 100 characters sorted by percentage change
   const top100Stocks = sortedStocks.slice(0, 100);
 
   const handleSelectStock = (stock: Stock) => {

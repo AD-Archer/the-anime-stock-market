@@ -12,18 +12,28 @@ import { StockCard } from "@/components/stock-card";
 import { useRouter } from "next/navigation";
 
 export default function TradingPage() {
-  const { stocks, currentUser, addComment, editComment, deleteComment, getMarketComments, users, reportComment, toggleCommentReaction } = useStore();
+  const {
+    stocks,
+    currentUser,
+    addComment,
+    editComment,
+    deleteComment,
+    getMarketComments,
+    users,
+    reportComment,
+    toggleCommentReaction,
+  } = useStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
   // Sort stocks by market cap (price * total shares) descending
-  const sortedStocks = [...stocks].sort((a, b) =>
-    (b.currentPrice * b.totalShares) - (a.currentPrice * a.totalShares)
+  const sortedStocks = [...stocks].sort(
+    (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
   );
 
-  // Top 10 best selling characters
-  const topStocks = sortedStocks.slice(0, 10);
+  // All stocks for top section to sort properly
+  const allStocks = sortedStocks;
 
   const filteredStocks = sortedStocks.filter(
     (stock) =>
@@ -40,7 +50,11 @@ export default function TradingPage() {
     });
   };
 
-  const handleAddReply = async (parentId: string, content: string, tags?: ContentTag[]) => {
+  const handleAddReply = async (
+    parentId: string,
+    content: string,
+    tags?: ContentTag[]
+  ) => {
     await addComment({
       content,
       parentId,
@@ -56,13 +70,17 @@ export default function TradingPage() {
     await deleteComment(commentId);
   };
 
-  const handleReportComment = async (commentId: string, reason: string, description?: string) => {
+  const handleReportComment = async (
+    commentId: string,
+    reason: string,
+    description?: string
+  ) => {
     await reportComment(commentId, reason as any, description);
   };
 
   const handleBuy = (stockId: string) => {
     if (!currentUser) {
-      router.push('/auth/signin');
+      router.push("/auth/signin");
     } else {
       setSelectedStockId(stockId);
     }
@@ -103,10 +121,7 @@ export default function TradingPage() {
             )}
           </div>
         ) : (
-          <TopStocksSection
-            topStocks={topStocks}
-            onBuy={handleBuy}
-          />
+          <TopStocksSection topStocks={allStocks} onBuy={handleBuy} />
         )}
 
         <MarketDiscussion
@@ -121,10 +136,7 @@ export default function TradingPage() {
           onToggleReaction={toggleCommentReaction}
         />
 
-        <AllCharactersSection
-          stocks={stocks}
-          onBuy={handleBuy}
-        />
+        <AllCharactersSection stocks={stocks} onBuy={handleBuy} />
       </main>
 
       {/* Buy Dialog */}

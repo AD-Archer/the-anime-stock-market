@@ -30,7 +30,8 @@ export function TransactionHistory({ transactions }: TransactionHistoryProps) {
         <div className="divide-y divide-border">
           {transactions.map((transaction) => {
             const stock = stocks.find((s) => s.id === transaction.stockId);
-            if (!stock) return null;
+            const stockName = stock ? stock.characterName : "Deleted Stock";
+            const stockAnime = stock ? stock.anime : "";
 
             const isBuy = transaction.type === "buy";
 
@@ -52,17 +53,28 @@ export function TransactionHistory({ transactions }: TransactionHistoryProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/character/${stock.characterSlug || stock.id}`}
-                      className="flex items-center gap-2 hover:underline"
-                    >
-                      <p className="font-semibold text-foreground truncate">
-                        {stock.characterName}
-                      </p>
-                      <Badge variant={isBuy ? "default" : "secondary"}>
-                        {isBuy ? "Buy" : "Sell"}
-                      </Badge>
-                    </Link>
+                    {stock ? (
+                      <Link
+                        href={`/character/${stock.characterSlug || stock.id}`}
+                        className="flex items-center gap-2 hover:underline"
+                      >
+                        <p className="font-semibold text-foreground truncate">
+                          {stockName}
+                        </p>
+                        <Badge variant={isBuy ? "default" : "secondary"}>
+                          {isBuy ? "Buy" : "Sell"}
+                        </Badge>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-foreground truncate">
+                          {stockName}
+                        </p>
+                        <Badge variant={isBuy ? "default" : "secondary"}>
+                          {isBuy ? "Buy" : "Sell"}
+                        </Badge>
+                      </div>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       {transaction.shares.toLocaleString()} shares @ $
                       {transaction.pricePerShare.toFixed(2)}

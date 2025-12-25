@@ -681,11 +681,63 @@ export function createMarketActions({
   };
 
   const updateStockPrice = (stockId: string, newPrice: number) => {
-    const { logAdminAction } = getState();
+    const { stocks, portfolios, logAdminAction } = getState();
+    const stock = stocks.find((s) => s.id === stockId);
+    if (!stock) return;
+
+    const valueAdjustmentRatio = stock.currentPrice / newPrice;
+    const ownedShares = portfolios
+      .filter((p) => p.stockId === stockId)
+      .reduce((sum, p) => sum + p.shares, 0);
+
+    // Adjust portfolios: multiply shares by value adjustment ratio
+    // Use precise calculation to preserve total value
+    let totalAssignedShares = 0;
+    const updatedPortfolios = portfolios.map((p, index) => {
+      if (p.stockId !== stockId) return p;
+      
+      const exactNewShares = p.shares * valueAdjustmentRatio;
+      const newShares = Math.round(exactNewShares);
+      totalAssignedShares += newShares;
+      return { ...p, shares: newShares };
+    });
+
+    // Adjust for rounding errors by giving remaining shares to first portfolio
+    const expectedTotalShares = Math.round(ownedShares * valueAdjustmentRatio);
+    const roundingError = expectedTotalShares - totalAssignedShares;
+    
+    if (roundingError !== 0 && updatedPortfolios.some(p => p.stockId === stockId)) {
+      const firstPortfolio = updatedPortfolios.find(p => p.stockId === stockId)!;
+      firstPortfolio.shares += roundingError;
+      totalAssignedShares += roundingError;
+    }
+
+    // Calculate additional shares needed to support all adjusted portfolios
+    const sharesRequiredForPortfolios = updatedPortfolios
+      .filter(p => p.stockId === stockId)
+      .reduce((sum, p) => sum + p.shares, 0);
+    
+    const additionalSharesNeeded = Math.max(
+      0,
+      sharesRequiredForPortfolios - stock.availableShares
+    );
+    
+    // Update stock with new price and additional shares if needed
+    const newTotalShares = stock.totalShares + additionalSharesNeeded;
+    const newAvailableShares = stock.availableShares + additionalSharesNeeded;
+
     setState((state) => ({
       stocks: state.stocks.map((s) =>
-        s.id === stockId ? { ...s, currentPrice: newPrice } : s
+        s.id === stockId
+          ? {
+              ...s,
+              currentPrice: newPrice,
+              totalShares: newTotalShares,
+              availableShares: newAvailableShares,
+            }
+          : s
       ),
+      portfolios: updatedPortfolios,
       priceHistory: [
         ...state.priceHistory,
         {
@@ -696,11 +748,38 @@ export function createMarketActions({
         },
       ],
     }));
-    const stock = getState().stocks.find((s) => s.id === stockId);
-    logAdminAction("stock_grant", stock?.createdBy || "unknown", {
+
+    // Persist portfolio changes to database
+    updatedPortfolios
+      .filter((p) => p.stockId === stockId)
+      .forEach((portfolio) => {
+        portfolioService
+          .update(portfolio.id, { shares: portfolio.shares })
+          .catch((error) => {
+            console.error("Failed to update portfolio in database:", error);
+          });
+      });
+
+    // Persist stock changes to database
+    stockService
+      .update(stockId, {
+        currentPrice: newPrice,
+        totalShares: newTotalShares,
+        availableShares: newAvailableShares,
+      })
+      .catch((error) => {
+        console.error("Failed to update stock in database:", error);
+      });
+
+    logAdminAction("stock_grant", stock.createdBy, {
+      action: "price_normalization",
       stockId,
+      oldPrice: stock.currentPrice,
       newPrice,
-      action: "price_update",
+      valueAdjustmentRatio,
+      additionalSharesCreated: additionalSharesNeeded,
+      affectedPortfolios: updatedPortfolios.filter((p) => p.stockId === stockId)
+        .length,
     });
   };
 
