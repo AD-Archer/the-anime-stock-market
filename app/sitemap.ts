@@ -18,14 +18,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
-      images: [{ url: defaultOg, caption: "Anime Stock Exchange" }],
+      images: [defaultOg],
     },
     {
       url: `${baseUrl}/market`,
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.9,
-      images: [{ url: defaultOg, caption: "Market - Anime Stock Exchange" }],
+      images: [defaultOg],
     },
     {
       url: `${baseUrl}/leaderboard`,
@@ -107,12 +107,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.7,
       images: [
-        {
-          url: stock.imageUrl?.startsWith("http")
-            ? stock.imageUrl
-            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
-          caption: stock.anime || "Anime",
-        },
+        stock.imageUrl?.startsWith("http")
+          ? stock.imageUrl
+          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg
       ],
     })),
     ...stocks.map((stock) => ({
@@ -121,12 +118,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.7,
       images: [
-        {
-          url: stock.imageUrl?.startsWith("http")
-            ? stock.imageUrl
-            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
-          caption: stock.characterName || "Character",
-        },
+        stock.imageUrl?.startsWith("http")
+          ? stock.imageUrl
+          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg
       ],
     })),
     ...users.map((user) => ({
@@ -136,12 +130,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: user.createdAt,
       changeFrequency: "monthly" as const,
       priority: 0.5,
-      images: [
-        {
-          url: defaultOg,
-          caption: (user as any).displayName || (user as any).username,
-        },
-      ],
+      images: [defaultOg],
     })),
   ];
 

@@ -46,6 +46,15 @@ export interface Stock {
   description: string;
   totalShares: number;
   availableShares: number;
+  /**
+   * Optional Anilist ID for verification in production seeds.
+   * When present, seeds are considered "verified".
+   */
+  anilistId?: string;
+  /**
+   * Source of the stock data. Prefer "anilist" for verified items.
+   */
+  source?: "anilist" | "manual" | string;
 }
 
 export interface Transaction {
@@ -234,7 +243,8 @@ export type AdminActionType =
   | "unban"
   | "deletion_scheduled"
   | "deletion_finalized"
-  | "support_update";
+  | "support_update"
+  | "kill_switch";
 
 export interface AdminActionLog {
   id: string;

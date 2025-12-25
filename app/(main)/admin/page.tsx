@@ -18,6 +18,11 @@ import { NotificationManagement } from "@/components/admin/notification-manageme
 import { SupportManagement } from "@/components/admin/support-management";
 import { AppealManagement } from "@/components/admin/appeal-management";
 import { AdminActionLogPanel } from "@/components/admin/admin-action-log";
+import dynamic from "next/dynamic";
+const KillSwitchPanel = dynamic(
+  () => import("@/components/admin/kill-switch").then((m) => m.KillSwitchPanel),
+  { ssr: false }
+);
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -76,7 +81,7 @@ export default function AdminPage() {
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
           className="w-full"
         >
-          <TabsList className="grid w-full max-w-4xl grid-cols-9">
+          <TabsList className="grid w-full max-w-4xl grid-cols-10 md:grid-cols-5 lg:grid-cols-10">
             <TabsTrigger value="stocks">Stocks</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
@@ -86,6 +91,7 @@ export default function AdminPage() {
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="appeals">Appeals</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="danger">Danger</TabsTrigger>
           </TabsList>
           <TabsContent value="stocks" className="mt-6">
             <StockManagement />
@@ -113,6 +119,19 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="logs" className="mt-6">
             <AdminActionLogPanel />
+          </TabsContent>
+          <TabsContent value="danger" className="mt-6">
+            {/* Danger Zone: Kill Switch */}
+            {/* @ts-ignore */}
+            <div className="max-w-2xl">
+              {/* @ts-ignore */}
+              {/* import dynamically to avoid server bundle issues */}
+              {typeof window !== "undefined" && (
+                 
+                // @ts-ignore
+                <KillSwitchPanel />
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>

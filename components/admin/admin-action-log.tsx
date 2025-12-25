@@ -22,6 +22,7 @@ const actionLabels: Record<AdminActionType, string> = {
   deletion_scheduled: "Deletion Scheduled",
   deletion_finalized: "Deletion Finalized",
   support_update: "Support Ticket",
+  kill_switch: "Kill Switch",
 };
 
 const badgeVariants: Record<
@@ -37,6 +38,7 @@ const badgeVariants: Record<
   deletion_scheduled: "secondary",
   deletion_finalized: "destructive",
   support_update: "secondary",
+  kill_switch: "destructive",
 };
 
 export function AdminActionLogPanel() {

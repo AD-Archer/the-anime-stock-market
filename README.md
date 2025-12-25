@@ -366,6 +366,8 @@ pnpm seed
 
    This will populate your database with initial users, stocks, and sample data.
 
+   **Safety note:** Seeding is blocked in production by default. To intentionally run the seeder in production set `CONFIRM_PROD_SEED=true` in your environment and re-run the command. By default the seeder will also skip creating users in production unless `ALLOW_SEED_USERS_IN_PROD=true` is set. In addition, in production the seeder only allows stocks that include a verified Anilist reference (`anilistId` or `source='anilist'`); to override this check set `ALLOW_UNVERIFIED_STOCKS=true`. These guards help prevent accidentally adding unverified anime or test users to a live database.
+
 ### Environment Variables
 
 Make sure your `.env.local` file contains:
@@ -410,3 +412,14 @@ This project uses GitHub Actions for continuous integration and deployment. The 
 4. Vercel deploys the latest version from this repository
 5. GitHub Actions builds and pushes Docker images to Docker Hub
 6. Use Docker Compose to run the application locally or in production
+
+---
+
+## Kill Switch (Danger Zone)
+
+- The project includes an emergency kill endpoint at `POST /api/_internal/kill-switch`.
+- To enable: set `KILL_SWITCH_ENABLED=true` and configure `KILL_SWITCH_SECRET` in your environment (see `.env.example`).
+- To call: include header `x-kill-secret: <secret>` and header `x-kill-confirm: true` (or pass the same in the JSON body). This operation is irreversible.
+- There's also a UI control in the Admin panel under **Admin → Danger** which will ask you to type the secret and confirm before running.
+
+**Warning:** only enable this in controlled environments and keep the secret safe in your deployment platform. Never commit secrets to source control.
