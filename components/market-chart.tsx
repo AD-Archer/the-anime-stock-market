@@ -50,7 +50,7 @@ const CHART_COLORS = [
 type TimePeriod = "day" | "week" | "biweekly" | "month" | "year";
 
 export function MarketChart() {
-  const { stocks, getStockPriceHistory } = useStore();
+  const { stocks, transactions, getStockPriceHistory } = useStore();
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
@@ -68,12 +68,27 @@ export function MarketChart() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Get top 10 stocks by market cap
-  const topStocks = [...stocks]
-    .sort(
-      (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-    )
-    .slice(0, 10);
+  // Get top 10 stocks by transaction activity
+  const stockActivity = new Map<string, number>();
+  transactions.forEach(transaction => {
+    const currentCount = stockActivity.get(transaction.stockId) || 0;
+    stockActivity.set(transaction.stockId, currentCount + 1);
+  });
+
+  // Try to get stocks by activity, but if fewer than 10 have activity, fall back to market cap for remaining slots
+  const activeStocks = [...stocks]
+    .filter(stock => (stockActivity.get(stock.id) || 0) > 0)
+    .sort((a, b) => {
+      const aActivity = stockActivity.get(a.id) || 0;
+      const bActivity = stockActivity.get(b.id) || 0;
+      return bActivity - aActivity;
+    });
+
+  const inactiveStocks = [...stocks]
+    .filter(stock => (stockActivity.get(stock.id) || 0) === 0)
+    .sort((a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares);
+
+  const topStocks = [...activeStocks, ...inactiveStocks].slice(0, 10);
 
   const chartConfig = useMemo<ChartConfig>(() => {
     const entries = topStocks.map((stock, index) => [
@@ -92,12 +107,12 @@ export function MarketChart() {
         <CardHeader>
           <CardTitle>Market Overview</CardTitle>
           <CardDescription>
-            Top 10 characters by market capitalization
+            Top 10 characters by trading activity
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            <p>No market data available yet</p>
+            <p>No trading activity available yet</p>
           </div>
         </CardContent>
       </Card>
@@ -232,10 +247,10 @@ export function MarketChart() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Market Overview</CardTitle>
-                <CardDescription>
-                  Top 10 characters by market capitalization
-                </CardDescription>
+                 <CardTitle>Market Overview</CardTitle>
+                 <CardDescription>
+                   Top 10 characters by trading activity
+                 </CardDescription>
               </div>
               <Select
                 value={timePeriod}
@@ -279,7 +294,7 @@ export function MarketChart() {
           <CardContent>
             <div className="flex items-center justify-center h-[300px] text-muted-foreground">
               <p>
-                No price history data available for the selected time period
+                No trading activity available for the selected time period
               </p>
             </div>
           </CardContent>
@@ -292,10 +307,10 @@ export function MarketChart() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Market Overview</CardTitle>
-              <CardDescription>
-                Top 10 characters by market capitalization
-              </CardDescription>
+               <CardTitle>Market Overview</CardTitle>
+               <CardDescription>
+                 Top 10 characters by trading activity
+               </CardDescription>
             </div>
             <Select
               value={timePeriod}
@@ -415,7 +430,7 @@ export function MarketChart() {
           <div className="flex w-full items-start gap-2 text-sm">
             <div className="grid gap-2">
               <div className="flex items-center gap-2 font-medium leading-none">
-                Top 10 market cap trends <TrendingUp className="h-4 w-4" />
+                Top 10 trading activity trends <TrendingUp className="h-4 w-4" />
               </div>
               <div className="flex items-center gap-2 leading-none text-muted-foreground">
                 Tap a character to hide or show their line

@@ -53,7 +53,7 @@ export function TransactionHistory({ transactions }: TransactionHistoryProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link
-                      href={`/character/${stock.id}`}
+                      href={`/character/${stock.characterSlug || stock.id}`}
                       className="flex items-center gap-2 hover:underline"
                     >
                       <p className="font-semibold text-foreground truncate">

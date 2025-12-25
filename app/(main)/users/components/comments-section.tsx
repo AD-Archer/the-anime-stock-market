@@ -85,7 +85,9 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                 ? stocks.find((s) => s.id === comment.characterId)
                 : null;
               const destination = comment.characterId
-                ? `/character/${comment.characterId}`
+                ? `/character/${
+                    character?.characterSlug || comment.characterId
+                  }`
                 : comment.animeId
                 ? `/anime/${comment.animeId}`
                 : `/market`;

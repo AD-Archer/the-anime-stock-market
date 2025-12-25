@@ -24,6 +24,9 @@ const KillSwitchPanel = dynamic(
   { ssr: false }
 );
 
+// Danger extra can be client-side rendered directly
+import { DangerZoneExtra } from "@/components/admin/danger-zone-extra";
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const { currentUser, isLoading: storeLoading } = useStore();
@@ -121,15 +124,19 @@ export default function AdminPage() {
             <AdminActionLogPanel />
           </TabsContent>
           <TabsContent value="danger" className="mt-6">
-            {/* Danger Zone: Kill Switch */}
-            {/* @ts-ignore */}
-            <div className="max-w-2xl">
-              {/* @ts-ignore */}
-              {/* import dynamically to avoid server bundle issues */}
+            {/* Danger Zone: Kill Switch + destructive admin tools */}
+            <div className="max-w-2xl space-y-6">
               {typeof window !== "undefined" && (
-                 
-                // @ts-ignore
-                <KillSwitchPanel />
+                <>
+                  {/* @ts-ignore */}
+                  <KillSwitchPanel />
+                  {/* Dedupe tool */}
+                  {/* @ts-ignore */}
+                  <div className="pt-6">
+                    {/* dynamic import not required for this small component */}
+                    <DangerZoneExtra />
+                  </div>
+                </>
               )}
             </div>
           </TabsContent>

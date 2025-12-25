@@ -78,7 +78,7 @@ export const SUPPORTS_COLLECTION = "support_tickets";
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
 
-type AppwriteDocument = Models.Document;
+export type AppwriteDocument = Models.Document;
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
 export const docValue = (doc: AppwriteDocument, key: string): unknown =>
@@ -136,10 +136,12 @@ export const normalizePayload = <T extends object>(
   payload: T
 ): Record<string, unknown> =>
   Object.fromEntries(
-    Object.entries(payload as Record<string, unknown>).map(([key, value]) => [
-      key,
-      value instanceof Date ? value.toISOString() : value,
-    ])
+    Object.entries(payload as Record<string, unknown>)
+      .filter(([key]) => key !== "id") // Filter out 'id' since Appwrite uses $id
+      .map(([key, value]) => [
+        key,
+        value instanceof Date ? value.toISOString() : value,
+      ])
   );
 
 export const mapUser = (doc: AppwriteDocument): User => ({
@@ -183,11 +185,15 @@ export const mapUser = (doc: AppwriteDocument): User => ({
 export const mapStock = (doc: AppwriteDocument): Stock => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
   characterName: toStringOr(docValue(doc, "characterName")),
+  characterSlug: toStringOr(docValue(doc, "characterSlug")),
+  anilistCharacterId: toNumberOr(docValue(doc, "anilistCharacterId")),
+  anilistMediaIds: (docValue(doc, "anilistMediaIds") as string[]) || [],
   anime: toStringOr(docValue(doc, "anime")),
   currentPrice: toNumberOr(docValue(doc, "currentPrice")),
   createdBy: toStringOr(docValue(doc, "createdBy")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   imageUrl: toStringOr(docValue(doc, "imageUrl")),
+  animeImageUrl: toOptionalString(docValue(doc, "animeImageUrl")),
   description: toStringOr(docValue(doc, "description")),
   totalShares: toNumberOr(docValue(doc, "totalShares")),
   availableShares: toNumberOr(docValue(doc, "availableShares")),
@@ -213,6 +219,7 @@ export const mapPriceHistory = (doc: AppwriteDocument): PriceHistory => ({
 });
 
 export const mapPortfolio = (doc: AppwriteDocument): Portfolio => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
   userId: toStringOr(docValue(doc, "userId")),
   stockId: toStringOr(docValue(doc, "stockId")),
   shares: toNumberOr(docValue(doc, "shares")),

@@ -29,10 +29,10 @@ export function ThemeToggle() {
   // If the logged-in user has a saved theme, apply it once we mount
   useEffect(() => {
     if (!mounted) return;
-    if (currentUser?.theme && currentUser.theme !== theme) {
+    if (currentUser?.theme) {
       setTheme(currentUser.theme as "light" | "dark" | "system");
     }
-  }, [mounted, currentUser?.theme, setTheme, theme]);
+  }, [mounted, currentUser?.theme, setTheme]);
 
   if (!mounted) {
     return (

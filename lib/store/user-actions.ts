@@ -3,6 +3,7 @@ import type { AdminActionType, Portfolio, Transaction, User } from "../types";
 import { portfolioService, transactionService, userService } from "../database";
 import type { StoreState } from "./types";
 import { sendSystemEvent } from "../system-events-client";
+import { generateShortId } from "../utils";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -252,7 +253,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
     try {
       for (const p of userPortfolios) {
-        await portfolioService.delete(`${p.userId}-${p.stockId}`);
+        await portfolioService.delete(p.id);
       }
       for (const t of userTransactions) {
         await transactionService.delete(t.id);
@@ -362,9 +363,17 @@ export function createUserActions({ setState, getState }: StoreMutators) {
         );
         setState({ portfolios: updatedPortfolios });
 
-        await portfolioService.update(`${userId}-${stockId}`, updatedPortfolio);
+        // Query DB to get actual document ID
+        const dbPortfolio = await portfolioService.getByUserAndStock(
+          userId,
+          stockId
+        );
+        if (dbPortfolio) {
+          await portfolioService.update(dbPortfolio.id, updatedPortfolio);
+        }
       } else {
         const newPortfolio: Portfolio = {
+          id: generateShortId(),
           userId,
           stockId,
           shares,
@@ -376,7 +385,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       }
 
       const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: generateShortId(),
         userId,
         stockId,
         type: "buy",
@@ -427,11 +436,29 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       setState({ stocks: updatedStocks });
 
       if (newShares > 0) {
-        await portfolioService.update(`${userId}-${stockId}`, {
-          shares: newShares,
-        });
+        // Query DB to get actual document ID
+        const dbPortfolio = await portfolioService.getByUserAndStock(
+          userId,
+          stockId
+        );
+        if (dbPortfolio) {
+          await portfolioService.update(dbPortfolio.id, {
+            id: dbPortfolio.id,
+            userId: dbPortfolio.userId,
+            stockId: dbPortfolio.stockId,
+            shares: newShares,
+            averageBuyPrice: dbPortfolio.averageBuyPrice,
+          });
+        }
       } else {
-        await portfolioService.delete(`${userId}-${stockId}`);
+        // Query DB to get actual document ID
+        const dbPortfolio = await portfolioService.getByUserAndStock(
+          userId,
+          stockId
+        );
+        if (dbPortfolio) {
+          await portfolioService.delete(dbPortfolio.id);
+        }
       }
       await logAdmin("stock_removal", userId, {
         stockId,

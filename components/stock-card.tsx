@@ -2,6 +2,7 @@
 
 import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { generateAnimeSlug } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -37,7 +38,7 @@ export function StockCard({ stock, onBuy }: StockCardProps) {
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-lg">
-      <Link href={`/character/${stock.id}`}>
+      <Link href={`/character/${stock.characterSlug || stock.id}`}>
         <CardHeader className="p-0 cursor-pointer">
           <div className="relative aspect-square w-full overflow-hidden bg-muted">
             <Image
@@ -51,13 +52,13 @@ export function StockCard({ stock, onBuy }: StockCardProps) {
       </Link>
       <CardContent className="p-4">
         <div className="mb-2">
-          <Link href={`/character/${stock.id}`}>
+          <Link href={`/character/${stock.characterSlug || stock.id}`}>
             <h3 className="text-lg font-bold text-foreground hover:text-primary transition-colors cursor-pointer">
               {stock.characterName}
             </h3>
           </Link>
           <Link
-            href={`/anime/${stock.anime.toLowerCase().replace(/\s+/g, "-")}`}
+            href={`/anime/${generateAnimeSlug(stock.anime)}`}
             className="text-sm hover:underline text-muted-foreground"
           >
             {stock.anime}

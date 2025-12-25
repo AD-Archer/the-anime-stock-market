@@ -183,11 +183,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         useStore.setState({
           users: usersData.length > 0 ? usersData : initialUsers,
-          stocks: stocksData.length > 0 ? stocksData : initialStocks,
-          transactions:
-            transactionsData.length > 0
-              ? transactionsData
-              : initialTransactions,
+          stocks:
+            stocksData.length > 0
+              ? Array.from(new Map(stocksData.map((s) => [s.id, s])).values()) // Deduplicate by ID
+              : initialStocks,
+
           buybackOffers:
             buybackOffersData.length > 0
               ? buybackOffersData
@@ -225,6 +225,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ? dailyRewardsData
               : initialDailyRewards,
         });
+
+        // Client-side debug logging to help diagnose missing stocks
+        if (typeof window !== "undefined") {
+          try {
+            console.log(
+              `[store.loadData] stocksData length: ${stocksData.length}`
+            );
+            const sampleIds = stocksData.slice(0, 10).map((s) => s.id);
+            console.log("[store.loadData] sample stock IDs:", sampleIds);
+            // Expose sample on window for quick debugging
+            (window as any).__LATEST_STOCKS_SAMPLE = sampleIds;
+          } catch (err) {
+            console.warn(
+              "[store.loadData] Failed to log stocksData summary:",
+              err
+            );
+          }
+        }
 
         await useStore.getState().processPendingDeletions();
 

@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { User, Comment, ContentTag } from "@/lib/types";
+import { generateCharacterSlug } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -55,7 +56,9 @@ import { ComparisonChart } from "@/app/(main)/character/components/comparison-ch
 import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { getUserProfileHref } from "@/lib/user-profile";
+import { generateAnimeSlug } from "@/lib/utils";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -226,30 +229,56 @@ function CommentThread({
   return (
     <div className={`${level > 0 ? "ml-6 border-l-2 border-muted pl-4" : ""}`}>
       <div className="rounded-lg border p-3 bg-card">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
-              href={getUserProfileHref(user, comment.userId)}
-              className="font-semibold text-foreground hover:underline"
-            >
-              {user?.username || "Unknown"}
-            </Link>
-            {user?.isAdmin && (
-              <Badge variant="secondary" className="text-xs">
-                Admin
-              </Badge>
-            )}
-            {(comment.tags ?? []).map((tag) => (
-              <Badge
-                key={`${comment.id}-${tag}`}
-                variant={tag === "nsfw" ? "destructive" : "secondary"}
-                className="text-xs"
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={getUserProfileHref(user, comment.userId)}
+                className="font-semibold text-foreground hover:underline"
               >
-                {tag.toUpperCase()}
-              </Badge>
-            ))}
+                {user?.username || "Unknown"}
+              </Link>
+              {user?.isAdmin && (
+                <Badge variant="secondary" className="text-xs">
+                  Admin
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="h-6 px-2 text-xs"
+                >
+                  Edit
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 flex-wrap">
+              {(comment.tags ?? []).map((tag) => (
+                <Badge
+                  key={`${comment.id}-${tag}`}
+                  variant={tag === "nsfw" ? "destructive" : "secondary"}
+                  className="text-xs"
+                >
+                  {tag.toUpperCase()}
+                </Badge>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">
               {comment.timestamp.toLocaleDateString("en-US", {
                 month: "short",
@@ -261,26 +290,6 @@ function CommentThread({
                 <span className="ml-1 text-xs opacity-60">(edited)</span>
               )}
             </p>
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditing(!isEditing)}
-                className="h-6 px-2 text-xs"
-              >
-                Edit
-              </Button>
-            )}
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-              >
-                Delete
-              </Button>
-            )}
           </div>
         </div>
 
@@ -512,15 +521,20 @@ export default function CharacterPage({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const stock = stocks.find((s) => s.id === id);
+  // Try to find by characterSlug first (new format), then by ID (backward compatibility)
+  // Normalize the incoming ID to handle any special characters consistently
+  const normalizedId = generateCharacterSlug(id);
+  const stock =
+    stocks.find((s) => s.characterSlug === id) ||
+    stocks.find(
+      (s) => generateCharacterSlug(s.characterSlug) === normalizedId
+    ) ||
+    stocks.find((s) => s.id === id);
   const priceHistory = getStockPriceHistory(id);
   const characterTransactions = transactions
     .filter((t) => t.stockId === id)
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   const comments = getCharacterComments(id);
-  const animeSlug = stock?.anime
-    ? stock.anime.toLowerCase().replace(/\s+/g, "-")
-    : "";
   const userShares = useMemo(() => {
     if (!currentUser) return 0;
     const portfolio = getUserPortfolio(currentUser.id).find(
@@ -528,6 +542,7 @@ export default function CharacterPage({
     );
     return portfolio?.shares ?? 0;
   }, [currentUser, getUserPortfolio, id]);
+  const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
 
   // Process comments into threaded structure
   const { commentMap, rootComments } = useMemo(() => {
@@ -648,15 +663,205 @@ export default function CharacterPage({
         </Link>
 
         <div className="grid gap-6 lg:grid-cols-3">
+          {/* Price History & Activity */}
+          <div className="space-y-6 lg:col-span-3">
+            {/* Mobile: Discussion Section First */}
+            {isMobile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Activity & Discussion</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="comments">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="comments">
+                        Comments ({rootComments.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="transactions">
+                        Recent Transactions
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="comments" className="space-y-4">
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder="Share your thoughts about this character..."
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          rows={3}
+                        />
+                        <Select
+                          value={commentTag}
+                          onValueChange={(value) =>
+                            setCommentTag(value as "none" | ContentTag)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Add a tag (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Tag</SelectItem>
+                            <SelectItem value="spoiler">Spoiler</SelectItem>
+                            <SelectItem value="nsfw">NSFW</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={handleAddComment}
+                          disabled={!comment.trim()}
+                        >
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Post Comment
+                        </Button>
+                      </div>
+
+                      {rootComments.length === 0 ? (
+                        <p className="py-8 text-center text-muted-foreground">
+                          No comments yet. Be the first!
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {(() => {
+                            let lastDate = "";
+                            return rootComments.map((thread) => {
+                              const dateLabel =
+                                thread.timestamp.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                });
+                              const showDate = dateLabel !== lastDate;
+                              lastDate = dateLabel;
+                              return (
+                                <div key={thread.id} className="space-y-2">
+                                  {showDate && (
+                                    <div className="flex justify-center">
+                                      <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                                        {dateLabel}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <CommentThread
+                                    comment={thread}
+                                    commentMap={commentMap}
+                                    users={users}
+                                    currentUser={currentUser}
+                                    onReply={handleAddReply}
+                                    onEdit={handleEditComment}
+                                    onDelete={handleDeleteComment}
+                                    onReport={handleReportComment}
+                                    onToggleReaction={toggleCommentReaction}
+                                    level={0}
+                                  />
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="transactions" className="space-y-4">
+                      {characterTransactions.length === 0 ? (
+                        <p className="py-8 text-center text-muted-foreground">
+                          No transactions yet
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {characterTransactions.slice(0, 10).map((tx) => {
+                            const user = users.find((u) => u.id === tx.userId);
+                            return (
+                              <div
+                                key={tx.id}
+                                className="flex items-center justify-between rounded-lg border p-3"
+                              >
+                                <div>
+                                  {user ? (
+                                    <Link
+                                      href={getUserProfileHref(user, user.id)}
+                                      className="flex items-center gap-2 hover:underline"
+                                    >
+                                      <div className="relative h-8 w-8 overflow-hidden rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                        {user.avatarUrl ? (
+                                          <Image
+                                            src={user.avatarUrl}
+                                            alt={user.username || "User avatar"}
+                                            fill
+                                            className="object-cover"
+                                          />
+                                        ) : (
+                                          (user.username || "?")
+                                            .charAt(0)
+                                            .toUpperCase()
+                                        )}
+                                      </div>
+                                      <p className="font-medium text-foreground truncate">
+                                        {user.username}
+                                      </p>
+                                      <Badge
+                                        variant={
+                                          tx.type === "buy"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className="ml-2"
+                                      >
+                                        {tx.type}
+                                      </Badge>
+                                    </Link>
+                                  ) : (
+                                    <p className="font-medium text-foreground">
+                                      Unknown
+                                      <Badge
+                                        variant={
+                                          tx.type === "buy"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className="ml-2"
+                                      >
+                                        {tx.type}
+                                      </Badge>
+                                    </p>
+                                  )}
+                                  <p className="text-sm text-muted-foreground">
+                                    {tx.shares} shares @ $
+                                    {tx.pricePerShare.toFixed(2)}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-mono font-semibold text-foreground">
+                                    ${tx.totalAmount.toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {tx.timestamp.toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
           {/* Character Info */}
           <Card className="lg:col-span-1">
             <CardContent className="pt-6">
-              <div className="relative mb-4 aspect-square overflow-hidden rounded-lg">
+              <div className="relative mb-4 aspect-[3/4] overflow-hidden rounded-lg bg-muted">
                 <Image
                   src={stock.imageUrl || "/placeholder.svg"}
                   alt={stock.characterName}
                   fill
-                  className="object-cover"
+                  className="object-contain"
                 />
               </div>
               <h1 className="mb-2 text-2xl font-bold text-foreground">
@@ -670,16 +875,18 @@ export default function CharacterPage({
                   {stock.anime}
                 </Link>
               </p>
-              <p className="mb-6 text-sm text-muted-foreground">
-                {stock.description}
-              </p>
+              <TruncatedText
+                text={stock.description || ""}
+                maxLength={300}
+                className="mb-6 text-sm text-muted-foreground"
+              />
 
               <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
                     Current Price
                   </span>
-                  <span className="text-xl font-bold text-foreground">
+                  <span className="text-xl font-bold text-foreground break-all">
                     ${stock.currentPrice.toFixed(2)}
                   </span>
                 </div>
@@ -719,7 +926,7 @@ export default function CharacterPage({
                   <span className="text-sm text-muted-foreground">
                     Market Cap
                   </span>
-                  <span className="font-mono text-foreground">
+                  <span className="font-mono text-foreground break-all">
                     ${(stock.currentPrice * stock.totalShares).toFixed(2)}
                   </span>
                 </div>
@@ -740,7 +947,7 @@ export default function CharacterPage({
             </CardContent>
           </Card>
 
-          {/* Price History & Activity */}
+          {/* Charts Section */}
           <div className="space-y-6 lg:col-span-2">
             {/* Price Chart */}
             <Card>
@@ -923,190 +1130,192 @@ export default function CharacterPage({
 
             <ComparisonChart initialStockId={id} timeRange={timeRange} />
 
-            {/* Activity & Comments */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity & Discussion</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="comments">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="comments">
-                      Comments ({rootComments.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="transactions">
-                      Recent Transactions
-                    </TabsTrigger>
-                  </TabsList>
+            {/* Desktop: Activity & Comments Section */}
+            {!isMobile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Activity & Discussion</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="comments">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="comments">
+                        Comments ({rootComments.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="transactions">
+                        Recent Transactions
+                      </TabsTrigger>
+                    </TabsList>
 
-                  <TabsContent value="comments" className="space-y-4">
-                    <div className="space-y-2">
-                      <Textarea
-                        placeholder="Share your thoughts about this character..."
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        rows={3}
-                      />
-                      <Select
-                        value={commentTag}
-                        onValueChange={(value) =>
-                          setCommentTag(value as "none" | ContentTag)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Add a tag (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No Tag</SelectItem>
-                          <SelectItem value="spoiler">Spoiler</SelectItem>
-                          <SelectItem value="nsfw">NSFW</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        onClick={handleAddComment}
-                        disabled={!comment.trim()}
-                      >
-                        <MessageSquare className="mr-2 h-4 w-4" />
-                        Post Comment
-                      </Button>
-                    </div>
+                    <TabsContent value="comments" className="space-y-4">
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder="Share your thoughts about this character..."
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          rows={3}
+                        />
+                        <Select
+                          value={commentTag}
+                          onValueChange={(value) =>
+                            setCommentTag(value as "none" | ContentTag)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Add a tag (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Tag</SelectItem>
+                            <SelectItem value="spoiler">Spoiler</SelectItem>
+                            <SelectItem value="nsfw">NSFW</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={handleAddComment}
+                          disabled={!comment.trim()}
+                        >
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Post Comment
+                        </Button>
+                      </div>
 
-                    {rootComments.length === 0 ? (
-                      <p className="py-8 text-center text-muted-foreground">
-                        No comments yet. Be the first!
-                      </p>
-                    ) : (
-                      <div className="space-y-4">
-                        {(() => {
-                          let lastDate = "";
-                          return rootComments.map((thread) => {
-                            const dateLabel =
-                              thread.timestamp.toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              });
-                            const showDate = dateLabel !== lastDate;
-                            lastDate = dateLabel;
+                      {rootComments.length === 0 ? (
+                        <p className="py-8 text-center text-muted-foreground">
+                          No comments yet. Be the first!
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {(() => {
+                            let lastDate = "";
+                            return rootComments.map((thread) => {
+                              const dateLabel =
+                                thread.timestamp.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                });
+                              const showDate = dateLabel !== lastDate;
+                              lastDate = dateLabel;
+                              return (
+                                <div key={thread.id} className="space-y-2">
+                                  {showDate && (
+                                    <div className="flex justify-center">
+                                      <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                                        {dateLabel}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <CommentThread
+                                    comment={thread}
+                                    commentMap={commentMap}
+                                    users={users}
+                                    currentUser={currentUser}
+                                    onReply={handleAddReply}
+                                    onEdit={handleEditComment}
+                                    onDelete={handleDeleteComment}
+                                    onReport={handleReportComment}
+                                    onToggleReaction={toggleCommentReaction}
+                                    level={0}
+                                  />
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="transactions" className="space-y-4">
+                      {characterTransactions.length === 0 ? (
+                        <p className="py-8 text-center text-muted-foreground">
+                          No transactions yet
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {characterTransactions.slice(0, 10).map((tx) => {
+                            const user = users.find((u) => u.id === tx.userId);
                             return (
-                              <div key={thread.id} className="space-y-2">
-                                {showDate && (
-                                  <div className="flex justify-center">
-                                    <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                                      {dateLabel}
-                                    </span>
-                                  </div>
-                                )}
-                                <CommentThread
-                                  comment={thread}
-                                  commentMap={commentMap}
-                                  users={users}
-                                  currentUser={currentUser}
-                                  onReply={handleAddReply}
-                                  onEdit={handleEditComment}
-                                  onDelete={handleDeleteComment}
-                                  onReport={handleReportComment}
-                                  onToggleReaction={toggleCommentReaction}
-                                  level={0}
-                                />
+                              <div
+                                key={tx.id}
+                                className="flex items-center justify-between rounded-lg border p-3"
+                              >
+                                <div>
+                                  {user ? (
+                                    <Link
+                                      href={getUserProfileHref(user, user.id)}
+                                      className="flex items-center gap-2 hover:underline"
+                                    >
+                                      <div className="relative h-8 w-8 overflow-hidden rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                        {user.avatarUrl ? (
+                                          <Image
+                                            src={user.avatarUrl}
+                                            alt={user.username || "User avatar"}
+                                            fill
+                                            className="object-cover"
+                                          />
+                                        ) : (
+                                          (user.username || "?")
+                                            .charAt(0)
+                                            .toUpperCase()
+                                        )}
+                                      </div>
+                                      <p className="font-medium text-foreground truncate">
+                                        {user.username}
+                                      </p>
+                                      <Badge
+                                        variant={
+                                          tx.type === "buy"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className="ml-2"
+                                      >
+                                        {tx.type}
+                                      </Badge>
+                                    </Link>
+                                  ) : (
+                                    <p className="font-medium text-foreground">
+                                      Unknown
+                                      <Badge
+                                        variant={
+                                          tx.type === "buy"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className="ml-2"
+                                      >
+                                        {tx.type}
+                                      </Badge>
+                                    </p>
+                                  )}
+                                  <p className="text-sm text-muted-foreground">
+                                    {tx.shares} shares @ $
+                                    {tx.pricePerShare.toFixed(2)}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-mono font-semibold text-foreground">
+                                    ${tx.totalAmount.toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {tx.timestamp.toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
                               </div>
                             );
-                          });
-                        })()}
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="transactions" className="space-y-4">
-                    {characterTransactions.length === 0 ? (
-                      <p className="py-8 text-center text-muted-foreground">
-                        No transactions yet
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {characterTransactions.slice(0, 10).map((tx) => {
-                          const user = users.find((u) => u.id === tx.userId);
-                          return (
-                            <div
-                              key={tx.id}
-                              className="flex items-center justify-between rounded-lg border p-3"
-                            >
-                              <div>
-                                {user ? (
-                                  <Link
-                                    href={getUserProfileHref(user, user.id)}
-                                    className="flex items-center gap-2 hover:underline"
-                                  >
-                                    <div className="relative h-8 w-8 overflow-hidden rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                                      {user.avatarUrl ? (
-                                        <Image
-                                          src={user.avatarUrl}
-                                          alt={user.username || "User avatar"}
-                                          fill
-                                          className="object-cover"
-                                        />
-                                      ) : (
-                                        (user.username || "?")
-                                          .charAt(0)
-                                          .toUpperCase()
-                                      )}
-                                    </div>
-                                    <p className="font-medium text-foreground truncate">
-                                      {user.username}
-                                    </p>
-                                    <Badge
-                                      variant={
-                                        tx.type === "buy"
-                                          ? "default"
-                                          : "secondary"
-                                      }
-                                      className="ml-2"
-                                    >
-                                      {tx.type}
-                                    </Badge>
-                                  </Link>
-                                ) : (
-                                  <p className="font-medium text-foreground">
-                                    Unknown
-                                    <Badge
-                                      variant={
-                                        tx.type === "buy"
-                                          ? "default"
-                                          : "secondary"
-                                      }
-                                      className="ml-2"
-                                    >
-                                      {tx.type}
-                                    </Badge>
-                                  </p>
-                                )}
-                                <p className="text-sm text-muted-foreground">
-                                  {tx.shares} shares @ $
-                                  {tx.pricePerShare.toFixed(2)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-mono font-semibold text-foreground">
-                                  ${tx.totalAmount.toFixed(2)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {tx.timestamp.toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+                          })}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

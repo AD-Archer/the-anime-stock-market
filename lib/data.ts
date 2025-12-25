@@ -76,6 +76,9 @@ export const initialStocks: Stock[] = [
   {
     id: "stock-1",
     characterName: "Monkey D. Luffy",
+    characterSlug: "monkey-d-luffy",
+    anilistCharacterId: 0,
+    anilistMediaIds: [],
     anime: "One Piece",
     currentPrice: 1.0,
     createdBy: "user-1",
@@ -88,6 +91,9 @@ export const initialStocks: Stock[] = [
   {
     id: "stock-2",
     characterName: "Naruto Uzumaki",
+    characterSlug: "naruto-uzumaki",
+    anilistCharacterId: 0,
+    anilistMediaIds: [],
     anime: "Naruto",
     currentPrice: 2.5,
     createdBy: "user-2",
@@ -100,6 +106,9 @@ export const initialStocks: Stock[] = [
   {
     id: "stock-3",
     characterName: "Goku",
+    characterSlug: "goku",
+    anilistCharacterId: 0,
+    anilistMediaIds: [],
     anime: "Dragon Ball Z",
     currentPrice: 5.0,
     createdBy: "user-1",
@@ -112,6 +121,9 @@ export const initialStocks: Stock[] = [
   {
     id: "stock-4",
     characterName: "Levi Ackerman",
+    characterSlug: "levi-ackerman",
+    anilistCharacterId: 0,
+    anilistMediaIds: [],
     anime: "Attack on Titan",
     currentPrice: 3.75,
     createdBy: "user-2",
@@ -125,6 +137,9 @@ export const initialStocks: Stock[] = [
   {
     id: "stock-5",
     characterName: "Edward Elric",
+    characterSlug: "edward-elric",
+    anilistCharacterId: 0,
+    anilistMediaIds: [],
     anime: "Fullmetal Alchemist",
     currentPrice: 2.25,
     createdBy: "user-1",
@@ -288,24 +303,28 @@ export const initialPriceHistory: PriceHistory[] = [
 // Initial portfolios
 export const initialPortfolios: Portfolio[] = [
   {
+    id: "port-001",
     userId: "user-1",
     stockId: "stock-1",
     shares: 100,
     averageBuyPrice: 1.0,
   },
   {
+    id: "port-002",
     userId: "user-1",
     stockId: "stock-3",
     shares: 200,
     averageBuyPrice: 5.0,
   },
   {
+    id: "port-003",
     userId: "user-2",
     stockId: "stock-2",
     shares: 50,
     averageBuyPrice: 2.5,
   },
   {
+    id: "port-004",
     userId: "user-2",
     stockId: "stock-4",
     shares: 150,

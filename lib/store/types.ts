@@ -55,9 +55,10 @@ export interface StoreContextType {
 
   buyStock: (stockId: string, shares: number) => Promise<boolean>;
   sellStock: (stockId: string, shares: number) => Promise<boolean>;
-  createStock: (stock: Omit<Stock, "id" | "createdAt">) => void;
+  createStock: (stock: Omit<Stock, "id" | "createdAt">) => Promise<void>;
   updateStockPrice: (stockId: string, newPrice: number) => void;
-  deleteStock: (stockId: string) => void;
+  deleteStock: (stockId: string) => Promise<void>;
+  refreshStocks: () => Promise<void>;
   createShares: (stockId: string, newShareCount: number) => void;
   banUser: (
     userId: string,

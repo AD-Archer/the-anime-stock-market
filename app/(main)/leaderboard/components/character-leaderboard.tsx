@@ -11,8 +11,23 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Trophy, Medal, Award, Star, BarChart3, Target } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  TrendingUp,
+  TrendingDown,
+  Trophy,
+  Medal,
+  Award,
+  Star,
+  BarChart3,
+  Target,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Stock, PriceHistory } from "@/lib/types";
@@ -49,7 +64,8 @@ export function CharacterLeaderboard() {
       let priceChange = 0;
       if (priceHistory.length >= 2) {
         const previousPrice = priceHistory[priceHistory.length - 2].price;
-        priceChange = ((stock.currentPrice - previousPrice) / previousPrice) * 100;
+        priceChange =
+          ((stock.currentPrice - previousPrice) / previousPrice) * 100;
       }
 
       return {
@@ -62,9 +78,12 @@ export function CharacterLeaderboard() {
   }, [stocks, getStockPriceHistory]);
 
   const animeStats = useMemo(() => {
-    const animeMap = new Map<string, { characters: CharacterWithStats[], totalMarketCap: number }>();
+    const animeMap = new Map<
+      string,
+      { characters: CharacterWithStats[]; totalMarketCap: number }
+    >();
 
-    charactersWithStats.forEach(char => {
+    charactersWithStats.forEach((char) => {
       if (!animeMap.has(char.anime)) {
         animeMap.set(char.anime, { characters: [], totalMarketCap: 0 });
       }
@@ -74,13 +93,15 @@ export function CharacterLeaderboard() {
     });
 
     return Array.from(animeMap.entries())
-      .map(([name, data]): AnimeStats => ({
-        name,
-        characterCount: data.characters.length,
-        totalMarketCap: data.totalMarketCap,
-        averagePrice: data.totalMarketCap / data.characters.length,
-        rank: 0, // Will be set after sorting
-      }))
+      .map(
+        ([name, data]): AnimeStats => ({
+          name,
+          characterCount: data.characters.length,
+          totalMarketCap: data.totalMarketCap,
+          averagePrice: data.totalMarketCap / data.characters.length,
+          rank: 0, // Will be set after sorting
+        })
+      )
       .sort((a, b) => b.characterCount - a.characterCount)
       .map((anime, index) => ({ ...anime, rank: index + 1 }));
   }, [charactersWithStats]);
@@ -89,7 +110,9 @@ export function CharacterLeaderboard() {
     let filtered = charactersWithStats;
 
     if (sortType === "byAnime" && selectedAnime) {
-      filtered = charactersWithStats.filter(char => char.anime === selectedAnime);
+      filtered = charactersWithStats.filter(
+        (char) => char.anime === selectedAnime
+      );
     }
 
     const sorted = [...filtered].sort((a, b) => {
@@ -100,8 +123,8 @@ export function CharacterLeaderboard() {
           return a.marketCap - b.marketCap;
         case "popularAnime":
           // Sort by anime popularity first, then by market cap within anime
-          const animeA = animeStats.find(anime => anime.name === a.anime);
-          const animeB = animeStats.find(anime => anime.name === b.anime);
+          const animeA = animeStats.find((anime) => anime.name === a.anime);
+          const animeB = animeStats.find((anime) => anime.name === b.anime);
           if (animeA && animeB && animeA.rank !== animeB.rank) {
             return animeA.rank - animeB.rank;
           }
@@ -124,19 +147,27 @@ export function CharacterLeaderboard() {
 
   const getSortIcon = (type: CharacterSortType) => {
     switch (type) {
-      case "best": return <Trophy className="h-4 w-4" />;
-      case "worst": return <Target className="h-4 w-4" />;
-      case "popularAnime": return <Star className="h-4 w-4" />;
-      case "byAnime": return <BarChart3 className="h-4 w-4" />;
+      case "best":
+        return <Trophy className="h-4 w-4" />;
+      case "worst":
+        return <Target className="h-4 w-4" />;
+      case "popularAnime":
+        return <Star className="h-4 w-4" />;
+      case "byAnime":
+        return <BarChart3 className="h-4 w-4" />;
     }
   };
 
   const getSortLabel = (type: CharacterSortType) => {
     switch (type) {
-      case "best": return "Best Characters";
-      case "worst": return "Worst Characters";
-      case "popularAnime": return "Popular Anime";
-      case "byAnime": return "By Anime";
+      case "best":
+        return "Best Characters";
+      case "worst":
+        return "Worst Characters";
+      case "popularAnime":
+        return "Popular Anime";
+      case "byAnime":
+        return "By Anime";
     }
   };
 
@@ -152,7 +183,10 @@ export function CharacterLeaderboard() {
     const isNegative = character.priceChange < 0;
 
     return (
-      <Link key={character.id} href={`/character/${character.id}`}>
+      <Link
+        key={character.id}
+        href={`/character/${character.characterSlug || character.id}`}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border p-4 transition-all hover:bg-muted hover:shadow-md">
           {/* Rank and Image */}
           <div className="flex items-center gap-4 sm:w-auto">
@@ -221,10 +255,7 @@ export function CharacterLeaderboard() {
                   ${character.marketCap.toFixed(2)}
                 </p>
               </div>
-              <Badge
-                variant="secondary"
-                className="self-start sm:self-auto"
-              >
+              <Badge variant="secondary" className="self-start sm:self-auto">
                 {character.availableShares.toLocaleString()} /{" "}
                 {character.totalShares.toLocaleString()}
               </Badge>
@@ -237,11 +268,14 @@ export function CharacterLeaderboard() {
 
   const renderAnimeItem = (anime: AnimeStats) => {
     const topCharacter = charactersWithStats
-      .filter(char => char.anime === anime.name)
+      .filter((char) => char.anime === anime.name)
       .sort((a, b) => b.marketCap - a.marketCap)[0];
 
     return (
-      <div key={anime.name} className="flex items-center gap-4 rounded-lg border p-4">
+      <div
+        key={anime.name}
+        className="flex items-center gap-4 rounded-lg border p-4"
+      >
         {/* Rank */}
         <div className="flex w-12 items-center justify-center">
           {getRankIcon(anime.rank) || (
@@ -265,18 +299,20 @@ export function CharacterLeaderboard() {
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-foreground">{anime.name}</h3>
           <p className="text-sm text-muted-foreground">
-            {anime.characterCount} character{anime.characterCount !== 1 ? 's' : ''}
+            {anime.characterCount} character
+            {anime.characterCount !== 1 ? "s" : ""}
           </p>
         </div>
 
         {/* Stats */}
         <div className="text-right">
           <p className="text-lg font-bold text-foreground">
-            ${anime.totalMarketCap.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            $
+            {anime.totalMarketCap.toLocaleString(undefined, {
+              maximumFractionDigits: 0,
+            })}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Total Market Cap
-          </p>
+          <p className="text-xs text-muted-foreground">Total Market Cap</p>
         </div>
       </div>
     );
@@ -296,7 +332,10 @@ export function CharacterLeaderboard() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Select value={sortType} onValueChange={(value: CharacterSortType) => setSortType(value)}>
+            <Select
+              value={sortType}
+              onValueChange={(value: CharacterSortType) => setSortType(value)}
+            >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -349,18 +388,31 @@ export function CharacterLeaderboard() {
         <div className="space-y-3">
           {sortType === "popularAnime"
             ? animeStats.slice(0, showCount).map(renderAnimeItem)
-            : displayedCharacters.map(renderCharacterItem)
-          }
+            : displayedCharacters.map(renderCharacterItem)}
         </div>
 
         {/* Show More Button */}
-        {showCount < (sortType === "popularAnime" ? animeStats.length : sortedCharacters.length) && (
+        {showCount <
+          (sortType === "popularAnime"
+            ? animeStats.length
+            : sortedCharacters.length) && (
           <div className="mt-6 text-center">
             <Button
               variant="outline"
               onClick={() => setShowCount(Math.min(showCount + 25, 100))}
             >
-              Show More ({Math.min(showCount + 25, sortType === "popularAnime" ? animeStats.length : sortedCharacters.length)} of {sortType === "popularAnime" ? animeStats.length : sortedCharacters.length})
+              Show More (
+              {Math.min(
+                showCount + 25,
+                sortType === "popularAnime"
+                  ? animeStats.length
+                  : sortedCharacters.length
+              )}{" "}
+              of{" "}
+              {sortType === "popularAnime"
+                ? animeStats.length
+                : sortedCharacters.length}
+              )
             </Button>
           </div>
         )}

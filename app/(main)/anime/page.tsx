@@ -1,6 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/store";
+import { generateAnimeSlug } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -21,7 +22,7 @@ export default function AnimePage() {
   // Group stocks by anime
   const animeMap = new Map<string, typeof stocks>();
   stocks.forEach((stock) => {
-    const animeId = stock.anime.toLowerCase().replace(/\s+/g, "-");
+    const animeId = generateAnimeSlug(stock.anime);
     if (!animeMap.has(animeId)) {
       animeMap.set(animeId, []);
     }

@@ -7,6 +7,8 @@ import {
   normalizePayload,
   ensureDatabaseIdAvailable,
 } from "./utils";
+import { generateShortId } from "../utils";
+import { Query } from "appwrite";
 
 export const portfolioService = {
   async getAll(): Promise<Portfolio[]> {
@@ -38,15 +40,39 @@ export const portfolioService = {
     }
   },
 
+  async getByUserAndStock(
+    userId: string,
+    stockId: string
+  ): Promise<Portfolio | null> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(
+        dbId,
+        PORTFOLIOS_COLLECTION,
+        [Query.equal("userId", userId), Query.equal("stockId", stockId)]
+      );
+      if (response.documents.length === 0) return null;
+      return mapPortfolio(response.documents[0]);
+    } catch (error) {
+      console.warn("Failed to fetch portfolio from database:", error);
+      return null;
+    }
+  },
+
   async create(portfolio: Portfolio): Promise<Portfolio> {
     try {
-      const documentId = `${portfolio.userId}-${portfolio.stockId}`;
+      const documentId = generateShortId();
       const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
         dbId,
         PORTFOLIOS_COLLECTION,
         documentId,
-        normalizePayload(portfolio)
+        normalizePayload({
+          userId: portfolio.userId,
+          stockId: portfolio.stockId,
+          shares: portfolio.shares,
+          averageBuyPrice: portfolio.averageBuyPrice,
+        })
       );
       return mapPortfolio(response);
     } catch (error) {

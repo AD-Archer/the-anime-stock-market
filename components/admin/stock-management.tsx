@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Edit } from "lucide-react";
+import { Trash2, Edit, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 export function StockManagement() {
@@ -26,12 +27,51 @@ export function StockManagement() {
     getStockPriceHistory,
     createShares,
   } = useStore();
+  const [query, setQuery] = useState("");
+  const [serverResults, setServerResults] = useState<typeof stocks | null>(
+    null
+  );
+
+  // Debounced server-side search when query is present
+  useEffect(() => {
+    const q = query.trim();
+    let mounted = true;
+    const tid = setTimeout(async () => {
+      if (!q) {
+        setServerResults(null);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(q)}&limit=200`
+        );
+        if (!res.ok) {
+          setServerResults([]);
+          return;
+        }
+        const data = await res.json();
+        if (!mounted) return;
+        setServerResults(data);
+      } catch (err) {
+        console.error("Stock search failed", err);
+        if (mounted) setServerResults([]);
+      }
+    }, 300);
+
+    return () => {
+      mounted = false;
+      clearTimeout(tid);
+    };
+  }, [query]);
+
+  const displayedStocks = serverResults ?? (query.trim() ? [] : stocks);
   const { toast } = useToast();
   const [editingStock, setEditingStock] = useState<string | null>(null);
   const [newPrice, setNewPrice] = useState("");
   const [sharesStock, setSharesStock] = useState<string | null>(null);
   const [newShares, setNewShares] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleUpdatePrice = (stockId: string) => {
     const price = Number.parseFloat(newPrice);
@@ -53,13 +93,29 @@ export function StockManagement() {
     setNewPrice("");
   };
 
-  const handleDelete = (stockId: string) => {
-    deleteStock(stockId);
-    toast({
-      title: "Stock Deleted",
-      description: "The stock has been removed from the market.",
-    });
-    setDeleteConfirm(null);
+  const handleDelete = async (stockId: string) => {
+    const stock = stocks.find((s) => s.id === stockId);
+    if (!stock) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteStock(stockId);
+      toast({
+        title: "Stock Delisted Successfully",
+        description: `${stock.characterName} has been removed from the market. All shareholders have been compensated.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete stock:", error);
+      toast({
+        title: "Error Delisting Stock",
+        description:
+          "An error occurred while delisting the stock. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
+    }
   };
 
   const handleCreateShares = (stockId: string) => {
@@ -84,7 +140,25 @@ export function StockManagement() {
 
   return (
     <div className="space-y-4">
-      {stocks.map((stock) => {
+      <div className="flex items-center gap-4">
+        <Input
+          placeholder="Search stocks by name, slug, or anime..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="max-w-md"
+        />
+        <Button
+          variant="ghost"
+          onClick={() => setQuery("")}
+          title="Clear search"
+        >
+          Clear
+        </Button>
+
+        {/* Dedupe admin action */}
+      </div>
+
+      {displayedStocks.map((stock) => {
         const priceHistory = getStockPriceHistory(stock.id);
         let priceChange = 0;
         if (priceHistory.length >= 2) {
@@ -97,7 +171,10 @@ export function StockManagement() {
           <Card key={stock.id}>
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div className="flex gap-4">
+                <Link
+                  href={`/character/${stock.characterSlug}`}
+                  className="flex gap-4 hover:opacity-80 transition-opacity"
+                >
                   <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-muted">
                     <Image
                       src={stock.imageUrl || "/placeholder.svg"}
@@ -117,7 +194,7 @@ export function StockManagement() {
                       {stock.description}
                     </p>
                   </div>
-                </div>
+                </Link>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -221,26 +298,38 @@ export function StockManagement() {
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
-        <Dialog open onOpenChange={() => setDeleteConfirm(null)}>
+        <Dialog open onOpenChange={() => !isDeleting && setDeleteConfirm(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Stock</DialogTitle>
+              <DialogTitle>Delist Stock</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete{" "}
-                {stocks.find((s) => s.id === deleteConfirm)?.characterName}?
-                This action cannot be undone and will remove all associated
-                data.
+                Are you sure you want to delist{" "}
+                {stocks.find((s) => s.id === deleteConfirm)?.characterName}? All
+                shareholders will be fairly compensated at the current market
+                price, and notifications will be sent to all affected users.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isDeleting}
+              >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => handleDelete(deleteConfirm)}
+                disabled={isDeleting}
               >
-                Delete Stock
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Delisting...
+                  </>
+                ) : (
+                  "Delist Stock"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

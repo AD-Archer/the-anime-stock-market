@@ -32,8 +32,7 @@ export function MarketOverview() {
 
   const now = useCurrentTimestamp();
   const isRecent =
-    latestStock &&
-    now - latestStock.createdAt.getTime() <= 1000 * 60 * 60 * 24;
+    latestStock && now - latestStock.createdAt.getTime() <= 1000 * 60 * 60 * 24;
 
   return (
     <div className="space-y-4">
@@ -50,7 +49,9 @@ export function MarketOverview() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href={`/character/${latestStock.id}`}>
+            <Link
+              href={`/character/${latestStock.characterSlug || latestStock.id}`}
+            >
               <Button>View IPO</Button>
             </Link>
           </div>

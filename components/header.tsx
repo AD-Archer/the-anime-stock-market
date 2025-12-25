@@ -20,9 +20,11 @@ export function Header() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-8 w-8 text-primary" />
+            <Link href="/market">
             <h1 className="text-2xl font-bold text-foreground">
               Anime Stock Exchange
             </h1>
+          </Link>
           </div>
 
           {/* Desktop Navigation */}

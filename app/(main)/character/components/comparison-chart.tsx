@@ -213,9 +213,9 @@ export function ComparisonChart({
                 {stock!.characterName}
                 <button
                   onClick={() => toggleStock(stock!.id)}
-                  className="ml-1 hover:text-destructive"
+                  className="ml-1 hover:text-destructive p-0"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2 w-2" />
                 </button>
               </Badge>
             ))}

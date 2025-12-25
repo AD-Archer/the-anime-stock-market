@@ -40,10 +40,6 @@ export default function NotFound() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <Button onClick={() => router.push("/")} className="w-full">
-              <Home className="h-4 w-4 mr-2" />
-              Go Home
-            </Button>
             <Button
               onClick={() => router.push("/market")}
               variant="outline"
@@ -51,6 +47,10 @@ export default function NotFound() {
             >
               <Search className="h-4 w-4 mr-2" />
               Browse Market
+            </Button>
+            <Button onClick={() => router.push("/")} className="w-full">
+              <Home className="h-4 w-4 mr-2" />
+              Go to landing page
             </Button>
           </div>
           <div className="text-sm text-muted-foreground mt-4">

@@ -20,6 +20,30 @@ const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://animestockexchange.adarcher.app";
 const defaultOg = `${baseUrl}/icons/icon1.png`;
 
+// Theme script to prevent flash
+const themeScript = `(function() {
+    function getTheme() {
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored) {
+          return stored === 'system' 
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : stored;
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (e) {
+        return 'light';
+      }
+    }
+    
+    const theme = getTheme();
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  })();`;
+
 export const metadata: Metadata = {
   title: "Anime Stock Exchange",
   description: "Trade your favorite anime characters",
@@ -61,6 +85,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

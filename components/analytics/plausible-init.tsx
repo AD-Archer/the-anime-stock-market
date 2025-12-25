@@ -27,38 +27,20 @@ export default function PlausibleInit() {
     let cancelled = false;
 
     async function initTracker() {
-      if ((window as any).__PLAUSIBLE__ || (window as any).plausible) return;
+      if ((window as any).plausible) return;
 
       try {
-        const mod = await import("@plausible-analytics/tracker");
-        // Try common factory shapes
-        const candidate = (mod &&
-          ((mod as any).default ??
-            (mod as any).create ??
-            (mod as any).init ??
-            mod)) as any;
-        let tracker: any = null;
+        const { init } = await import("@plausible-analytics/tracker");
+        
+        init({
+          domain,
+          endpoint: `${apiHost}/api/event`,
+          autoCapturePageviews: true,
+          hashBasedRouting: true,
+          captureOnLocalhost: process.env.NODE_ENV === 'development',
+        });
 
-        if (typeof candidate === "function") {
-          // factory function
-          tracker = candidate({ domain, apiHost });
-        } else if (candidate && typeof candidate.create === "function") {
-          tracker = candidate.create({ domain, apiHost });
-        }
-
-        if (!tracker) {
-          console.warn("Plausible: unexpected tracker module shape", mod);
-          return;
-        }
-
-        if (typeof tracker.enableAutoPageviews === "function") {
-          tracker.enableAutoPageviews();
-        }
-        if (typeof tracker.enableAutoOutboundTracking === "function") {
-          tracker.enableAutoOutboundTracking();
-        }
-
-        (window as any).__PLAUSIBLE__ = tracker;
+        console.log('Plausible tracker initialized for domain:', domain);
       } catch (err) {
         console.warn(
           "Plausible tracker import failed, falling back to CDN",
@@ -69,14 +51,10 @@ export default function PlausibleInit() {
           const s = document.createElement("script");
           s.setAttribute("async", "true");
           s.setAttribute("data-plausible-fallback", "true");
-          s.src =
-            apiHost.replace(/\/$/, "") + "/js/pa-Sm5QFqCwU_HuQYTQ5h65N.js";
-          s.onload = () => {
-            try {
-              (window as any).plausible?.init?.();
-            } catch {}
-          };
-          document.body.appendChild(s);
+          s.setAttribute("data-domain", domain);
+          s.setAttribute("data-api", apiHost);
+          s.src = `${apiHost}/js/script.js`;
+          document.head.appendChild(s);
         }
       }
     }

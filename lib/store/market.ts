@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import { v4 as uuidv4 } from "uuid";
 import type {
   BuybackOffer,
   MarketDataPoint,
@@ -17,7 +18,9 @@ import {
   priceHistoryService,
   buybackOfferService,
 } from "../database";
+import { toast } from "@/hooks/use-toast";
 import type { StoreState } from "./types";
+import { generateShortId } from "../utils";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -244,6 +247,16 @@ export function createMarketActions({
     if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
       return false;
 
+    // Capture snapshot to allow rollback if persistence fails
+    const prevState = {
+      users: getState().users,
+      currentUser: getState().currentUser,
+      stocks: getState().stocks,
+      portfolios: getState().portfolios,
+      transactions: getState().transactions,
+      priceHistory: getState().priceHistory,
+    };
+
     const { stocks, users, portfolios, transactions } = getState();
     const stock = stocks.find((s) => s.id === stockId);
     if (!stock) return false;
@@ -280,7 +293,7 @@ export function createMarketActions({
       priceHistory: [
         ...state.priceHistory,
         {
-          id: `ph-${Date.now()}`,
+          id: uuidv4(),
           stockId,
           price: newPrice,
           timestamp: new Date(),
@@ -289,7 +302,7 @@ export function createMarketActions({
     }));
 
     const newTransaction: Transaction = {
-      id: `tx-${Date.now()}`,
+      id: generateShortId(),
       userId: currentUser.id,
       stockId,
       type: "buy",
@@ -322,6 +335,7 @@ export function createMarketActions({
         portfolios: [
           ...portfolios,
           {
+            id: generateShortId(),
             userId: currentUser.id,
             stockId,
             shares,
@@ -333,11 +347,42 @@ export function createMarketActions({
 
     try {
       const priceHistoryEntry = {
-        id: `ph-${Date.now()}`,
+        id: uuidv4(),
         stockId,
         price: newPrice,
         timestamp: new Date(),
       };
+
+      // For existing portfolio, query DB to get the actual document ID
+      let portfolioPromise: Promise<any>;
+      if (existingPortfolio) {
+        const dbPortfolio = await portfolioService.getByUserAndStock(
+          currentUser.id,
+          stockId
+        );
+        if (dbPortfolio) {
+          portfolioPromise = portfolioService.update(dbPortfolio.id, {
+            userId: dbPortfolio.userId,
+            stockId: dbPortfolio.stockId,
+            shares: (dbPortfolio?.shares ?? 0) + shares,
+            averageBuyPrice:
+              ((dbPortfolio?.averageBuyPrice ?? 0) *
+                (dbPortfolio?.shares ?? 0) +
+                stock.currentPrice * shares) /
+              ((dbPortfolio?.shares ?? 0) + shares),
+          });
+        } else {
+          portfolioPromise = Promise.resolve(existingPortfolio as any);
+        }
+      } else {
+        portfolioPromise = portfolioService.create({
+          id: generateShortId(),
+          userId: currentUser.id,
+          stockId,
+          shares,
+          averageBuyPrice: stock.currentPrice,
+        });
+      }
 
       await Promise.all([
         stockService.update(stockId, {
@@ -347,21 +392,7 @@ export function createMarketActions({
         userService.update(currentUser.id, {
           balance: currentUser.balance - totalCost,
         }),
-        existingPortfolio
-          ? portfolioService.update(`${currentUser.id}-${stockId}`, {
-              shares: (existingPortfolio?.shares ?? 0) + shares,
-              averageBuyPrice:
-                ((existingPortfolio?.averageBuyPrice ?? 0) *
-                  (existingPortfolio?.shares ?? 0) +
-                  stock.currentPrice * shares) /
-                ((existingPortfolio?.shares ?? 0) + shares),
-            })
-          : portfolioService.create({
-              userId: currentUser.id,
-              stockId,
-              shares,
-              averageBuyPrice: stock.currentPrice,
-            }),
+        portfolioPromise,
         transactionService.create(newTransaction),
         priceHistoryService.create(priceHistoryEntry),
       ]);
@@ -372,7 +403,29 @@ export function createMarketActions({
         ),
       }));
     } catch (error) {
-      console.warn("Failed to persist buy transaction:", error);
+      console.error(
+        "Failed to persist buy transaction, reverting state:",
+        error
+      );
+      // Rollback optimistic updates
+      setState({
+        users: prevState.users,
+        currentUser: prevState.currentUser,
+        stocks: prevState.stocks,
+        portfolios: prevState.portfolios,
+        transactions: prevState.transactions,
+        priceHistory: prevState.priceHistory,
+      });
+      try {
+        toast({
+          title: "Transaction Failed",
+          description:
+            "Your buy could not be saved to the server. Your changes have been reverted.",
+          variant: "destructive",
+        });
+      } catch (err) {
+        console.warn("Failed to show toast for failed buy transaction:", err);
+      }
       return false;
     }
 
@@ -431,7 +484,7 @@ export function createMarketActions({
     setState({ stocks: updatedStocks });
 
     const newTransaction: Transaction = {
-      id: `tx-${Date.now()}`,
+      id: generateShortId(),
       userId: currentUser.id,
       stockId,
       type: "sell",
@@ -457,17 +510,42 @@ export function createMarketActions({
       setState({ portfolios: updatedPortfolios });
     }
 
+    // Snapshot for rollback in case persistence fails
+    const prevState = {
+      users: getState().users,
+      currentUser: getState().currentUser,
+      stocks: getState().stocks,
+      portfolios: getState().portfolios,
+      transactions: getState().transactions,
+      priceHistory: getState().priceHistory,
+    };
+
     try {
       const newShareCount = portfolio.shares - shares;
+
+      // Query for the actual portfolio document from DB to get its real ID
+      const dbPortfolio = await portfolioService.getByUserAndStock(
+        currentUser.id,
+        stockId
+      );
+
       const portfolioPromise =
         newShareCount > 0
-          ? portfolioService.update(`${currentUser.id}-${stockId}`, {
-              shares: newShareCount,
-            })
-          : portfolioService.delete(`${currentUser.id}-${stockId}`);
+          ? dbPortfolio
+            ? portfolioService.update(dbPortfolio.id, {
+                id: dbPortfolio.id,
+                userId: dbPortfolio.userId,
+                stockId: dbPortfolio.stockId,
+                shares: newShareCount,
+                averageBuyPrice: dbPortfolio.averageBuyPrice,
+              })
+            : Promise.resolve(portfolio as any)
+          : dbPortfolio
+          ? portfolioService.delete(dbPortfolio.id)
+          : Promise.resolve();
 
       const priceHistoryEntry = {
-        id: `ph-${Date.now()}`,
+        id: uuidv4(),
         stockId,
         price: 0,
         timestamp: new Date(),
@@ -502,30 +580,80 @@ export function createMarketActions({
         ),
       }));
     } catch (error) {
-      console.warn("Failed to persist sell transaction:", error);
+      console.error(
+        "Failed to persist sell transaction, reverting state:",
+        error
+      );
+      // Rollback optimistic updates
+      setState({
+        users: prevState.users,
+        currentUser: prevState.currentUser,
+        stocks: prevState.stocks,
+        portfolios: prevState.portfolios,
+        transactions: prevState.transactions,
+        priceHistory: prevState.priceHistory,
+      });
+      try {
+        toast({
+          title: "Transaction Failed",
+          description:
+            "Your sell could not be saved to the server. Your changes have been reverted.",
+          variant: "destructive",
+        });
+      } catch (err) {
+        console.warn("Failed to show toast for failed sell transaction:", err);
+      }
       return false;
     }
 
     return true;
   };
 
-  const createStock = (stock: Omit<Stock, "id" | "createdAt">) => {
+  const createStock = async (stock: Omit<Stock, "id" | "createdAt">) => {
     const { stocks, priceHistory, logAdminAction, users, sendNotification } =
       getState();
     const newStock: Stock = {
       ...stock,
-      id: `stock-${Date.now()}`,
+      id: generateShortId(),
       createdAt: new Date(),
     };
-    setState({ stocks: [...stocks, newStock] });
+
+    // Check if stock already exists
+    if (stocks.some((s) => s.id === newStock.id)) {
+      console.warn("Stock already exists:", newStock.id);
+      return;
+    }
+
+    // Persist to database first
+    try {
+      await stockService.create(newStock);
+    } catch (error) {
+      console.error("Failed to persist stock to database:", error);
+      throw error;
+    }
+
+    // Then update state - ensure no duplicates
+    setState((state) => {
+      const stockExists = state.stocks.some((s) => s.id === newStock.id);
+      return {
+        stocks: stockExists ? state.stocks : [...state.stocks, newStock],
+      };
+    });
 
     const newPriceHistory: PriceHistory = {
-      id: `ph-${Date.now()}`,
+      id: uuidv4(),
       stockId: newStock.id,
       price: newStock.currentPrice,
       timestamp: new Date(),
     };
     setState({ priceHistory: [...priceHistory, newPriceHistory] });
+
+    // Persist price history
+    try {
+      await priceHistoryService.create(newPriceHistory);
+    } catch (error) {
+      console.error("Failed to persist price history:", error);
+    }
 
     logAdminAction("stock_grant", newStock.createdBy, {
       stockId: newStock.id,
@@ -561,7 +689,7 @@ export function createMarketActions({
       priceHistory: [
         ...state.priceHistory,
         {
-          id: `ph-${Date.now()}`,
+          id: uuidv4(),
           stockId,
           price: newPrice,
           timestamp: new Date(),
@@ -576,17 +704,128 @@ export function createMarketActions({
     });
   };
 
-  const deleteStock = (stockId: string) => {
-    const { stocks, priceHistory, portfolios, logAdminAction } = getState();
+  const deleteStock = async (stockId: string) => {
+    const {
+      stocks,
+      priceHistory,
+      portfolios,
+      logAdminAction,
+      users,
+      sendNotification,
+      currentUser,
+    } = getState();
     const stock = stocks.find((s) => s.id === stockId);
+    if (!stock) return;
+
+    // Find all portfolio holders for this stock
+    const stockHolders = portfolios.filter((p) => p.stockId === stockId);
+
+    // Calculate compensation for each holder
+    const compensationMap = new Map<string, number>();
+    stockHolders.forEach((portfolio) => {
+      const compensationAmount = portfolio.shares * stock.currentPrice;
+      compensationMap.set(
+        portfolio.userId,
+        (compensationMap.get(portfolio.userId) || 0) + compensationAmount
+      );
+    });
+
+    // Update user balances with compensation
+    const updatedUsers = users.map((u) => {
+      const compensation = compensationMap.get(u.id) || 0;
+      return compensation > 0 ? { ...u, balance: u.balance + compensation } : u;
+    });
+
+    // Update current user if they received compensation
+    const currentUserCompensation =
+      compensationMap.get(currentUser?.id || "") || 0;
+    const updatedCurrentUser =
+      currentUserCompensation > 0
+        ? {
+            ...currentUser!,
+            balance: currentUser!.balance + currentUserCompensation,
+          }
+        : currentUser;
+
+    // Update state: remove stock, price history, portfolios, and update users
     setState({
       stocks: stocks.filter((s) => s.id !== stockId),
       priceHistory: priceHistory.filter((ph) => ph.stockId !== stockId),
       portfolios: portfolios.filter((p) => p.stockId !== stockId),
+      users: updatedUsers,
+      ...(updatedCurrentUser && { currentUser: updatedCurrentUser }),
     });
-    logAdminAction("stock_removal", stock?.createdBy || "unknown", {
+
+    // Delete from database
+    try {
+      await stockService.delete(stockId);
+    } catch (error) {
+      console.error("Failed to delete stock from database:", error);
+    }
+
+    // Log admin action
+    logAdminAction("stock_removal", currentUser?.id || "unknown", {
       stockId,
-      characterName: stock?.characterName,
+      characterName: stock.characterName,
+      affectedUsers: stockHolders.length,
+      totalCompensation: Array.from(compensationMap.values()).reduce(
+        (sum, val) => sum + val,
+        0
+      ),
+    });
+
+    // Send notifications to all affected users
+    const notificationTitle = `${stock.characterName} Stock Delisted`;
+    const compensationPerUser = (stockId: string) => {
+      return compensationMap.get(stockId) || 0;
+    };
+
+    stockHolders.forEach((portfolio) => {
+      const compensation = compensationMap.get(portfolio.userId) || 0;
+      const shares = portfolio.shares;
+      const message =
+        compensation > 0
+          ? `Your holdings of ${
+              stock.characterName
+            } have been delisted. You held ${shares} share${
+              shares === 1 ? "" : "s"
+            }. You have been compensated $${compensation.toFixed(
+              2
+            )} at the current market price.`
+          : `${stock.characterName} has been delisted from the market.`;
+
+      sendNotification(
+        portfolio.userId,
+        "admin_message",
+        notificationTitle,
+        message,
+        {
+          stockId,
+          characterName: stock.characterName,
+          sharesHeld: shares,
+          compensationAmount: compensation,
+          originalPrice: stock.currentPrice,
+        }
+      );
+    });
+
+    // Send system-wide notification about the delisting
+    const systemMessage = `The ${stock.characterName} stock from ${stock.anime} has been delisted from the market. All shareholders have been fairly compensated at the current market price.`;
+    getState().users.forEach((user) => {
+      if (!compensationMap.has(user.id)) {
+        // Only notify non-shareholders of the general delisting
+        sendNotification(
+          user.id,
+          "admin_message",
+          notificationTitle,
+          systemMessage,
+          {
+            stockId,
+            characterName: stock.characterName,
+            type: "stock_delisted",
+          }
+        );
+      }
     });
   };
 
@@ -614,7 +853,7 @@ export function createMarketActions({
       priceHistory: [
         ...state.priceHistory,
         {
-          id: `ph-${Date.now()}`,
+          id: uuidv4(),
           stockId,
           price: Number(newPrice.toFixed(2)),
           timestamp: new Date(),
@@ -912,6 +1151,25 @@ export function createMarketActions({
     }
   };
 
+  const refreshStocks = async () => {
+    try {
+      const freshStocks = await stockService.getAll();
+      if (freshStocks && freshStocks.length > 0) {
+        setState({
+          stocks: Array.from(
+            new Map(freshStocks.map((s) => [s.id, s])).values()
+          ),
+        });
+        console.log(
+          "[refreshStocks] Updated from database:",
+          freshStocks.length
+        );
+      }
+    } catch (error) {
+      console.warn("[refreshStocks] Failed to refresh:", error);
+    }
+  };
+
   return {
     buyStock,
     sellStock,
@@ -928,5 +1186,6 @@ export function createMarketActions({
     declineBuybackOffer,
     cancelBuybackOffer,
     removeBuybackOffer,
+    refreshStocks,
   };
 }

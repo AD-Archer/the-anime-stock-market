@@ -31,8 +31,8 @@ type TradingActivityProps = {
   portfolio: PortfolioWithDetails[];
   transactions: Array<Transaction & { stock: Stock }>;
   settingsContent?: ReactNode;
-  activeTab?: "portfolio" | "history"  | "settings";
-  onTabChange?: (tab: "portfolio" | "history"  | "settings") => void;
+  activeTab?: "portfolio" | "history" | "settings";
+  onTabChange?: (tab: "portfolio" | "history" | "settings") => void;
 };
 
 export function TradingActivity({
@@ -42,9 +42,10 @@ export function TradingActivity({
   activeTab = "portfolio",
   onTabChange,
 }: TradingActivityProps) {
-  const [sellTarget, setSellTarget] = useState<{ stockId: string; maxShares: number } | null>(
-    null
-  );
+  const [sellTarget, setSellTarget] = useState<{
+    stockId: string;
+    maxShares: number;
+  } | null>(null);
 
   const tabColsClass = settingsContent ? "grid-cols-3" : "grid-cols-2";
 
@@ -52,19 +53,27 @@ export function TradingActivity({
     <Card>
       <CardHeader>
         <CardTitle>Trading Activity</CardTitle>
-        <CardDescription>Your portfolio and transaction history</CardDescription>
+        <CardDescription>
+          Your portfolio and transaction history
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs
           value={activeTab}
           onValueChange={(val) =>
-            onTabChange?.(val as "portfolio" | "history"  | "settings")
+            onTabChange?.(val as "portfolio" | "history" | "settings")
           }
         >
           <TabsList className={`grid w-full ${tabColsClass}`}>
-            <TabsTrigger value="portfolio">Portfolio ({portfolio.length})</TabsTrigger>
-            <TabsTrigger value="history">Transaction History ({transactions.length})</TabsTrigger>
-            {settingsContent && <TabsTrigger value="settings">Settings</TabsTrigger>}
+            <TabsTrigger value="portfolio">
+              Portfolio ({portfolio.length})
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              Transaction History ({transactions.length})
+            </TabsTrigger>
+            {settingsContent && (
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="portfolio" className="space-y-4">
@@ -144,7 +153,11 @@ export function TradingActivity({
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
-                        <Link href={`/character/${item.stockId}`}>
+                        <Link
+                          href={`/character/${
+                            item.stock.characterSlug || item.stock.id
+                          }`}
+                        >
                           <Button variant="ghost" size="sm">
                             View
                           </Button>
@@ -152,7 +165,12 @@ export function TradingActivity({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setSellTarget({ stockId: item.stockId, maxShares: item.shares })}
+                          onClick={() =>
+                            setSellTarget({
+                              stockId: item.stockId,
+                              maxShares: item.shares,
+                            })
+                          }
                         >
                           Sell
                         </Button>
@@ -172,7 +190,10 @@ export function TradingActivity({
             ) : (
               <div className="space-y-3">
                 {transactions.map((tx) => (
-                  <div key={tx.id} className="flex flex-col gap-2 rounded-lg border p-4">
+                  <div
+                    key={tx.id}
+                    className="flex flex-col gap-2 rounded-lg border p-4"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="relative h-12 w-12 overflow-hidden rounded-lg">
@@ -188,7 +209,11 @@ export function TradingActivity({
                             <p className="font-semibold text-foreground truncate">
                               {tx.stock.characterName}
                             </p>
-                            <Badge variant={tx.type === "buy" ? "default" : "secondary"}>
+                            <Badge
+                              variant={
+                                tx.type === "buy" ? "default" : "secondary"
+                              }
+                            >
                               {tx.type}
                             </Badge>
                           </div>

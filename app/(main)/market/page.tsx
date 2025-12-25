@@ -6,7 +6,8 @@ import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketOverview } from "@/components/market-overview";
 import { TopStocksSection } from "./components/top-stocks-section";
 import { MarketDiscussion } from "./components/market-discussion";
-import { Comment, ContentTag } from "@/lib/types";
+import { AllCharactersSection } from "./components/all-characters-section";
+import { ContentTag } from "@/lib/types";
 import { StockCard } from "@/components/stock-card";
 import { useRouter } from "next/navigation";
 
@@ -104,8 +105,6 @@ export default function TradingPage() {
         ) : (
           <TopStocksSection
             topStocks={topStocks}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
             onBuy={handleBuy}
           />
         )}
@@ -120,6 +119,11 @@ export default function TradingPage() {
           onDeleteComment={handleDeleteComment}
           onReportComment={handleReportComment}
           onToggleReaction={toggleCommentReaction}
+        />
+
+        <AllCharactersSection
+          stocks={stocks}
+          onBuy={handleBuy}
         />
       </main>
 

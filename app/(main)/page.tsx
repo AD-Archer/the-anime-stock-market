@@ -8,15 +8,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { TrendingUp, Users, BarChart3, Shield, Zap, Star, Search } from "lucide-react";
+import {
+  TrendingUp,
+  Users,
+  BarChart3,
+  Shield,
+  Zap,
+  Star,
+  Search,
+} from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { StockCard } from "@/components/stock-card";
 import { Input } from "@/components/ui/input";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketOverview } from "@/components/market-overview";
+import { SearchMarket } from "@/components/search-market";
 import { useRouter } from "next/navigation";
-
+import type { Stock } from "@/lib/types";
 
 export default function LandingPage() {
   const { stocks, users, transactions, currentUser } = useStore();
@@ -24,24 +33,27 @@ export default function LandingPage() {
 
   const activeTraders = users.length;
   const animeCharacters = stocks.length;
-  const totalVolume = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
-  const [searchQuery, setSearchQuery] = useState("");
+  const totalVolume = transactions.reduce(
+    (sum, t) => sum + (t.totalAmount || 0),
+    0
+  );
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
   // Sort stocks by market cap (price * total shares) descending
-  const sortedStocks = [...stocks].sort((a, b) =>
-    (b.currentPrice * b.totalShares) - (a.currentPrice * a.totalShares)
+  const sortedStocks = [...stocks].sort(
+    (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
   );
 
   // Top 100 characters
   const top100Stocks = sortedStocks.slice(0, 100);
 
-  // Filter stocks based on search query
-  const filteredStocks = top100Stocks.filter(
-    (stock) =>
-      stock.characterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSelectStock = (stock: Stock) => {
+    if (!currentUser) {
+      router.push("/auth/signin");
+    } else {
+      setSelectedStockId(stock.id);
+    }
+  };
   return (
     <div className="bg-background overflow-x-hidden">
       {/* Hero Section */}
@@ -96,35 +108,29 @@ export default function LandingPage() {
               Live Market - Top 100 Characters
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Explore the most valuable anime characters in real-time. Search and discover your favorites.
+              Explore the most valuable anime characters in real-time. Search
+              and discover your favorites.
             </p>
-
           </div>
 
           <div className="space-y-6 mb-8">
             <MarketOverview />
 
             <div className="w-full max-w-md mx-auto">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search characters or anime..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-12 text-lg"
-                />
-              </div>
+              <SearchMarket
+                stocks={top100Stocks}
+                onSelectStock={handleSelectStock}
+              />
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              {filteredStocks.map((stock) => (
+              {top100Stocks.map((stock) => (
                 <StockCard
                   key={stock.id}
                   stock={stock}
                   onBuy={() => {
                     if (!currentUser) {
-                      router.push('/auth/signin');
+                      router.push("/auth/signin");
                     } else {
                       setSelectedStockId(stock.id);
                     }
@@ -133,14 +139,6 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-
-          {filteredStocks.length === 0 && searchQuery && (
-            <div className="text-center py-12">
-              <p className="text-lg text-muted-foreground">
-                No characters found matching &quot;{searchQuery}&quot;
-              </p>
-            </div>
-          )}
 
           <div className="text-center mt-12">
             <Link href="/market">
@@ -227,8 +225,8 @@ export default function LandingPage() {
                 <Star className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Built for Fun</CardTitle>
                 <CardDescription>
-                  A smooth experience focused on fun, transparency, and
-                  friendly competition.
+                  A smooth experience focused on fun, transparency, and friendly
+                  competition.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -241,15 +239,21 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid gap-8 md:grid-cols-3 text-center">
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">{activeTraders.toLocaleString()}+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {activeTraders.toLocaleString()}+
+              </div>
               <div className="text-lg opacity-90">Active Traders</div>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">{animeCharacters.toLocaleString()}+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {animeCharacters.toLocaleString()}+
+              </div>
               <div className="text-lg opacity-90">Anime Characters</div>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-bold mb-2">${totalVolume.toLocaleString()}+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                ${totalVolume.toLocaleString()}+
+              </div>
               <div className="text-lg opacity-90">Total Volume</div>
             </div>
           </div>
@@ -263,8 +267,8 @@ export default function LandingPage() {
             Ready to Jump In?
           </h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join the community of anime fans and compete for fun. No real
-            money, no offsite purchases, and no unfair advantages.
+            Join the community of anime fans and compete for fun. No real money,
+            no offsite purchases, and no unfair advantages.
           </p>
           <Link href="/market">
             <Button size="lg" className="text-lg px-8 py-3">

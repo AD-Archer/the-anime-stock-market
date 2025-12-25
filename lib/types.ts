@@ -38,11 +38,16 @@ export interface User {
 export interface Stock {
   id: string;
   characterName: string;
+  characterSlug: string;
+  anilistCharacterId: number;
+  anilistMediaIds: string[];
   anime: string;
+  anilistRank?: number;
   currentPrice: number;
   createdBy: string;
   createdAt: Date;
   imageUrl: string;
+  animeImageUrl?: string;
   description: string;
   totalShares: number;
   availableShares: number;
@@ -77,6 +82,7 @@ export interface PriceHistory {
 }
 
 export interface Portfolio {
+  id: string;
   userId: string;
   stockId: string;
   shares: number;

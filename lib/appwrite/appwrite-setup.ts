@@ -103,11 +103,22 @@ const collections: CollectionPlan[] = [
     name: "Stocks",
     attributes: [
       { kind: "string", key: "characterName", size: 128, required: true },
+      { kind: "string", key: "characterSlug", size: 256, required: true },
+      { kind: "integer", key: "anilistCharacterId", required: true },
+      {
+        kind: "string",
+        key: "anilistMediaIds",
+        size: 500,
+        required: false,
+        array: true,
+      },
       { kind: "string", key: "anime", size: 128, required: true },
+      { kind: "integer", key: "anilistRank", required: false },
       { kind: "float", key: "currentPrice", required: true, default: 0 },
       { kind: "string", key: "createdBy", size: 64, required: true },
       { kind: "string", key: "createdAt", size: 64, required: true },
       { kind: "string", key: "imageUrl", size: 1024, required: true },
+      { kind: "string", key: "animeImageUrl", size: 1024, required: false },
       { kind: "string", key: "description", size: 10000, required: true },
       { kind: "integer", key: "totalShares", required: true, default: 0 },
       { kind: "integer", key: "availableShares", required: true, default: 0 },
@@ -465,7 +476,7 @@ async function setup() {
 
   for (const collection of collections) {
     await ensureCollection(databases, collection);
-for (const attr of collection.attributes) {
+    for (const attr of collection.attributes) {
       try {
         await ensureAttribute(databases, collection.id, attr);
       } catch (error) {
@@ -476,10 +487,16 @@ for (const attr of collection.attributes) {
       }
     }
     // Add indexes after attributes are created
-    if (collection.id === "support_tickets") {
-      await ensureIndex(databases, collection.id, "status", "key", [
-        "status",
+    if (collection.id === "stocks") {
+      await ensureIndex(databases, collection.id, "characterSlug", "key", [
+        "characterSlug",
       ]);
+      await ensureIndex(databases, collection.id, "anilistCharacterId", "key", [
+        "anilistCharacterId",
+      ]);
+    }
+    if (collection.id === "support_tickets") {
+      await ensureIndex(databases, collection.id, "status", "key", ["status"]);
       await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
       await ensureIndex(databases, collection.id, "contactEmail", "key", [
         "contactEmail",
