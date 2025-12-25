@@ -54,7 +54,9 @@ export function MarketChart() {
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
-  const [hiddenCharacters, setHiddenCharacters] = useState<Set<string>>(new Set());
+  const [hiddenCharacters, setHiddenCharacters] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     const checkMobile = () => {
@@ -127,7 +129,9 @@ export function MarketChart() {
         break;
     }
 
-    const filtered = history.filter(entry => new Date(entry.timestamp) >= cutoff);
+    const filtered = history.filter(
+      (entry) => new Date(entry.timestamp) >= cutoff
+    );
 
     // If no data in the selected period, show all available data
     return filtered.length > 0 ? filtered : history;
@@ -135,7 +139,9 @@ export function MarketChart() {
 
   if (showByCharacter) {
     // Filter out hidden characters
-    const visibleStocks = topStocks.filter(stock => !hiddenCharacters.has(stock.id));
+    const visibleStocks = topStocks.filter(
+      (stock) => !hiddenCharacters.has(stock.id)
+    );
 
     const allDates = new Set<string>();
     const priceDataByStock = new Map<string, Map<string, number>>();
@@ -217,9 +223,7 @@ export function MarketChart() {
         return dataPoint;
       })
       .filter((point) =>
-        visibleStocks.some(
-          (stock) => point[stock.id] !== null
-        )
+        visibleStocks.some((stock) => point[stock.id] !== null)
       );
 
     if (chartData.length === 0) {
@@ -233,7 +237,10 @@ export function MarketChart() {
                   Top 10 characters by market capitalization
                 </CardDescription>
               </div>
-              <Select value={timePeriod} onValueChange={(value: TimePeriod) => setTimePeriod(value)}>
+              <Select
+                value={timePeriod}
+                onValueChange={(value: TimePeriod) => setTimePeriod(value)}
+              >
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -260,7 +267,8 @@ export function MarketChart() {
                   <div
                     className="h-3 w-3 rounded-full"
                     style={{
-                      backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+                      backgroundColor:
+                        CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
                   {stock.characterName}
@@ -270,7 +278,9 @@ export function MarketChart() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              <p>No price history data available for the selected time period</p>
+              <p>
+                No price history data available for the selected time period
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -287,7 +297,10 @@ export function MarketChart() {
                 Top 10 characters by market capitalization
               </CardDescription>
             </div>
-            <Select value={timePeriod} onValueChange={(value: TimePeriod) => setTimePeriod(value)}>
+            <Select
+              value={timePeriod}
+              onValueChange={(value: TimePeriod) => setTimePeriod(value)}
+            >
               <SelectTrigger className="w-[120px]">
                 <SelectValue />
               </SelectTrigger>
@@ -334,7 +347,7 @@ export function MarketChart() {
                     className="h-3 w-3 rounded-full"
                     style={{
                       backgroundColor: isHidden
-                        ? "hsl(var(--muted-foreground))"
+                        ? "var(--muted-foreground)"
                         : CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
@@ -345,7 +358,10 @@ export function MarketChart() {
           </div>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig}>
+          <ChartContainer
+            config={chartConfig}
+            className="text-muted-foreground"
+          >
             <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
               <LineChart
                 data={chartData}
@@ -354,7 +370,7 @@ export function MarketChart() {
                   right: 12,
                 }}
               >
-                <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="date"
                   tickLine={false}
@@ -362,30 +378,31 @@ export function MarketChart() {
                   tickMargin={8}
                   fontSize={isMobile ? 10 : 12}
                   interval={isMobile ? 2 : 0}
+                  tick={{ fill: "currentColor" }}
                 />
                 <YAxis
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="currentColor"
+                  tick={{ fill: "currentColor" }}
                   fontSize={isMobile ? 10 : 12}
                   width={isMobile ? 40 : 60}
                 />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent />}
+                />
                 {visibleStocks.map((stock) => (
                   <Line
                     key={`${stock.id}-${timePeriod}-${hiddenCharacters.size}`}
                     type="monotone"
                     dataKey={stock.id}
-                    stroke={
-                      chartConfig[stock.id]?.color ??
-                      "hsl(var(--foreground))"
-                    }
+                    stroke={chartConfig[stock.id]?.color ?? "var(--foreground)"}
                     strokeWidth={isMobile ? 2 : 3}
                     dot={false}
                     connectNulls
                     activeDot={{
                       r: 5,
                       stroke:
-                        chartConfig[stock.id]?.color ??
-                        "hsl(var(--foreground))",
+                        chartConfig[stock.id]?.color ?? "var(--foreground)",
                       strokeWidth: 2,
                     }}
                   />
@@ -398,8 +415,7 @@ export function MarketChart() {
           <div className="flex w-full items-start gap-2 text-sm">
             <div className="grid gap-2">
               <div className="flex items-center gap-2 font-medium leading-none">
-                Top 10 market cap trends{" "}
-                <TrendingUp className="h-4 w-4" />
+                Top 10 market cap trends <TrendingUp className="h-4 w-4" />
               </div>
               <div className="flex items-center gap-2 leading-none text-muted-foreground">
                 Tap a character to hide or show their line

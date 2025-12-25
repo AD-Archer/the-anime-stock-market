@@ -86,7 +86,9 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                 : null;
               const destination = comment.characterId
                 ? `/character/${comment.characterId}`
-                : `/anime/${comment.animeId}`;
+                : comment.animeId
+                ? `/anime/${comment.animeId}`
+                : `/market`;
               const hasSensitiveContent = (comment.tags || []).some(
                 (tag) => tag === "nsfw" || tag === "spoiler"
               );
@@ -100,7 +102,9 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                     >
                       {character
                         ? `${character.characterName} (${character.anime})`
-                        : `Anime: ${comment.animeId}`}
+                        : comment.animeId
+                        ? `Anime: ${comment.animeId}`
+                        : `Market Chat`}
                     </Link>
                     <span>
                       {comment.timestamp.toLocaleDateString()}{" "}
@@ -114,7 +118,9 @@ export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
                       return (
                         <div className="flex items-center gap-2">
                           <Link
-                            href={`/users/${author.displaySlug || author.username}`}
+                            href={`/users/${
+                              author.displaySlug || author.username
+                            }`}
                             className="hover:underline"
                           >
                             {author.displayName || author.username}

@@ -40,6 +40,7 @@ type PlayerSortType = "richest" | "mostStocks" | "mostActive" | "longestMember";
 
 interface PlayerWithStats extends User {
   portfolioValue: number;
+  totalAssets: number;
   totalStocks: number;
   transactionCount: number;
   rank: number;
@@ -74,6 +75,7 @@ export function PlayerLeaderboard() {
       return {
         ...user,
         portfolioValue,
+        totalAssets: portfolioValue + (user.balance || 0),
         totalStocks,
         transactionCount,
         rank: 0, // Will be set after sorting
@@ -85,7 +87,7 @@ export function PlayerLeaderboard() {
     const sorted = [...playersWithStats].sort((a, b) => {
       switch (sortType) {
         case "richest":
-          return b.portfolioValue - a.portfolioValue;
+          return b.totalAssets - a.totalAssets;
         case "mostStocks":
           return b.totalStocks - a.totalStocks;
         case "mostActive":
@@ -125,7 +127,7 @@ export function PlayerLeaderboard() {
   const getSortLabel = (type: PlayerSortType) => {
     switch (type) {
       case "richest":
-        return "Richest";
+        return "Total Assets";
       case "mostStocks":
         return "Most Stocks";
       case "mostActive":
@@ -138,7 +140,7 @@ export function PlayerLeaderboard() {
   const getValueDisplay = (player: PlayerWithStats) => {
     switch (sortType) {
       case "richest":
-        return `$${player.portfolioValue.toLocaleString(undefined, {
+        return `$${player.totalAssets.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`;
@@ -251,7 +253,9 @@ export function PlayerLeaderboard() {
                 {/* Avatar */}
                 <div className="relative h-12 w-12 overflow-hidden rounded-full flex-shrink-0 bg-muted">
                   <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
-                    {(player.displayName || player.username).charAt(0).toUpperCase()}
+                    {(player.displayName || player.username)
+                      .charAt(0)
+                      .toUpperCase()}
                   </div>
                 </div>
 

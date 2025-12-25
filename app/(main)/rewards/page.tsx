@@ -42,6 +42,7 @@ export default function RewardsPage() {
   const { claimDailyReward, getDailyRewardInfo, getUserAwards } = useStore();
   const { toast } = useToast();
   const [claiming, setClaiming] = useState(false);
+  const [claimedOptimistic, setClaimedOptimistic] = useState(false);
 
   const rewardInfo = getDailyRewardInfo();
   const userDailyReward = dailyRewards.find(
@@ -50,6 +51,7 @@ export default function RewardsPage() {
 
   const handleClaim = async () => {
     setClaiming(true);
+    setClaimedOptimistic(true);
     try {
       const result = await claimDailyReward();
       if (result.success) {
@@ -63,6 +65,8 @@ export default function RewardsPage() {
           description: result.message,
           variant: "destructive",
         });
+        // Revert optimistic state on failure
+        setClaimedOptimistic(false);
       }
     } finally {
       setClaiming(false);
@@ -116,20 +120,21 @@ export default function RewardsPage() {
               </div>
             </div>
             <CardTitle className="text-3xl">
-              {rewardInfo?.canClaim
+              {claimedOptimistic || claiming
+                ? "Daily Reward Claimed!"
+                : rewardInfo?.canClaim
                 ? "Daily Reward Available!"
                 : "Come Back Tomorrow"}
             </CardTitle>
             <CardDescription className="text-lg">
-              {rewardInfo?.canClaim ? (
-                <span className="text-primary font-bold text-2xl">
-                  ${rewardInfo.nextRewardAmount}
-                </span>
-              ) : (
+              {claimedOptimistic || !rewardInfo?.canClaim ? (
                 <span className="flex items-center justify-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Next reward in{" "}
-                  {Math.ceil(rewardInfo?.hoursUntilNextClaim || 0)} hours
+                  Already Claimed Today
+                </span>
+              ) : (
+                <span className="text-primary font-bold text-2xl">
+                  ${rewardInfo.nextRewardAmount}
                 </span>
               )}
             </CardDescription>
@@ -137,7 +142,7 @@ export default function RewardsPage() {
           <CardContent className="space-y-4">
             <Button
               onClick={handleClaim}
-              disabled={!rewardInfo?.canClaim || claiming}
+              disabled={!rewardInfo?.canClaim || claiming || claimedOptimistic}
               size="lg"
               className="w-full text-lg py-6"
             >

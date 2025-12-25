@@ -31,11 +31,11 @@ interface ComparisonChartProps {
 }
 
 const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 export function ComparisonChart({
@@ -224,46 +224,49 @@ export function ComparisonChart({
 
         {/* Chart */}
         {selectedStocks.length > 0 ? (
-          <ResponsiveContainer width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={chartData}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-              />
-              <XAxis
-                dataKey="date"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={isMobile ? 10 : 12}
-                interval={isMobile ? 3 : 0}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={isMobile ? 10 : 12}
-                width={isMobile ? 40 : 60}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: isMobile ? "12px" : "14px",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-              />
-              <Legend wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }} />
-              {selectedStocks.map((stock, index) => (
-                <Line
-                  key={stock!.id}
-                  type="monotone"
-                  dataKey={stock!.characterName}
-                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                  strokeWidth={isMobile ? 1.5 : 2}
-                  dot={false}
-                  connectNulls
+          <div className="text-muted-foreground">
+            <ResponsiveContainer width="100%" height={isMobile ? 300 : 400}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  stroke="currentColor"
+                  tick={{ fill: "currentColor" }}
+                  fontSize={isMobile ? 10 : 12}
+                  interval={isMobile ? 3 : 0}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <YAxis
+                  stroke="currentColor"
+                  tick={{ fill: "currentColor" }}
+                  fontSize={isMobile ? 10 : 12}
+                  width={isMobile ? 40 : 60}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    fontSize: isMobile ? "12px" : "14px",
+                  }}
+                  labelStyle={{ color: "var(--foreground)" }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }}
+                />
+                {selectedStocks.map((stock, index) => (
+                  <Line
+                    key={stock!.id}
+                    type="monotone"
+                    dataKey={stock!.characterName}
+                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                    strokeWidth={isMobile ? 1.5 : 2}
+                    dot={false}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div
             className={`flex items-center justify-center text-muted-foreground ${

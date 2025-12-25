@@ -194,9 +194,7 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     const updated = applyReaction(targetComment);
 
     setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === commentId ? updated : comment
-      )
+      prev.map((comment) => (comment.id === commentId ? updated : comment))
     );
 
     try {
@@ -276,7 +274,9 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     location?: { animeId: string; characterId?: string } | null
   ): string => {
     const stocks = getState().stocks;
-    if (!location) return "the platform";
+    // Market-level comments and missing locations should be described clearly
+    if (!location || (!location.animeId && !location.characterId))
+      return "the market board";
     if (location.characterId) {
       const stock = stocks.find((s) => s.id === location.characterId);
       if (stock) {
@@ -284,10 +284,10 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
       }
       return `character thread (${location.characterId})`;
     }
-    const stockMatch = stocks.find(
-      (s) => slugify(s.anime) === location.animeId
-    );
-    return stockMatch ? stockMatch.anime : location.animeId;
+    const animeId = (location.animeId || "").trim();
+    if (!animeId) return "the market board";
+    const stockMatch = stocks.find((s) => slugify(s.anime) === animeId);
+    return stockMatch ? stockMatch.anime : animeId;
   };
 
   return {
