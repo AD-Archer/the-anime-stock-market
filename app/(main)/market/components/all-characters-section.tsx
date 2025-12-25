@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { generateAnimeSlug } from "@/lib/utils";
+import { formatCurrencyCompact, generateAnimeSlug } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import type { Stock } from "@/lib/types";
 
@@ -223,7 +223,9 @@ export function AllCharactersSection({
 
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-bold text-foreground">
-                ${(stock.currentPrice || 0).toFixed(2)}
+                {formatCurrencyCompact(stock.currentPrice || 0, {
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span
                 className={`text-xs ${
@@ -263,7 +265,7 @@ export function AllCharactersSection({
       {!searchQuery && stocks.length > showCount && (
         <div className="col-span-full flex justify-center mt-6">
           <Button
-            onClick={() => setShowCount((prev) => prev + 25)}
+            onClick={() => setShowCount((prev) => prev + 20)}
             variant="outline"
             className="px-8"
           >

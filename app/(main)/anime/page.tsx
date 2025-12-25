@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { formatCurrencyCompact } from "@/lib/utils";
 
 export default function AnimePage() {
   const { stocks } = useStore();
@@ -100,7 +101,7 @@ export default function AnimePage() {
                       Total Market Cap
                     </span>
                     <span className="font-mono font-semibold text-foreground">
-                      ${anime.totalMarketCap.toFixed(2)}
+                      {formatCurrencyCompact(anime.totalMarketCap)}
                     </span>
                   </div>
                 </CardContent>

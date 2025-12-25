@@ -2,7 +2,12 @@
 
 import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { generateAnimeSlug } from "@/lib/utils";
+import {
+  formatCompactNumber,
+  formatCurrencyCompact,
+  formatCurrency,
+  generateAnimeSlug,
+} from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -17,10 +22,17 @@ import Link from "next/link";
 
 interface StockCardProps {
   stock: Stock;
-  onBuy: () => void;
+  onBuy?: () => void;
+  showDescription?: boolean;
+  compact?: boolean;
 }
 
-export function StockCard({ stock, onBuy }: StockCardProps) {
+export function StockCard({
+  stock,
+  onBuy,
+  showDescription = false,
+  compact = true,
+}: StockCardProps) {
   const { getStockPriceHistory } = useStore();
   const priceHistory = getStockPriceHistory(stock.id);
 
@@ -30,11 +42,95 @@ export function StockCard({ stock, onBuy }: StockCardProps) {
   if (priceHistory.length >= 2) {
     const previousPrice = priceHistory[priceHistory.length - 2].price;
     priceChange = stock.currentPrice - previousPrice;
-    priceChangePercent = (priceChange / previousPrice) * 100;
+    priceChangePercent =
+      previousPrice !== 0 ? (priceChange / previousPrice) * 100 : 0;
   }
 
   const isPositive = priceChange > 0;
   const isNegative = priceChange < 0;
+
+  if (compact) {
+    return (
+      <Link href={`/character/${stock.characterSlug || stock.id}`}>
+        <Card className="overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer h-full flex flex-col">
+          <CardHeader className="p-0 flex-shrink-0">
+            <div className="relative w-full aspect-square overflow-hidden bg-muted">
+              <Image
+                src={stock.imageUrl || "/placeholder.svg"}
+                alt={stock.characterName}
+                fill
+                className="object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 flex-grow flex flex-col justify-between">
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-foreground line-clamp-2">
+                {stock.characterName}
+              </h3>
+              <p className="text-xs text-muted-foreground line-clamp-1">
+                {stock.anime}
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <div className="flex items-baseline justify-between">
+                <p className="text-lg font-bold text-foreground">
+                  {formatCurrency(stock.currentPrice)}
+                </p>
+                <div className="flex items-center gap-1">
+                  {isPositive && (
+                    <TrendingUp className="h-3 w-3 text-chart-4 flex-shrink-0" />
+                  )}
+                  {isNegative && (
+                    <TrendingDown className="h-3 w-3 text-destructive flex-shrink-0" />
+                  )}
+                  {!isPositive && !isNegative && (
+                    <Minus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <Badge
+                    variant={
+                      isPositive
+                        ? "default"
+                        : isNegative
+                        ? "destructive"
+                        : "secondary"
+                    }
+                    className={`px-1.5 py-0 text-xs leading-none ${
+                      isPositive
+                        ? "bg-chart-4 text-background hover:bg-chart-4/80"
+                        : ""
+                    }`}
+                  >
+                    {isPositive && "+"}
+                    {priceChangePercent.toFixed(1)}%
+                  </Badge>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatCompactNumber(stock.availableShares)} /
+                {formatCompactNumber(stock.totalShares)}
+              </p>
+            </div>
+          </CardContent>
+          {onBuy && (
+            <CardFooter className="p-2 pt-0 flex-shrink-0">
+              <Button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onBuy();
+                }}
+                className="w-full"
+                size="sm"
+              >
+                Buy
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+      </Link>
+    );
+  }
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-lg">
@@ -50,67 +146,75 @@ export function StockCard({ stock, onBuy }: StockCardProps) {
           </div>
         </CardHeader>
       </Link>
-      <CardContent className="p-4">
-        <div className="mb-2">
-          <Link href={`/character/${stock.characterSlug || stock.id}`}>
-            <h3 className="text-lg font-bold text-foreground hover:text-primary transition-colors cursor-pointer">
-              {stock.characterName}
-            </h3>
-          </Link>
-          <Link
-            href={`/anime/${generateAnimeSlug(stock.anime)}`}
-            className="text-sm hover:underline text-muted-foreground"
-          >
-            {stock.anime}
-          </Link>
-        </div>
-        <p className="mb-4 line-clamp-2 text-sm text-foreground">
-          {stock.description}
-        </p>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-bold text-foreground">
-              ${stock.currentPrice.toFixed(2)}
-            </p>
-            {priceHistory.length >= 2 && (
-              <div className="flex items-center gap-1">
-                {isPositive && <TrendingUp className="h-4 w-4 text-chart-4" />}
-                {isNegative && (
-                  <TrendingDown className="h-4 w-4 text-destructive" />
-                )}
-                {!isPositive && !isNegative && (
-                  <Minus className="h-4 w-4 text-muted-foreground" />
-                )}
-                <Badge
-                  variant={
-                    isPositive
-                      ? "default"
-                      : isNegative
-                      ? "destructive"
-                      : "secondary"
-                  }
-                  className={
-                    isPositive
-                      ? "bg-chart-4 text-background hover:bg-chart-4/80"
-                      : ""
-                  }
-                >
-                  {isPositive && "+"}
-                  {priceChangePercent.toFixed(2)}%
-                </Badge>
-              </div>
-            )}
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link href={`/character/${stock.characterSlug || stock.id}`}>
+              <h3 className="text-base font-bold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-1">
+                {stock.characterName}
+              </h3>
+            </Link>
+            <Link
+              href={`/anime/${generateAnimeSlug(stock.anime)}`}
+              className="text-xs hover:underline text-muted-foreground"
+            >
+              {stock.anime}
+            </Link>
           </div>
-          <Badge variant="secondary">
-            {stock.availableShares.toLocaleString()} shares
-          </Badge>
+        </div>
+        {showDescription && (
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {stock.description}
+          </p>
+        )}
+        <div className="grid grid-cols-1 gap-3 items-start sm:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-xl font-bold text-foreground">
+              {formatCurrency(stock.currentPrice)}
+            </p>
+            <div className="flex items-center gap-1">
+              {isPositive && <TrendingUp className="h-4 w-4 text-chart-4" />}
+              {isNegative && (
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              )}
+              {!isPositive && !isNegative && (
+                <Minus className="h-4 w-4 text-muted-foreground" />
+              )}
+              <Badge
+                variant={
+                  isPositive
+                    ? "default"
+                    : isNegative
+                    ? "destructive"
+                    : "secondary"
+                }
+                className={`px-2 py-1 text-xs ${
+                  isPositive
+                    ? "bg-chart-4 text-background hover:bg-chart-4/80"
+                    : ""
+                }`}
+              >
+                {isPositive && "+"}
+                {priceChangePercent.toFixed(2)}%
+              </Badge>
+            </div>
+          </div>
+          <div className="text-right space-y-1">
+            <p className="text-xs text-muted-foreground">Shares available</p>
+            <p className="text-sm font-semibold text-foreground">
+              {formatCompactNumber(stock.availableShares)} /
+              {formatCompactNumber(stock.totalShares)}
+            </p>
+          </div>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <Button onClick={onBuy} className="w-full" size="lg">
-          Buy Stock
-        </Button>
-      </CardFooter>
+      {onBuy && (
+        <CardFooter className="p-4 pt-0">
+          <Button onClick={onBuy} className="w-full" size="sm">
+            Buy Stock
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }

@@ -106,6 +106,7 @@ export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
             key={stock.id}
             stock={stock}
             onBuy={() => onBuy(stock.id)}
+            showDescription={filter !== "most_active"}
           />
         ))}
       </div>

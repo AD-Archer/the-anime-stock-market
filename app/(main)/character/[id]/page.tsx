@@ -3,7 +3,12 @@
 import { use, useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { User, Comment, ContentTag } from "@/lib/types";
-import { generateCharacterSlug } from "@/lib/utils";
+import {
+  formatCompactNumber,
+  formatCurrencyCompact,
+  generateAnimeSlug,
+  generateCharacterSlug,
+} from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -58,7 +63,6 @@ import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { getUserProfileHref } from "@/lib/user-profile";
-import { generateAnimeSlug } from "@/lib/utils";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -890,7 +894,9 @@ export default function CharacterPage({
                     Current Price
                   </span>
                   <span className="text-xl font-bold text-foreground break-all">
-                    ${stock.currentPrice.toFixed(2)}
+                    {formatCurrencyCompact(stock.currentPrice, {
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -914,7 +920,7 @@ export default function CharacterPage({
                     Available Shares
                   </span>
                   <span className="font-mono text-foreground">
-                    {stock.availableShares.toLocaleString()}
+                    {formatCompactNumber(stock.availableShares)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -922,7 +928,7 @@ export default function CharacterPage({
                     Total Shares
                   </span>
                   <span className="font-mono text-foreground">
-                    {stock.totalShares.toLocaleString()}
+                    {formatCompactNumber(stock.totalShares)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -930,7 +936,9 @@ export default function CharacterPage({
                     Market Cap
                   </span>
                   <span className="font-mono text-foreground break-all">
-                    ${(stock.currentPrice * stock.totalShares).toFixed(2)}
+                    {formatCurrencyCompact(
+                      stock.currentPrice * stock.totalShares
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -939,7 +947,7 @@ export default function CharacterPage({
                   </span>
                   <span className="font-mono text-foreground">
                     {currentUser
-                      ? userShares.toLocaleString()
+                      ? formatCompactNumber(userShares)
                       : "Sign in to view"}
                   </span>
                 </div>

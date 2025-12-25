@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Wallet, BarChart3 } from "lucide-react";
+import { formatCurrencyCompact } from "@/lib/utils";
 
 type UserStatsProps = {
   totalAssets: number;
@@ -31,7 +32,7 @@ export function UserStats({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-foreground">
-            ${totalAssets.toFixed(2)}
+            {formatCurrencyCompact(totalAssets, { maximumFractionDigits: 2 })}
           </div>
           <p className="text-xs text-muted-foreground">Cash + Portfolio Value</p>
         </CardContent>
@@ -44,7 +45,7 @@ export function UserStats({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-foreground">
-            ${cashBalance.toFixed(2)}
+            {formatCurrencyCompact(cashBalance, { maximumFractionDigits: 2 })}
           </div>
           <p className="text-xs text-muted-foreground">Available to trade</p>
         </CardContent>
@@ -57,7 +58,7 @@ export function UserStats({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-foreground">
-            ${portfolioValue.toFixed(2)}
+            {formatCurrencyCompact(portfolioValue, { maximumFractionDigits: 2 })}
           </div>
           <p className="text-xs text-muted-foreground">{holdingsCount} holdings</p>
         </CardContent>
@@ -78,7 +79,8 @@ export function UserStats({
               isProfit ? "text-chart-4" : "text-destructive"
             }`}
           >
-            {isProfit ? "+" : ""}${totalProfitLoss.toFixed(2)}
+            {isProfit ? "+" : ""}
+            {formatCurrencyCompact(totalProfitLoss, { maximumFractionDigits: 2 })}
           </div>
           <p
             className={`text-xs ${

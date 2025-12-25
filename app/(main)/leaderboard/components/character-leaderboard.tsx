@@ -31,6 +31,11 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import type { Stock, PriceHistory } from "@/lib/types";
+import {
+  formatCompactNumber,
+  formatCurrencyCompact,
+  formatCurrency,
+} from "@/lib/utils";
 
 type CharacterSortType = "best" | "worst" | "popularAnime" | "byAnime";
 
@@ -52,7 +57,7 @@ interface AnimeStats {
 export function CharacterLeaderboard() {
   const { stocks, getStockPriceHistory } = useStore();
   const [sortType, setSortType] = useState<CharacterSortType>("best");
-  const [showCount, setShowCount] = useState(25);
+  const [showCount, setShowCount] = useState(20);
   const [selectedAnime, setSelectedAnime] = useState<string>("");
 
   const charactersWithStats = useMemo(() => {
@@ -222,7 +227,7 @@ export function CharacterLeaderboard() {
               {/* Price and Change */}
               <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-1">
                 <p className="text-xl font-bold text-foreground">
-                  ${character.currentPrice.toFixed(2)}
+                  {formatCurrency(character.currentPrice)}
                 </p>
                 <div className="flex items-center justify-end gap-1">
                   {isPositive && (
@@ -252,12 +257,12 @@ export function CharacterLeaderboard() {
               <div className="text-sm">
                 <p className="text-muted-foreground">Market Cap</p>
                 <p className="font-mono font-semibold text-foreground">
-                  ${character.marketCap.toFixed(2)}
+                  {formatCurrencyCompact(character.marketCap)}
                 </p>
               </div>
               <Badge variant="secondary" className="self-start sm:self-auto">
-                {character.availableShares.toLocaleString()} /{" "}
-                {character.totalShares.toLocaleString()}
+                {formatCompactNumber(character.availableShares)} /{" "}
+                {formatCompactNumber(character.totalShares)}
               </Badge>
             </div>
           </div>
@@ -307,10 +312,7 @@ export function CharacterLeaderboard() {
         {/* Stats */}
         <div className="text-right">
           <p className="text-lg font-bold text-foreground">
-            $
-            {anime.totalMarketCap.toLocaleString(undefined, {
-              maximumFractionDigits: 0,
-            })}
+            {formatCurrencyCompact(anime.totalMarketCap)}
           </p>
           <p className="text-xs text-muted-foreground">Total Market Cap</p>
         </div>
@@ -399,11 +401,11 @@ export function CharacterLeaderboard() {
           <div className="mt-6 text-center">
             <Button
               variant="outline"
-              onClick={() => setShowCount(Math.min(showCount + 25, 100))}
+              onClick={() => setShowCount(Math.min(showCount + 20, 100))}
             >
               Show More (
               {Math.min(
-                showCount + 25,
+                showCount + 20,
                 sortType === "popularAnime"
                   ? animeStats.length
                   : sortedCharacters.length

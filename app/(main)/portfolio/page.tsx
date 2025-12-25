@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Wallet, TrendingDown, Activity } from "lucide-react";
 import Link from "next/link";
+import { formatCurrency } from "@/lib/utils";
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -118,7 +119,7 @@ export default function PortfolioPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  ${totalAssets.toFixed(2)}
+                  {formatCurrency(totalAssets)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Cash + Portfolio Value
@@ -135,7 +136,7 @@ export default function PortfolioPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  ${totalValue.toFixed(2)}
+                  {formatCurrency(totalValue)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Current market value
@@ -160,7 +161,8 @@ export default function PortfolioPage() {
                     totalProfitLoss >= 0 ? "text-chart-4" : "text-destructive"
                   }`}
                 >
-                  {totalProfitLoss >= 0 ? "+" : ""}${totalProfitLoss.toFixed(2)}
+                  {totalProfitLoss >= 0 ? "+" : ""}
+                  {formatCurrency(totalProfitLoss)}
                 </div>
                 <p
                   className={`text-xs ${

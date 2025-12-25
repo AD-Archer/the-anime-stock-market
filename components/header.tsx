@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { formatCurrency } from "@/lib/utils";
 
 export function Header() {
   const { currentUser } = useStore();
@@ -21,10 +22,10 @@ export function Header() {
           <div className="flex items-center gap-2">
             <TrendingUp className="h-8 w-8 text-primary" />
             <Link href="/market">
-            <h1 className="text-2xl font-bold text-foreground">
-              Anime Stock Exchange
-            </h1>
-          </Link>
+              <h1 className="text-2xl font-bold text-foreground">
+                Anime Stock Exchange
+              </h1>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
@@ -57,7 +58,7 @@ export function Header() {
             <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1">
               <span className="text-sm text-muted-foreground">Balance:</span>
               <span className="font-mono font-semibold text-foreground">
-                ${currentUser?.balance.toFixed(2)}
+                {formatCurrency(currentUser?.balance || 0)}
               </span>
             </div>
             <Button

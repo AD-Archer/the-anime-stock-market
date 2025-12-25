@@ -14,6 +14,7 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { SellDialog } from "../../../../components/sell-dialog";
+import { formatCurrency } from "@/lib/utils";
 
 interface PortfolioCardProps {
   portfolio: Portfolio;
@@ -49,7 +50,9 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
         <CardContent className="p-4">
           <div className="mb-3">
             <Link href={`/character/${stock.characterSlug || stock.id}`}>
-              <h3 className="font-bold text-foreground hover:text-primary transition-colors cursor-pointer">{stock.characterName}</h3>
+              <h3 className="font-bold text-foreground hover:text-primary transition-colors cursor-pointer">
+                {stock.characterName}
+              </h3>
             </Link>
             <p className="text-sm text-muted-foreground">{stock.anime}</p>
           </div>
@@ -64,20 +67,20 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Avg. Buy Price:</span>
               <span className="font-mono font-medium text-foreground">
-                ${portfolio.averageBuyPrice.toFixed(2)}
+                {formatCurrency(portfolio.averageBuyPrice)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current Price:</span>
               <span className="font-mono font-medium text-foreground">
-                ${stock.currentPrice.toFixed(2)}
+                {formatCurrency(stock.currentPrice)}
               </span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Market Value:</span>
                 <span className="font-mono font-semibold text-foreground">
-                  ${currentValue.toFixed(2)}
+                  {formatCurrency(currentValue)}
                 </span>
               </div>
             </div>
@@ -100,7 +103,8 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
                       : "text-muted-foreground"
                   }`}
                 >
-                  {isPositive && "+"}${profitLoss.toFixed(2)}
+                  {isPositive && "+"}
+                  {formatCurrency(profitLoss)}
                 </span>
               </div>
             </div>

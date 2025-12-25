@@ -35,6 +35,11 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import type { User, Portfolio, Transaction } from "@/lib/types";
+import {
+  formatCompactNumber,
+  formatCurrencyCompact,
+  formatCurrency,
+} from "@/lib/utils";
 
 type PlayerSortType = "richest" | "mostStocks" | "mostActive" | "longestMember";
 
@@ -140,14 +145,11 @@ export function PlayerLeaderboard() {
   const getValueDisplay = (player: PlayerWithStats) => {
     switch (sortType) {
       case "richest":
-        return `$${player.totalAssets.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
+        return formatCurrencyCompact(player.totalAssets);
       case "mostStocks":
-        return `${player.totalStocks.toLocaleString()} shares`;
+        return `${formatCompactNumber(player.totalStocks)} shares`;
       case "mostActive":
-        return `${player.transactionCount} trades`;
+        return `${formatCompactNumber(player.transactionCount)} trades`;
       case "longestMember":
         return player.createdAt.toLocaleDateString();
     }
@@ -229,19 +231,20 @@ export function PlayerLeaderboard() {
         <div className="space-y-3">
           {displayedPlayers.map((player) => {
             const isCurrentUser = player.id === currentUser?.id;
+            const displayName = player.displayName || player.username;
 
             return (
               <div
                 key={player.id}
-                className={`flex items-center gap-4 rounded-lg border p-4 transition-all hover:bg-muted hover:shadow-md ${
+                className={`flex flex-col gap-3 rounded-lg border p-4 transition-all hover:bg-muted hover:shadow-md sm:flex-row sm:items-center ${
                   isCurrentUser ? "bg-primary/5 border-primary/20" : ""
                 }`}
               >
                 {/* Rank */}
-                <div className="flex w-12 items-center justify-center">
+                <div className="flex w-10 sm:w-12 items-center justify-center">
                   {getRankIcon(player.rank) || (
                     <span
-                      className={`text-2xl font-bold ${
+                      className={`text-xl sm:text-2xl font-bold ${
                         isCurrentUser ? "text-primary" : "text-muted-foreground"
                       }`}
                     >
@@ -252,53 +255,65 @@ export function PlayerLeaderboard() {
 
                 {/* Avatar */}
                 <div className="relative h-12 w-12 overflow-hidden rounded-full flex-shrink-0 bg-muted">
-                  <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
-                    {(player.displayName || player.username)
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
+                  {player.avatarUrl ? (
+                    <Image
+                      src={player.avatarUrl}
+                      alt={`${displayName}'s avatar`}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Player Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <Link href={getUserProfileHref(player, player.id)}>
                       <h3
-                        className={`font-bold truncate hover:underline cursor-pointer ${
+                        className={`font-bold truncate hover:underline cursor-pointer text-base sm:text-lg ${
                           isCurrentUser ? "text-primary" : "text-foreground"
                         }`}
                       >
-                        {player.displayName || player.username}
-                        {isCurrentUser && (
-                          <span className="ml-2 text-xs">(You)</span>
-                        )}
+                        {displayName}
                       </h3>
                     </Link>
+                    {isCurrentUser && (
+                      <Badge variant="outline" className="text-[10px]">
+                        You
+                      </Badge>
+                    )}
                     {player.isAdmin && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] whitespace-nowrap"
+                      >
                         Admin
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Balance: $
-                    {player.balance.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="whitespace-nowrap">Balance</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(player.balance)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Value */}
-                <div className="text-right">
+                <div className="flex flex-col items-start gap-1 text-left sm:items-end sm:text-right min-w-[120px]">
                   <p
-                    className={`text-lg font-bold ${
+                    className={`text-base sm:text-lg font-bold ${
                       isCurrentUser ? "text-primary" : "text-foreground"
                     }`}
                   >
                     {getValueDisplay(player)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     {getSortLabel(sortType)}
                   </p>
                 </div>

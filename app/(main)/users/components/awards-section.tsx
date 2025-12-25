@@ -102,7 +102,7 @@ export function AwardsSection({ awards, isOwnProfile = false }: AwardsSectionPro
         {awards.length === 0 ? (
           <p className="text-sm text-muted-foreground">No awards unlocked yet.</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {awards
               .sort((a, b) => b.unlockedAt.getTime() - a.unlockedAt.getTime())
               .map((award) => {
@@ -163,7 +163,7 @@ export function AwardsSection({ awards, isOwnProfile = false }: AwardsSectionPro
         {unlockedCount < totalCount && (
           <div className="mt-6 pt-4 border-t">
             <h4 className="font-semibold mb-3">Available Awards</h4>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {allAwardTypes
                 .filter((type) => !unlockedAwardTypes.has(type))
                 .map((type) => {
