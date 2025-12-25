@@ -4,7 +4,22 @@ import { useEffect } from "react";
 
 export default function PlausibleInit() {
   useEffect(() => {
-    const domain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN ?? "adarcher.app";
+    // Derive plausible domain from explicit env var, or fall back to site URL host
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const derivedHost = siteUrl
+      ? (() => {
+          try {
+            return new URL(siteUrl).host;
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
+
+    const domain =
+      process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN ??
+      derivedHost ??
+      "animestockexchange.adarcher.app";
     const apiHost =
       process.env.NEXT_PUBLIC_PLAUSIBLE_API_HOST ??
       "https://plausible.adarcher.app";

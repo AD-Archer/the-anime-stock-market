@@ -1,10 +1,9 @@
 services:
   anime-stock-market:
-    image: adarcher/anime-stock-market:latest
+    image: adarcher/the-anime-stock-exchange:latest
     ports:
       - "3000:3000"
     env_file:
       - .env.local
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped
+    volumes:
+      - ./ .env.local:/app/.env.local:ro  # 

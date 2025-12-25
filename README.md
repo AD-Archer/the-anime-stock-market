@@ -1,56 +1,37 @@
-# Anime stock trading app
+# Anime Stock Market
 
-_Automatically synced with your [v0.app](https://v0.app) deployments_
+A Next.js app for simulated anime stock trading with real-time trading, private messaging, message boards, and community features.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/ad-archers-projects/v0-anime-stock-trading-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/qEVVIfOYcvT)
+---
 
-## Overview
+## Features ✨
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+- **Real-time stock trading** — live price updates, buy/sell flows, market ticker, and immediate portfolio updates.
+- **Direct messaging** — private, real-time DMs between users.
+- **Message boards** — public threads and discussions per anime/character.
+- **Portfolio & Leaderboard** — view your holdings, transactions, and compare standings.
+- **Admin & moderation** — reports, user management, buyback workflows, and support tools.
+- **Notifications & history** — in-app notifications and transaction history for transparency.
 
-## Deployment
+---
 
-Your project is live at:
+## Quick start — Development 🔧
 
-**[https://vercel.com/ad-archers-projects/v0-anime-stock-trading-app](https://vercel.com/ad-archers-projects/v0-anime-stock-trading-app)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/qEVVIfOYcvT](https://v0.app/chat/qEVVIfOYcvT)**
-
-## Local Development
-
-### Prerequisites
+Prerequisites:
 
 - Node.js 18+
 - pnpm
 
-### Installation
+Install and run locally:
 
-1. Clone the repository:
+```bash
+git clone https://github.com/AD-Archer/the-anime-stock-market.git
+cd the-anime-stock-market
+pnpm install
+pnpm dev
+```
 
-   ```bash
-   git clone https://github.com/yourusername/the-anime-stock-market.git
-   cd the-anime-stock-market
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pnpm install
-   ```
-
-3. Run the development server:
-
-   ```bash
-   pnpm dev
-   ```
-
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open http://localhost:3000
 
 ## Docker
 
@@ -60,6 +41,10 @@ Copy the environment values you want the client bundle to bake in (`NEXT_PUBLIC_
 
 ```bash
 node scripts/build-docker.mjs
+# or (manual)
+docker build -t adarcher/the-anime-stock-exchange:latest . \
+  --build-arg NEXT_PUBLIC_APPWRITE_ENDPOINT="https://..." \
+  --build-arg NEXT_PUBLIC_APPWRITE_PROJECT_ID="..."
 ```
 
 If you prefer to run `docker build` directly, mirror the same values via `--build-arg NEXT_PUBLIC_APPWRITE_ENDPOINT=...` etc.
@@ -70,6 +55,11 @@ Use the included run script so `.env.local` and other required secrets are autom
 
 ```bash
 node scripts/run-docker.mjs
+# or
+# Run the built image and pass runtime envs via --env-file
+# (recommended for secrets)
+
+docker run -p 3000:3000 --env-file .env.local adarcher/the-anime-stock-exchange:latest
 ```
 
 That script mounts `.env.local` as an `--env-file`, but if you start the container manually you must include the same file as well:
@@ -99,6 +89,87 @@ REQUIRED_VARS="APPWRITE_API_KEY SMTP_HOST SMTP_USER SMTP_PASS"
   - Run the image with `--env-file .env.local` and print env: `docker run --rm --env-file .env.local --entrypoint env adarcher/anime-stock-market:latest`
   - Or, for a running container: `docker exec -it <container> sh -c "printenv | grep APPWRITE"`
 
+---
+
+### Dockerfile (reference)
+
+```dockerfile
+# Use the official Node.js 20 Alpine image as the base
+FROM node:20-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+WORKDIR /app
+
+# Build-time args for client-exposed envs (NEXT_PUBLIC_*). The helper
+# script `scripts/build-docker.mjs` will pass any NEXT_PUBLIC_* values
+# from `.env.local` as build args. We expose them as ENVs so Next.js can
+# inline NEXT_PUBLIC_* into the client bundle during `pnpm run build`.
+ARG NEXT_PUBLIC_APPWRITE_ENDPOINT
+ARG NEXT_PUBLIC_APPWRITE_PROJECT_ID
+ARG NEXT_PUBLIC_APPWRITE_PROJECT_NAME
+ARG NEXT_PUBLIC_SITE_URL
+
+ENV NEXT_PUBLIC_APPWRITE_ENDPOINT=${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+ENV NEXT_PUBLIC_APPWRITE_PROJECT_ID=${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+ENV NEXT_PUBLIC_APPWRITE_PROJECT_NAME=${NEXT_PUBLIC_APPWRITE_PROJECT_NAME}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+
+# Note: NEXT_PUBLIC_APPWRITE_DATABASE_ID is intentionally excluded from build args
+# to avoid making the database ID public. If you need the DB ID server-side, set
+# APPWRITE_DATABASE_ID in your runtime environment (.env.local or via --env-file).
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build the application
+RUN pnpm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
+
+# Set only non-sensitive runtime defaults
+ENV NODE_ENV=production
+ENV PORT=3000
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+USER nextjs
+
+EXPOSE 3000
+
+# Start the server with entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"]
+```
+
 ## Docker Compose
 
 An example `docker-compose.yml` is provided to run the application using Docker Compose. It pulls the latest image from Docker Hub and supports environment variable configuration for future full-stack features.
@@ -117,6 +188,27 @@ An example `docker-compose.yml` is provided to run the application using Docker 
    ```
 
 The application will be available at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Analytics (Plausible) 📊
+
+This project includes a lightweight client-side Plausible initializer (`components/analytics/plausible-init.tsx`). Configure the following env vars in `.env.local`:
+
+```env
+# domain used by Plausible (optional - derived from NEXT_PUBLIC_SITE_URL if not set)
+NEXT_PUBLIC_PLAUSIBLE_DOMAIN=animestockexchange.adarcher.app
+# optional Plausible proxy/API host
+NEXT_PUBLIC_PLAUSIBLE_API_HOST=https://plausible.adarcher.app
+```
+
+Notes:
+
+- The tracker is only loaded on the client. The initializer will derive the Plausible domain from `NEXT_PUBLIC_SITE_URL` if `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` is not set.
+- If you self-host Plausible behind a proxy, set `NEXT_PUBLIC_PLAUSIBLE_API_HOST` to the proxy endpoint.
+- For local dev, you can set `captureOnLocalhost` inside the tracker options if you want to capture events from localhost (not recommended for production).
+
+---
 
 ### Adding a Database
 
@@ -290,7 +382,7 @@ Once the database is set up and seeded, the app will automatically use Appwrite 
 
 ## CI/CD
 
-This project uses GitHub Actions for continuous integration and deployment. The workflow automatically builds and pushes Docker images to Docker Hub on every push to the `main` branch.
+This project uses GitHub Actions for continuous integration and deployment. The repository includes a workflow that builds and pushes a multi-arch Docker image (linux/amd64 and linux/arm64) to Docker Hub on pushes to `main`.
 
 ### Setup
 
@@ -299,9 +391,16 @@ This project uses GitHub Actions for continuous integration and deployment. The 
 2. Add the following secrets to your GitHub repository:
 
    - `DOCKERHUB_USERNAME`: Your Docker Hub username
-   - `DOCKERHUB_TOKEN`: Your Docker Hub access token (create one in Docker Hub settings)
+   - `DOCKERHUB_TOKEN`: A Docker Hub access token (create one in Docker Hub settings)
+   - (Optional, for build-time client vars) `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_PROJECT_NAME`, `NEXT_PUBLIC_SITE_URL`
 
-3. The workflow will automatically trigger on pushes to `main` and pull requests.
+3. The workflow will automatically trigger on pushes to `main` and will publish `adarcher/the-anime-stock-exchange:latest` and a `${{ github.sha }}` tag.
+
+### Notes
+
+- The workflow uses Docker Buildx to build and push a multi-arch image (amd64 + arm64) so Apple Silicon machines will be able to pull the correct manifest.
+- The workflow passes common `NEXT_PUBLIC_*` build args from secrets; set these in the repository if you want those client values baked into the production build.
+- If you prefer to publish only amd64, you can edit `.github/workflows/docker-multiarch.yml` and remove `linux/arm64`.
 
 ## How It Works
 

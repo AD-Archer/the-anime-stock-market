@@ -16,13 +16,30 @@ import "./globals.css";
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://animestockexchange.adarcher.app";
+const defaultOg = `${baseUrl}/icons/icon1.png`;
+
 export const metadata: Metadata = {
   title: "Anime Stock Exchange",
   description: "Trade your favorite anime characters",
   icons: {
-    icon: "/icons/favicon.ico",
+    icon: defaultOg,
     apple: "/icons/apple-icon.png",
-    shortcut: "/icons/favicon.ico",
+    shortcut: defaultOg,
+  },
+  openGraph: {
+    title: "Anime Stock Exchange",
+    description: "Trade your favorite anime characters in real-time",
+    url: baseUrl,
+    siteName: "Anime Stock Exchange",
+    images: [
+      {
+        url: defaultOg,
+        alt: "Anime Stock Exchange Open Graph",
+      },
+    ],
+    type: "website",
   },
   manifest: "/icons/manifest.json",
   appleWebApp: {

@@ -1,97 +1,102 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
 
 const canUseAppwrite = () =>
   Boolean(
     process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT &&
       process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
-  )
+  );
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://animestockexchange.com'
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://animestockexchange.adarcher.app";
+  const defaultOg = `${baseUrl}/icons/icon1.png`;
 
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 1,
+      images: [{ url: defaultOg, caption: "Anime Stock Exchange" }],
     },
     {
       url: `${baseUrl}/market`,
       lastModified: new Date(),
-      changeFrequency: 'hourly',
+      changeFrequency: "hourly",
       priority: 0.9,
+      images: [{ url: defaultOg, caption: "Market - Anime Stock Exchange" }],
     },
     {
       url: `${baseUrl}/leaderboard`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/portfolio`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${baseUrl}/anime`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "weekly",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/messages`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "weekly",
       priority: 0.5,
     },
     {
       url: `${baseUrl}/admin`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/privacy`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.2,
     },
     {
       url: `${baseUrl}/terms`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.2,
     },
     {
       url: `${baseUrl}/auth/signin`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.4,
     },
     {
       url: `${baseUrl}/auth/signup`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.4,
     },
-  ]
+  ];
 
   // Fetch dynamic pages
-  let stocks: any[] = []
-  let users: any[] = []
+  let stocks: any[] = [];
+  let users: any[] = [];
   if (canUseAppwrite()) {
     try {
       const [{ stockService }, { userService }] = await Promise.all([
-        import('@/lib/database/stockService'),
-        import('@/lib/database/userService'),
-      ])
+        import("@/lib/database/stockService"),
+        import("@/lib/database/userService"),
+      ]);
 
-      stocks = await stockService.getAll()
-      users = await userService.getAll()
+      stocks = await stockService.getAll();
+      users = await userService.getAll();
     } catch (error) {
-      console.warn('Failed to fetch dynamic data for sitemap:', error)
+      console.warn("Failed to fetch dynamic data for sitemap:", error);
     }
   }
 
@@ -99,24 +104,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...stocks.map((stock) => ({
       url: `${baseUrl}/anime/${stock.id}`,
       lastModified: stock.createdAt,
-      changeFrequency: 'weekly' as const,
+      changeFrequency: "weekly" as const,
       priority: 0.7,
+      images: [
+        {
+          url: stock.imageUrl?.startsWith("http")
+            ? stock.imageUrl
+            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
+          caption: stock.anime || "Anime",
+        },
+      ],
     })),
     ...stocks.map((stock) => ({
       url: `${baseUrl}/character/${stock.id}`,
       lastModified: stock.createdAt,
-      changeFrequency: 'weekly' as const,
+      changeFrequency: "weekly" as const,
       priority: 0.7,
+      images: [
+        {
+          url: stock.imageUrl?.startsWith("http")
+            ? stock.imageUrl
+            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
+          caption: stock.characterName || "Character",
+        },
+      ],
     })),
     ...users.map((user) => ({
       url: `${baseUrl}/users/${encodeURIComponent(
         (user as any).displaySlug || user.username
       )}`,
       lastModified: user.createdAt,
-      changeFrequency: 'monthly' as const,
+      changeFrequency: "monthly" as const,
       priority: 0.5,
+      images: [
+        {
+          url: defaultOg,
+          caption: (user as any).displayName || (user as any).username,
+        },
+      ],
     })),
-  ]
+  ];
 
-  return [...staticPages, ...dynamicPages]
+  return [...staticPages, ...dynamicPages];
 }
