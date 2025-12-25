@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { create } from "zustand";
 import { useAuth } from "./auth";
 import {
@@ -62,7 +62,7 @@ import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
 import { createDailyRewardActions } from "./store/daily-rewards";
 import type { StoreState } from "./store/types";
-import type { User, Transaction } from "./types";
+import type { User, Transaction, PriceHistory } from "./types";
 import { generateDisplaySlug } from "./usernames";
 
 export const useStore = create<StoreState>((set, get) => {
@@ -418,6 +418,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadData();
   }, [user, authLoading]);
 
+  const mergePriceHistory = useCallback((incoming: PriceHistory[]) => {
+    if (!incoming.length) return;
+    useStore.setState((state) => {
+      const merged = new Map<string, PriceHistory>();
+      state.priceHistory.forEach((ph) => merged.set(ph.id, ph));
+      incoming.forEach((ph) => merged.set(ph.id, ph));
+
+      const mergedList = Array.from(merged.values()).sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      );
+
+      const latestByStock = new Map<string, PriceHistory>();
+      mergedList.forEach((ph) => {
+        const prev = latestByStock.get(ph.stockId);
+        if (!prev || ph.timestamp.getTime() > prev.timestamp.getTime()) {
+          latestByStock.set(ph.stockId, ph);
+        }
+      });
+
+      return {
+        priceHistory: mergedList,
+        stocks: state.stocks.map((s) => {
+          const latest = latestByStock.get(s.id);
+          return latest ? { ...s, currentPrice: latest.price } : s;
+        }),
+      };
+    });
+  }, []);
+
+  const refreshPriceHistoryForStock = useCallback(
+    async (stockId: string) => {
+      try {
+        const latest = await priceHistoryService.getAll();
+        mergePriceHistory(latest.filter((ph) => ph.stockId === stockId));
+      } catch (error) {
+        console.warn("Failed to refresh price history:", error);
+      }
+    },
+    [mergePriceHistory]
+  );
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -580,6 +621,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               transactions: sortTransactions([...state.transactions, newTx]),
             };
           });
+          refreshPriceHistoryForStock(newTx.stockId);
         } else if (event.includes("delete")) {
           const deletedId = document.$id;
           useStore.setState((state) => ({
@@ -594,7 +636,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         transactionsUnsub();
       } catch {}
     };
-  }, [isLoading]);
+  }, [isLoading, refreshPriceHistoryForStock]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -634,12 +676,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (event.includes("create")) {
           const newPH = mapPriceHistory(document);
-          useStore.setState((state) => ({
-            priceHistory: [...state.priceHistory, newPH],
-            stocks: state.stocks.map((s) =>
-              s.id === newPH.stockId ? { ...s, currentPrice: newPH.price } : s
-            ),
-          }));
+          mergePriceHistory([newPH]);
         }
       }
     );
@@ -652,7 +689,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         priceUnsub();
       } catch {}
     };
-  }, [isLoading]);
+  }, [isLoading, mergePriceHistory]);
 
   return <>{children}</>;
 }

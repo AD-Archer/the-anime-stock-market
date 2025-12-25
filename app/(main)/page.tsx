@@ -19,16 +19,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { StockCard } from "@/components/stock-card";
-import { Input } from "@/components/ui/input";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketOverview } from "@/components/market-overview";
 import { SearchMarket } from "@/components/search-market";
 import { useRouter } from "next/navigation";
-import type { Stock } from "@/lib/types";
+import { TopStocksSection } from "./market/components/top-stocks-section";
 
 export default function LandingPage() {
-  const { stocks, users, transactions, currentUser, getStockPriceHistory } = useStore();
+  const { stocks, users, transactions, currentUser } = useStore();
   const router = useRouter();
 
   const activeTraders = users.length;
@@ -39,27 +37,11 @@ export default function LandingPage() {
   );
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
-  // Calculate percentage change from start price and sort by that
-  const sortedStocks = [...stocks]
-    .map(stock => {
-      const priceHistory = getStockPriceHistory(stock.id);
-      let priceChangePercent = 0;
-      if (priceHistory.length >= 2) {
-        const previousPrice = priceHistory[priceHistory.length - 2].price;
-        priceChangePercent = ((stock.currentPrice - previousPrice) / previousPrice) * 100;
-      }
-      return { ...stock, priceChangePercent };
-    })
-    .sort((a, b) => b.priceChangePercent - a.priceChangePercent);
-
-  // Top 100 characters sorted by percentage change
-  const top100Stocks = sortedStocks.slice(0, 100);
-
-  const handleSelectStock = (stock: Stock) => {
+  const handleSelectStock = (stockId: string) => {
     if (!currentUser) {
       router.push("/auth/signin");
     } else {
-      setSelectedStockId(stock.id);
+      setSelectedStockId(stockId);
     }
   };
   return (
@@ -113,11 +95,10 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Live Market - Top 100 Characters
+              Live Market - Most Active Characters
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Explore the most valuable anime characters in real-time. Search
-              and discover your favorites.
+              Track the characters with the most trade activity right now, or search for your favorites.
             </p>
           </div>
 
@@ -125,27 +106,10 @@ export default function LandingPage() {
             <MarketOverview />
 
             <div className="w-full max-w-md mx-auto">
-              <SearchMarket
-                stocks={top100Stocks}
-                onSelectStock={handleSelectStock}
-              />
+              <SearchMarket stocks={stocks} onSelectStock={(stock) => handleSelectStock(stock.id)} />
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              {top100Stocks.map((stock) => (
-                <StockCard
-                  key={stock.id}
-                  stock={stock}
-                  onBuy={() => {
-                    if (!currentUser) {
-                      router.push("/auth/signin");
-                    } else {
-                      setSelectedStockId(stock.id);
-                    }
-                  }}
-                />
-              ))}
-            </div>
+            <TopStocksSection topStocks={stocks} onBuy={handleSelectStock} />
           </div>
 
           <div className="text-center mt-12">

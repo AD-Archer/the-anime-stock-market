@@ -1,4 +1,4 @@
-import { ID } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { PriceHistory } from "../types";
 import {
@@ -15,11 +15,22 @@ export const priceHistoryService = {
   async getAll(): Promise<PriceHistory[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(
-        dbId,
-        PRICE_HISTORY_COLLECTION
-      );
-      return response.documents.map(mapPriceHistory);
+      const all: PriceHistory[] = [];
+      let offset = 0;
+      const limit = 100; // Appwrite max limit is 100
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          PRICE_HISTORY_COLLECTION,
+          [Query.limit(limit), Query.offset(offset)]
+        );
+        all.push(...response.documents.map(mapPriceHistory));
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return all;
     } catch (error) {
       console.warn("Failed to fetch price history from database:", error);
       return [];
