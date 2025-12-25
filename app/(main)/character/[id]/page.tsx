@@ -530,47 +530,50 @@ export default function CharacterPage({
       (s) => generateCharacterSlug(s.characterSlug) === normalizedId
     ) ||
     stocks.find((s) => s.id === id);
-  const priceHistory = getStockPriceHistory(id);
+  const stockId = stock?.id ?? id;
+  const characterIdentifiers =
+    stockId === id ? [stockId] : [stockId, id];
+  const priceHistory = getStockPriceHistory(stockId);
   const characterTransactions = transactions
-    .filter((t) => t.stockId === id)
+    .filter((t) => characterIdentifiers.includes(t.stockId))
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  const comments = getCharacterComments(id);
-  const userShares = useMemo(() => {
-    if (!currentUser) return 0;
-    const portfolio = getUserPortfolio(currentUser.id).find(
-      (p) => p.stockId === id
-    );
-    return portfolio?.shares ?? 0;
-  }, [currentUser, getUserPortfolio, id]);
+  const comments = Array.from(
+    new Map(
+      characterIdentifiers
+        .flatMap((identifier) => getCharacterComments(identifier))
+        .map((comment) => [comment.id, comment])
+    ).values()
+  );
+  const userShares = currentUser
+    ? (getUserPortfolio(currentUser.id).find((p) =>
+        characterIdentifiers.includes(p.stockId)
+      )?.shares ?? 0)
+    : 0;
   const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
 
   // Process comments into threaded structure
-  const { commentMap, rootComments } = useMemo(() => {
-    const commentMap = new Map<string, Comment & { replies: Comment[] }>();
-    const rootComments: (Comment & { replies: Comment[] })[] = [];
+  const commentMap = new Map<string, Comment & { replies: Comment[] }>();
+  const rootComments: (Comment & { replies: Comment[] })[] = [];
 
-    // First pass: create comment objects with empty replies arrays
-    comments.forEach((comment) => {
-      commentMap.set(comment.id, { ...comment, replies: [] });
-    });
+  // First pass: create comment objects with empty replies arrays
+  comments.forEach((comment) => {
+    commentMap.set(comment.id, { ...comment, replies: [] });
+  });
 
-    // Second pass: build the tree structure
-    comments.forEach((comment) => {
-      if (comment.parentId) {
-        const parent = commentMap.get(comment.parentId);
-        if (parent) {
-          parent.replies.push(commentMap.get(comment.id)!);
-        }
-      } else {
-        rootComments.push(commentMap.get(comment.id)!);
+  // Second pass: build the tree structure
+  comments.forEach((comment) => {
+    if (comment.parentId) {
+      const parent = commentMap.get(comment.parentId);
+      if (parent) {
+        parent.replies.push(commentMap.get(comment.id)!);
       }
-    });
+    } else {
+      rootComments.push(commentMap.get(comment.id)!);
+    }
+  });
 
-    // Sort root comments by timestamp (newest first)
-    rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    return { commentMap, rootComments };
-  }, [comments]);
+  // Sort root comments by timestamp (newest first)
+  rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   if (!stock) {
     return (
@@ -610,7 +613,7 @@ export default function CharacterPage({
       await addComment({
         animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
         content: comment,
-        characterId: id,
+        characterId: stockId,
         tags,
       });
       setComment("");
@@ -627,7 +630,7 @@ export default function CharacterPage({
       await addComment({
         animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
         content,
-        characterId: id,
+        characterId: stockId,
         parentId,
         tags,
       });
@@ -1128,7 +1131,7 @@ export default function CharacterPage({
               </CardContent>
             </Card>
 
-            <ComparisonChart initialStockId={id} timeRange={timeRange} />
+            <ComparisonChart initialStockId={stockId} timeRange={timeRange} />
 
             {/* Desktop: Activity & Comments Section */}
             {!isMobile && (
@@ -1321,11 +1324,11 @@ export default function CharacterPage({
       </div>
 
       {showBuyDialog && (
-        <BuyDialog stockId={id} onClose={() => setShowBuyDialog(false)} />
+        <BuyDialog stockId={stockId} onClose={() => setShowBuyDialog(false)} />
       )}
       {showSellDialog && (
         <SellDialog
-          stockId={id}
+          stockId={stockId}
           maxShares={userShares}
           onClose={() => setShowSellDialog(false)}
         />
