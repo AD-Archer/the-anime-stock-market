@@ -933,6 +933,16 @@ export default function CharacterPage({
                     ${(stock.currentPrice * stock.totalShares).toFixed(2)}
                   </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Your Shares
+                  </span>
+                  <span className="font-mono text-foreground">
+                    {currentUser
+                      ? userShares.toLocaleString()
+                      : "Sign in to view"}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

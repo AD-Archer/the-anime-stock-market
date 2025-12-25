@@ -37,12 +37,14 @@ import {
   COMMENTS_COLLECTION,
   FRIENDS_COLLECTION,
   NOTIFICATIONS_COLLECTION,
+  TRANSACTIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
   mapComment,
   mapFriend,
   mapNotification,
   mapPriceHistory,
+  mapTransaction,
   mapStock,
 } from "./database";
 import { awardService } from "./database/awardService";
@@ -60,7 +62,7 @@ import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
 import { createDailyRewardActions } from "./store/daily-rewards";
 import type { StoreState } from "./store/types";
-import type { User } from "./types";
+import type { User, Transaction } from "./types";
 import { generateDisplaySlug } from "./usernames";
 
 export const useStore = create<StoreState>((set, get) => {
@@ -200,6 +202,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? notificationsData
             : initialNotifications
           ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+          transactions:
+            transactionsData.length > 0
+              ? transactionsData
+              : initialTransactions,
           priceHistory:
             priceHistoryData.length > 0
               ? priceHistoryData
@@ -543,6 +549,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch {}
       try {
         friendsUnsub();
+      } catch {}
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const sortTransactions = (txs: Transaction[]) =>
+      [...txs].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    const transactionsUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${TRANSACTIONS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create") || event.includes("update")) {
+          const newTx = mapTransaction(document);
+          useStore.setState((state) => {
+            const existingIndex = state.transactions.findIndex(
+              (t) => t.id === newTx.id
+            );
+            if (existingIndex !== -1) {
+              const updated = [...state.transactions];
+              updated[existingIndex] = newTx;
+              return { transactions: sortTransactions(updated) };
+            }
+            return {
+              transactions: sortTransactions([...state.transactions, newTx]),
+            };
+          });
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => ({
+            transactions: state.transactions.filter((t) => t.id !== deletedId),
+          }));
+        }
+      }
+    );
+
+    return () => {
+      try {
+        transactionsUnsub();
       } catch {}
     };
   }, [isLoading]);
