@@ -318,7 +318,7 @@ async function addCharacterStock(
         });
       }
 
-      await mergeDuplicatesByCharacter(anilistCharacterId, characterName);
+      await mergeDuplicatesByCharacter(characterId, characterName);
 
       return {
         added: false,
