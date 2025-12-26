@@ -612,16 +612,39 @@ export function createMarketActions({
   const createStock = async (stock: Omit<Stock, "id" | "createdAt">) => {
     const { stocks, priceHistory, logAdminAction, users, sendNotification } =
       getState();
-    const newStock: Stock = {
-      ...stock,
-      id: generateShortId(),
-      createdAt: new Date(),
-    };
 
-    // Check if stock already exists
+    // Generate ID with retry logic to avoid collisions
+    let newStock: Stock;
+    let attempts = 0;
+    do {
+      newStock = {
+        ...stock,
+        id: generateShortId(),
+        createdAt: new Date(),
+      };
+      attempts++;
+    } while (stocks.some((s) => s.id === newStock.id) && attempts < 10);
+
+    if (attempts >= 10) {
+      throw new Error("Failed to generate unique stock ID after 10 attempts");
+    }
+
+    // Double-check if stock already exists (in case of race condition)
     if (stocks.some((s) => s.id === newStock.id)) {
       console.warn("Stock already exists:", newStock.id);
       return;
+    }
+
+    // Check if a stock with the same character and anime already exists
+    const existingStock = stocks.find(
+      (s) =>
+        s.characterName.toLowerCase() === stock.characterName.toLowerCase() &&
+        s.anime.toLowerCase() === stock.anime.toLowerCase()
+    );
+    if (existingStock) {
+      throw new Error(
+        `A stock for ${stock.characterName} from ${stock.anime} already exists`
+      );
     }
 
     // Persist to database first
@@ -695,7 +718,7 @@ export function createMarketActions({
     let totalAssignedShares = 0;
     const updatedPortfolios = portfolios.map((p, index) => {
       if (p.stockId !== stockId) return p;
-      
+
       const exactNewShares = p.shares * valueAdjustmentRatio;
       const newShares = Math.round(exactNewShares);
       totalAssignedShares += newShares;
@@ -705,23 +728,28 @@ export function createMarketActions({
     // Adjust for rounding errors by giving remaining shares to first portfolio
     const expectedTotalShares = Math.round(ownedShares * valueAdjustmentRatio);
     const roundingError = expectedTotalShares - totalAssignedShares;
-    
-    if (roundingError !== 0 && updatedPortfolios.some(p => p.stockId === stockId)) {
-      const firstPortfolio = updatedPortfolios.find(p => p.stockId === stockId)!;
+
+    if (
+      roundingError !== 0 &&
+      updatedPortfolios.some((p) => p.stockId === stockId)
+    ) {
+      const firstPortfolio = updatedPortfolios.find(
+        (p) => p.stockId === stockId
+      )!;
       firstPortfolio.shares += roundingError;
       totalAssignedShares += roundingError;
     }
 
     // Calculate additional shares needed to support all adjusted portfolios
     const sharesRequiredForPortfolios = updatedPortfolios
-      .filter(p => p.stockId === stockId)
+      .filter((p) => p.stockId === stockId)
       .reduce((sum, p) => sum + p.shares, 0);
-    
+
     const additionalSharesNeeded = Math.max(
       0,
       sharesRequiredForPortfolios - stock.availableShares
     );
-    
+
     // Update stock with new price and additional shares if needed
     const newTotalShares = stock.totalShares + additionalSharesNeeded;
     const newAvailableShares = stock.availableShares + additionalSharesNeeded;

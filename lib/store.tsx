@@ -649,9 +649,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (event.includes("create")) {
           const newStock = mapStock(document);
-          useStore.setState((state) => ({
-            stocks: [...state.stocks, newStock],
-          }));
+          useStore.setState((state) => {
+            // Only add if it doesn't already exist (prevent duplicates from manual creation)
+            if (!state.stocks.some((s) => s.id === newStock.id)) {
+              return { stocks: [...state.stocks, newStock] };
+            }
+            return state;
+          });
         } else if (event.includes("update")) {
           const updatedStock = mapStock(document);
           useStore.setState((state) => ({

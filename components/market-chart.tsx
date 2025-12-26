@@ -33,6 +33,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatCurrencyCompact } from "@/lib/utils";
+
+const CustomTooltip = ({ active, payload, label, config }: any) => {
+  if (!active || !payload || payload.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-sm">
+      <p className="mb-2 font-medium text-foreground">{label}</p>
+      <div className="space-y-1">
+        {payload.map((entry: any) => {
+          const key = entry.dataKey ?? "";
+          const labelText = config[key]?.label ?? String(key);
+          const color = config[key]?.color ?? entry.color ?? "currentColor";
+          return (
+            <div key={String(key)} className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-muted-foreground">{labelText}</span>
+              <span className="ml-auto text-foreground">
+                {formatCurrencyCompact(entry.value)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const CHART_COLORS = [
   "var(--chart-1)",
@@ -50,15 +80,14 @@ const CHART_COLORS = [
 type TimePeriod = "day" | "week" | "biweekly" | "month" | "year";
 type StockFilter = "most_active" | "most_expensive" | "market_cap";
 
-interface MarketChartProps {
-  filter?: StockFilter;
-}
+interface MarketChartProps {}
 
-export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
+export function MarketChart({}: MarketChartProps = {}) {
   const { stocks, transactions, getStockPriceHistory } = useStore();
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
+  const [filter, setFilter] = useState<StockFilter>("most_active");
   const [hiddenCharacters, setHiddenCharacters] = useState<Set<string>>(
     new Set()
   );
@@ -74,51 +103,57 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
   }, []);
 
   // Get top 10 stocks by selected filter
-  const stockActivity = new Map<string, number>();
-  transactions.forEach((transaction) => {
-    const currentCount = stockActivity.get(transaction.stockId) || 0;
-    stockActivity.set(transaction.stockId, currentCount + 1);
-  });
+  const stockActivity = useMemo(() => {
+    const activity = new Map<string, number>();
+    transactions.forEach((transaction) => {
+      const currentCount = activity.get(transaction.stockId) || 0;
+      activity.set(transaction.stockId, currentCount + 1);
+    });
+    return activity;
+  }, [transactions]);
 
-  // Sort based on filter
-  let topStocks: any[] = [];
-  switch (filter) {
-    case "most_active":
-      topStocks = [...stocks]
-        .filter((stock) => (stockActivity.get(stock.id) || 0) > 0)
-        .sort((a, b) => {
-          const aActivity = stockActivity.get(a.id) || 0;
-          const bActivity = stockActivity.get(b.id) || 0;
-          return bActivity - aActivity;
-        })
-        .slice(0, 10);
-      break;
-    case "most_expensive":
-      topStocks = [...stocks]
-        .sort((a, b) => b.currentPrice - a.currentPrice)
-        .slice(0, 10);
-      break;
-    case "market_cap":
-      topStocks = [...stocks]
+  const topStocks = useMemo(() => {
+    let result: any[] = [];
+    switch (filter) {
+      case "most_active":
+        result = [...stocks]
+          .filter((stock) => (stockActivity.get(stock.id) || 0) > 0)
+          .sort((a, b) => {
+            const aActivity = stockActivity.get(a.id) || 0;
+            const bActivity = stockActivity.get(b.id) || 0;
+            return bActivity - aActivity;
+          })
+          .slice(0, 10);
+        break;
+      case "most_expensive":
+        result = [...stocks]
+          .sort((a, b) => b.currentPrice - a.currentPrice)
+          .slice(0, 10);
+        break;
+      case "market_cap":
+        result = [...stocks]
+          .sort(
+            (a, b) =>
+              b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
+          )
+          .slice(0, 10);
+        break;
+    }
+
+    // Fallback: if most_active has less than 10, add from others
+    if (filter === "most_active" && result.length < 10) {
+      const activeIds = new Set(result.map((s) => s.id));
+      const inactiveStocks = [...stocks]
+        .filter((stock) => !activeIds.has(stock.id))
         .sort(
           (a, b) =>
             b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-        )
-        .slice(0, 10);
-      break;
-  }
+        );
+      result = [...result, ...inactiveStocks].slice(0, 10);
+    }
 
-  // Fallback: if most_active has less than 10, add from others
-  if (filter === "most_active" && topStocks.length < 10) {
-    const activeIds = new Set(topStocks.map((s) => s.id));
-    const inactiveStocks = [...stocks]
-      .filter((stock) => !activeIds.has(stock.id))
-      .sort(
-        (a, b) =>
-          b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-      );
-    topStocks = [...topStocks, ...inactiveStocks].slice(0, 10);
-  }
+    return result;
+  }, [stocks, filter, stockActivity]);
 
   const chartConfig = useMemo<ChartConfig>(() => {
     const entries = topStocks.map((stock, index) => [
@@ -216,6 +251,12 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
               day: "numeric",
             });
             break;
+          case "biweekly":
+            dateKey = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            break;
           case "month":
             dateKey = date.toLocaleDateString("en-US", {
               month: "short",
@@ -239,6 +280,53 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
         dateMap.set(dateKey, lastValue);
         allDates.add(dateKey);
       });
+
+      // If no historical data, add current market cap as a data point
+      if (filteredHistory.length === 0) {
+        const currentDate = new Date();
+        let currentDateKey: string;
+        switch (timePeriod) {
+          case "day":
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+            });
+            break;
+          case "week":
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            break;
+          case "biweekly":
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            break;
+          case "month":
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            break;
+          case "year":
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            });
+            break;
+          default:
+            currentDateKey = currentDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+        }
+        const currentMarketCap = stock.currentPrice * stock.totalShares;
+        dateMap.set(currentDateKey, currentMarketCap);
+        allDates.add(currentDateKey);
+      }
 
       priceDataByStock.set(stock.id, dateMap);
     });
@@ -282,21 +370,37 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
                   Top 10 characters by trading activity
                 </CardDescription>
               </div>
-              <Select
-                value={timePeriod}
-                onValueChange={(value: TimePeriod) => setTimePeriod(value)}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">Last Day</SelectItem>
-                  <SelectItem value="week">Last Week</SelectItem>
-                  <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
-                  <SelectItem value="month">Last Month</SelectItem>
-                  <SelectItem value="year">Last Year</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select
+                  value={filter}
+                  onValueChange={(value: StockFilter) => setFilter(value)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="most_active">Most Active</SelectItem>
+                    <SelectItem value="most_expensive">
+                      Most Expensive
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={timePeriod}
+                  onValueChange={(value: TimePeriod) => setTimePeriod(value)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Last Day</SelectItem>
+                    <SelectItem value="week">Last Week</SelectItem>
+                    <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
+                    <SelectItem value="month">Last Month</SelectItem>
+                    <SelectItem value="year">Last Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
               {topStocks.map((stock, index) => (
@@ -340,21 +444,35 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
                 Top 10 characters by trading activity
               </CardDescription>
             </div>
-            <Select
-              value={timePeriod}
-              onValueChange={(value: TimePeriod) => setTimePeriod(value)}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Last Day</SelectItem>
-                <SelectItem value="week">Last Week</SelectItem>
-                <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
-                <SelectItem value="month">Last Month</SelectItem>
-                <SelectItem value="year">Last Year</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select
+                value={filter}
+                onValueChange={(value: StockFilter) => setFilter(value)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="most_active">Most Active</SelectItem>
+                  <SelectItem value="most_expensive">Most Expensive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={timePeriod}
+                onValueChange={(value: TimePeriod) => setTimePeriod(value)}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Last Day</SelectItem>
+                  <SelectItem value="week">Last Week</SelectItem>
+                  <SelectItem value="biweekly">Last 2 Weeks</SelectItem>
+                  <SelectItem value="month">Last Month</SelectItem>
+                  <SelectItem value="year">Last Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             {topStocks.map((stock, index) => {
@@ -428,10 +546,11 @@ export function MarketChart({ filter = "most_active" }: MarketChartProps = {}) {
                   tick={{ fill: "currentColor" }}
                   fontSize={isMobile ? 10 : 12}
                   width={isMobile ? 40 : 60}
+                  tickFormatter={(value) => formatCurrencyCompact(value)}
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent />}
+                  content={<CustomTooltip config={chartConfig} />}
                 />
                 {visibleStocks.map((stock) => (
                   <Line

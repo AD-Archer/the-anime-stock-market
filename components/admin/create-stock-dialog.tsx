@@ -38,6 +38,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
   const [rateLimit, setRateLimit] = useState<any>(null);
   const [importResult, setImportResult] = useState<any>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     characterName: "",
@@ -228,10 +229,12 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
         imageUrl: "",
       });
 
+      setManualError(null); // Clear any previous errors
       onClose();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       console.error("Failed to create stock:", error);
+      setManualError(errorMsg);
       toast({
         title: "Error Creating Stock",
         description: errorMsg,
@@ -340,7 +343,10 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
             {/* Tab Selection */}
             <div className="flex gap-2 border-b mb-4 -mx-4 sm:mx-0 px-4 sm:px-0">
               <button
-                onClick={() => setImportMode("anilist")}
+                onClick={() => {
+                  setImportMode("anilist");
+                  setManualError(null);
+                }}
                 className={`pb-2 px-4 font-medium ${
                   importMode === "anilist"
                     ? "border-b-2 border-blue-500 text-blue-600"
@@ -350,7 +356,10 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
                 Import from AniList
               </button>
               <button
-                onClick={() => setImportMode("manual")}
+                onClick={() => {
+                  setImportMode("manual");
+                  setImportError(null);
+                }}
                 className={`pb-2 px-4 font-medium ${
                   importMode === "manual"
                     ? "border-b-2 border-blue-500 text-blue-600"
@@ -418,6 +427,17 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
             {/* Manual Entry Mode */}
             {importMode === "manual" && (
               <div className="grid gap-4 py-4">
+                {manualError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <p className="font-semibold text-red-900">
+                        Creation Failed
+                      </p>
+                    </div>
+                    <p className="text-sm text-red-800">{manualError}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="characterName">Character Name *</Label>

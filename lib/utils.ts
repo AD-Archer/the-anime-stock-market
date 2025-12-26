@@ -57,6 +57,24 @@ export function formatCurrencyCompact(
   value: number,
   options?: Intl.NumberFormatOptions
 ): string {
+  // For extremely large numbers, use a cleaner format without commas
+  if (Math.abs(value) >= 1000000000000000) {
+    // 1 quadrillion
+    const absValue = Math.abs(value);
+    const sign = value < 0 ? "-" : "";
+
+    if (absValue >= 1000000000000000000000) {
+      // Sextillion+
+      return `${sign}$${(absValue / 1000000000000000000000).toFixed(1)}S`;
+    } else if (absValue >= 1000000000000000000) {
+      // Quintillion+
+      return `${sign}$${(absValue / 1000000000000000000).toFixed(1)}Q`;
+    } else if (absValue >= 1000000000000000) {
+      // Quadrillion+
+      return `${sign}$${(absValue / 1000000000000000).toFixed(1)}T`;
+    }
+  }
+
   return new Intl.NumberFormat(undefined, {
     notation: "compact",
     maximumFractionDigits: 1,

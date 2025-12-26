@@ -65,6 +65,20 @@ export function StockManagement() {
   }, [query]);
 
   const displayedStocks = serverResults ?? (query.trim() ? [] : stocks);
+
+  // Deduplicate stocks by ID to prevent React key errors
+  const deduplicatedStocks = displayedStocks.filter(
+    (stock, index, arr) => arr.findIndex((s) => s.id === stock.id) === index
+  );
+
+  // Log warning if duplicates were found
+  if (deduplicatedStocks.length !== displayedStocks.length) {
+    console.warn(
+      `Found ${
+        displayedStocks.length - deduplicatedStocks.length
+      } duplicate stocks in displayedStocks`
+    );
+  }
   const { toast } = useToast();
   const [editingStock, setEditingStock] = useState<string | null>(null);
   const [newPrice, setNewPrice] = useState("");
@@ -158,7 +172,7 @@ export function StockManagement() {
         {/* Dedupe admin action */}
       </div>
 
-      {displayedStocks.map((stock) => {
+      {deduplicatedStocks.map((stock) => {
         const priceHistory = getStockPriceHistory(stock.id);
         let priceChange = 0;
         if (priceHistory.length >= 2) {
