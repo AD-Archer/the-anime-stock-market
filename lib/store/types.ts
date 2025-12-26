@@ -51,6 +51,8 @@ export interface StoreContextType {
   dailyRewards: DailyReward[];
   messages: Message[];
   conversations: Conversation[];
+  lastMarketDriftAt: Date | null;
+  marketDriftEnabled: boolean;
   // Support tickets
   supportTickets: import("../types").SupportTicket[];
   // Character suggestions
@@ -111,6 +113,9 @@ export interface StoreContextType {
     shares: number
   ) => Promise<void>;
   inflateMarket: (percentage: number) => void;
+  applyDailyMarketDrift: (options?: { force?: boolean }) => Promise<void>;
+  setMarketDriftEnabled: (enabled: boolean) => void;
+  triggerMarketDriftNow: () => Promise<void>;
   massCreateShares: (
     shareCount: number,
     dilutePrices?: boolean,

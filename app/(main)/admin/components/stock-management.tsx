@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Edit, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 export function StockManagement() {
   const {
@@ -31,6 +32,15 @@ export function StockManagement() {
   const [serverResults, setServerResults] = useState<typeof stocks | null>(
     null
   );
+  const [limit, setLimit] = useState(20);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Debounced server-side search when query is present
   useEffect(() => {
@@ -64,7 +74,8 @@ export function StockManagement() {
     };
   }, [query]);
 
-  const displayedStocks = serverResults ?? (query.trim() ? [] : stocks);
+  const displayedStocks =
+    serverResults ?? (query.trim() ? [] : stocks.slice(0, limit));
 
   // Deduplicate stocks by ID to prevent React key errors
   const deduplicatedStocks = displayedStocks.filter(
@@ -204,9 +215,11 @@ export function StockManagement() {
                     <p className="text-sm text-muted-foreground">
                       {stock.anime}
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {stock.description}
-                    </p>
+                    <TruncatedText
+                      text={stock.description || ""}
+                      maxLength={isMobile ? 80 : 240}
+                      className="mt-1 text-sm text-muted-foreground"
+                    />
                   </div>
                 </Link>
                 <div className="flex gap-2">

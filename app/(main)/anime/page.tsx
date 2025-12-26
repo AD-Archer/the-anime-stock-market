@@ -98,7 +98,7 @@ export default function AnimePage() {
           {animeList.map((anime) => (
             <Link key={anime.id} href={`/anime/${anime.id}`}>
               <Card className="overflow-hidden transition-all hover:shadow-lg">
-                <div className="relative h-40 w-full bg-muted">
+                <div className="relative h-52 w-full bg-muted">
                   <Image
                     src={anime.coverImage}
                     alt={`${anime.name} cover art`}

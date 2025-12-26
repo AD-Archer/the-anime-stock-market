@@ -133,6 +133,8 @@ export const useStore = create<StoreState>((set, get) => {
     dailyRewards: [],
     messages: [],
     conversations: [],
+    lastMarketDriftAt: null,
+    marketDriftEnabled: true,
     ...notificationActions,
     ...commentActions,
     ...userActions,
@@ -152,6 +154,26 @@ export const useStore = create<StoreState>((set, get) => {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const isLoading = useStore((state) => state.isLoading);
+
+  // Hydrate drift state from localStorage so we don't apply drift multiple times per real day on reload and honor admin toggle.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("market:lastDriftAt");
+    const storedEnabled = localStorage.getItem("market:driftEnabled");
+
+    if (stored) {
+      const parsed = new Date(stored);
+      if (!Number.isNaN(parsed.getTime())) {
+        useStore.setState({ lastMarketDriftAt: parsed });
+      }
+    }
+
+    if (storedEnabled === "0") {
+      useStore.setState({ marketDriftEnabled: false });
+    } else if (storedEnabled === "1") {
+      useStore.setState({ marketDriftEnabled: true });
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -433,6 +455,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           friends: initialFriends,
           dailyRewards: initialDailyRewards,
           currentUser: null,
+          lastMarketDriftAt: null,
+          marketDriftEnabled: true,
         });
       } finally {
         useStore.setState({ isLoading: false });
@@ -441,6 +465,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     loadData();
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    const intervalMs =
+      Number(process.env.NEXT_PUBLIC_MARKET_DRIFT_INTERVAL_MS || "") ||
+      24 * 60 * 60 * 1000;
+
+    const maybeRunDrift = () => {
+      const state = useStore.getState();
+      if (
+        state.isLoading ||
+        state.stocks.length === 0 ||
+        !state.marketDriftEnabled
+      )
+        return;
+
+      const last = state.lastMarketDriftAt;
+      const now = new Date();
+      if (!last || now.getTime() - last.getTime() >= intervalMs) {
+        state
+          .applyDailyMarketDrift()
+          .catch((error) =>
+            console.warn("Failed to apply scheduled market drift:", error)
+          );
+      }
+    };
+
+    maybeRunDrift();
+    const driftInterval = setInterval(maybeRunDrift, intervalMs);
+
+    return () => clearInterval(driftInterval);
+  }, [authLoading]);
 
   const mergePriceHistory = useCallback((incoming: PriceHistory[]) => {
     if (!incoming.length) return;

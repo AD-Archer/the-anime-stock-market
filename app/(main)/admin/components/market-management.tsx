@@ -11,12 +11,22 @@ import { useToast } from "@/hooks/use-toast";
 import { TrendingUp, DollarSign, BarChart3, AlertTriangle } from "lucide-react";
 
 export function MarketManagement() {
-  const { stocks, inflateMarket, getMarketData, massCreateShares } = useStore();
+  const {
+    stocks,
+    inflateMarket,
+    getMarketData,
+    massCreateShares,
+    marketDriftEnabled,
+    lastMarketDriftAt,
+    setMarketDriftEnabled,
+    applyDailyMarketDrift,
+  } = useStore();
   const { toast } = useToast();
   const [inflationPercentage, setInflationPercentage] = useState("");
   const [shareCount, setShareCount] = useState("");
   const [dilutePrices, setDilutePrices] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRunningDrift, setIsRunningDrift] = useState(false);
   const [progress, setProgress] = useState<{
     current: number;
     total: number;
@@ -100,6 +110,47 @@ export function MarketManagement() {
     }
   };
 
+  const handleToggleDrift = () => {
+    const next = !marketDriftEnabled;
+    setMarketDriftEnabled(next);
+    toast({
+      title: `Drift ${next ? "Enabled" : "Disabled"}`,
+      description: next
+        ? "Daily drift will resume on the next interval."
+        : "Automatic daily drift has been paused.",
+    });
+  };
+
+  const handleRunDriftNow = async () => {
+    setIsRunningDrift(true);
+    try {
+      await applyDailyMarketDrift({ force: true });
+      toast({
+        title: "Drift Applied",
+        description: "Applied immediate market drift to all stocks.",
+      });
+    } catch (error) {
+      console.error("Failed to apply drift now:", error);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Error Applying Drift",
+        description: errorMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningDrift(false);
+    }
+  };
+
+  const formatLastDrift = () => {
+    if (!lastMarketDriftAt) return "Never";
+    try {
+      return lastMarketDriftAt.toLocaleString();
+    } catch {
+      return "Unknown";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -154,6 +205,42 @@ export function MarketManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Market Drift */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span>Daily Drift</span>
+            <span
+              className={`text-sm font-medium ${
+                marketDriftEnabled ? "text-green-600" : "text-destructive"
+              }`}
+            >
+              {marketDriftEnabled ? "Enabled" : "Disabled"}
+            </span>
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Small daily drift to simulate a gentle market index trend. Toggle or
+            run it immediately for all stocks.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-sm text-muted-foreground">
+            Last drift: {formatLastDrift()}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant={marketDriftEnabled ? "secondary" : "default"}
+              onClick={handleToggleDrift}
+            >
+              {marketDriftEnabled ? "Disable Drift" : "Enable Drift"}
+            </Button>
+            <Button onClick={handleRunDriftNow} disabled={isRunningDrift}>
+              {isRunningDrift ? "Applying..." : "Run Drift Now"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Market Controls */}
       <Card>

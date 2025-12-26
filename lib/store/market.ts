@@ -1216,6 +1216,108 @@ export function createMarketActions({
   const getMarketData = (): MarketDataPoint[] =>
     buildMarketData(getState().priceHistory);
 
+  const setMarketDriftEnabled = (enabled: boolean) => {
+    setState({ marketDriftEnabled: enabled });
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("market:driftEnabled", enabled ? "1" : "0");
+      } catch (storageError) {
+        console.warn("Failed to persist market drift toggle:", storageError);
+      }
+    }
+  };
+
+  const triggerMarketDriftNow = async () => {
+    await applyDailyMarketDrift({ force: true });
+  };
+
+  const applyDailyMarketDrift = async (
+    options?: { force?: boolean }
+  ): Promise<void> => {
+    const { stocks, priceHistory, lastMarketDriftAt, marketDriftEnabled } =
+      getState();
+    if (stocks.length === 0) return;
+    if (!marketDriftEnabled && !options?.force) return;
+
+    const prevStocks = stocks;
+    const prevPriceHistory = priceHistory;
+    const prevDrift = lastMarketDriftAt;
+
+    // Bias toward slow growth with a tiny per-day drift and small symmetric noise
+    const baseDrift = 0.0002 + Math.random() * 0.0003; // 0.02% to 0.05%
+    const now = new Date();
+
+    const stockUpdates = stocks.map((stock) => {
+      const noise = (Math.random() - 0.5) * 0.002; // -0.1% to +0.1%
+      const drift = baseDrift + noise;
+      const multiplier = 1 + drift;
+      const updatedPrice = Math.max(
+        0.01,
+        Number((stock.currentPrice * multiplier).toFixed(2))
+      );
+      return { stockId: stock.id, updatedPrice };
+    });
+
+    const priceHistoryEntries = stockUpdates.map((update) => ({
+      id: uuidv4(),
+      stockId: update.stockId,
+      price: update.updatedPrice,
+      timestamp: now,
+    }));
+
+    setState((state) => ({
+      stocks: state.stocks.map((stock) => {
+        const update = stockUpdates.find((u) => u.stockId === stock.id);
+        return update ? { ...stock, currentPrice: update.updatedPrice } : stock;
+      }),
+      priceHistory: [...state.priceHistory, ...priceHistoryEntries],
+      lastMarketDriftAt: now,
+    }));
+
+    try {
+      const batchSize = 25;
+      const pause = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      for (let i = 0; i < stockUpdates.length; i += batchSize) {
+        const stockBatch = stockUpdates.slice(i, i + batchSize);
+        const historyBatch = priceHistoryEntries.slice(i, i + batchSize);
+
+        await Promise.all([
+          ...stockBatch.map((update) =>
+            stockService.update(update.stockId, {
+              currentPrice: update.updatedPrice,
+            })
+          ),
+          ...historyBatch.map((entry) => priceHistoryService.create(entry)),
+        ]);
+
+        // Small pause between batches to avoid Appwrite rate limits
+        if (i + batchSize < stockUpdates.length) {
+          await pause(200);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("market:lastDriftAt", now.toISOString());
+        } catch (storageError) {
+          console.warn(
+            "Failed to persist daily market drift timestamp:",
+            storageError
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to apply daily market drift:", error);
+      setState({
+        stocks: prevStocks,
+        priceHistory: prevPriceHistory,
+        lastMarketDriftAt: prevDrift ?? null,
+      });
+    }
+  };
+
   const inflateMarket = (percentage: number) => {
     const { stocks, priceHistory, logAdminAction } = getState();
     const multiplier = 1 + percentage / 100;
@@ -1502,6 +1604,9 @@ export function createMarketActions({
     getUserPortfolio,
     getStockPriceHistory,
     getMarketData,
+    applyDailyMarketDrift,
+    setMarketDriftEnabled,
+    triggerMarketDriftNow,
     inflateMarket,
     createBuybackOffer,
     acceptBuybackOffer,

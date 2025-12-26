@@ -13,7 +13,11 @@ export function MarketTicker({
   limit?: number;
   duration?: number;
 }) {
-  const { stocks, getStockPriceHistory } = useStore();
+  const stocks = useStore((state) => state.stocks);
+  const priceHistory = useStore((state) => state.priceHistory);
+  const getStockPriceHistory = useStore(
+    (state) => state.getStockPriceHistory
+  );
 
   const top = useMemo(() => {
     return [...stocks]

@@ -44,6 +44,7 @@ import { ReportModal } from "@/components/report-modal";
 import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
 import { Input } from "@/components/ui/input";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { getUserProfileHref } from "@/lib/user-profile";
@@ -553,14 +554,16 @@ export default function AnimeDetailPage({
   const _initForAnime = useRef<string | null>(null);
 
   useEffect(() => {
-    if (_initForAnime.current === id) return;
+    if (_initForAnime.current === id && !isMobile) return;
+
+    const effectiveMax = isMobile ? 3 : MAX_CHART_SERIES;
 
     const topIds = [...animeCharacters]
       .sort(
         (a, b) =>
           b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
       )
-      .slice(0, MAX_CHART_SERIES)
+      .slice(0, effectiveMax)
       .map((s) => s.id);
 
     // Avoid synchronous setState inside effect to prevent cascading renders
@@ -570,7 +573,7 @@ export default function AnimeDetailPage({
     }, 0);
 
     return () => clearTimeout(tid);
-  }, [animeCharacters, id]);
+  }, [animeCharacters, id, isMobile]);
 
   // Server-backed search for characters on this anime page
   const [searchQuery, setSearchQuery] = useState("");
@@ -681,6 +684,10 @@ export default function AnimeDetailPage({
     animeCharacters.find((char) => char.imageUrl)?.imageUrl ||
     "/placeholder.svg";
   const comments = getAnimeComments(id);
+
+  const [activeTab, setActiveTab] = useState<"comments" | "animeTransactions">(
+    "comments"
+  );
 
   // Process comments into threaded structure
   const { commentMap, rootComments } = useMemo(() => {
@@ -819,8 +826,8 @@ export default function AnimeDetailPage({
           </Button>
         </Link>
 
-        <div className="mb-8 grid gap-6 lg:grid-cols-[260px,1fr]">
-          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border bg-muted">
+        <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="relative mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-xl border bg-muted lg:mx-0">
             <Image
               src={animeCoverImage}
               alt={`${animeName || "Anime"} cover art`}
@@ -828,11 +835,9 @@ export default function AnimeDetailPage({
               className="object-cover"
             />
           </div>
-          <div>
-            <h1 className="mb-4 text-4xl font-bold text-foreground">
-              {animeName}
-            </h1>
-            <div className="mt-2 grid gap-4 sm:grid-cols-3">
+          <div className="flex-1 space-y-4">
+            <h1 className="text-4xl font-bold text-foreground">{animeName}</h1>
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <p className="text-sm text-muted-foreground">
                   Total Characters
@@ -905,47 +910,57 @@ export default function AnimeDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-muted-foreground">
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 400}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis
-                    dataKey="date"
-                    stroke="currentColor"
-                    tick={{ fill: "currentColor" }}
-                    fontSize={isMobile ? 10 : 12}
-                    interval={isMobile ? 3 : 0}
-                  />
-                  <YAxis
-                    stroke="currentColor"
-                    tick={{ fill: "currentColor" }}
-                    fontSize={isMobile ? 10 : 12}
-                    width={isMobile ? 40 : 60}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      fontSize: isMobile ? "12px" : "14px",
-                    }}
-                    labelStyle={{ color: "var(--foreground)" }}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }}
-                  />
-                  {selectedStocks.map((stock, index) => (
-                    <Line
-                      key={stock.id}
-                      type="monotone"
-                      dataKey={stock.characterName}
-                      stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                      strokeWidth={isMobile ? 1.5 : 2}
-                      dot={false}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="overflow-x-auto">
+                <div style={{ minWidth: isMobile ? "100%" : 700 }}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height={isMobile ? 300 : 400}
+                  >
+                    <LineChart data={chartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        stroke="currentColor"
+                        tick={{ fill: "currentColor" }}
+                        fontSize={isMobile ? 10 : 12}
+                        interval={isMobile ? 3 : 0}
+                      />
+                      <YAxis
+                        stroke="currentColor"
+                        tick={{ fill: "currentColor" }}
+                        fontSize={isMobile ? 10 : 12}
+                        width={isMobile ? 40 : 60}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          fontSize: isMobile ? "12px" : "14px",
+                        }}
+                        labelStyle={{ color: "var(--foreground)" }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }}
+                      />
+                      {selectedStocks.map((stock, index) => (
+                        <Line
+                          key={stock.id}
+                          type="monotone"
+                          dataKey={stock.characterName}
+                          stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                          strokeWidth={isMobile ? 1.5 : 2}
+                          dot={false}
+                          connectNulls
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -956,15 +971,38 @@ export default function AnimeDetailPage({
             <CardTitle>Activity & Discussion</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="comments">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="comments">
-                  Comments ({rootComments.length})
-                </TabsTrigger>
-                <TabsTrigger value="animeTransactions">
-                  Recent Transactions
-                </TabsTrigger>
-              </TabsList>
+            <Tabs
+              value={activeTab}
+              onValueChange={(v: any) =>
+                setActiveTab(v as "comments" | "animeTransactions")
+              }
+            >
+              {isMobile ? (
+                <div className="mb-3">
+                  <select
+                    value={activeTab}
+                    onChange={(e) => setActiveTab(e.target.value as any)}
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    aria-label="Select activity tab"
+                  >
+                    <option value="comments">
+                      Comments ({rootComments.length})
+                    </option>
+                    <option value="animeTransactions">
+                      Recent Transactions
+                    </option>
+                  </select>
+                </div>
+              ) : (
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="comments">
+                    Comments ({rootComments.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="animeTransactions">
+                    Recent Transactions
+                  </TabsTrigger>
+                </TabsList>
+              )}
 
               <TabsContent value="comments" className="space-y-4">
                 <div className="space-y-2">
