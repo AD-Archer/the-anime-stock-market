@@ -508,8 +508,14 @@ export async function addCharacterStocks(
       updated = 0,
       failed = 0;
     const results = [];
+    let createdStockId: string | null = null;
 
     for (const mediaEdge of character.media.edges) {
+      // Once we have successfully created/linked a stock, stop creating more
+      if (createdStockId) {
+        break;
+      }
+
       const media = mediaEdge.node;
 
       // Fetch full media data to get ranking and image
@@ -539,8 +545,10 @@ export async function addCharacterStocks(
 
       if (result.added) {
         added++;
+        createdStockId = result.id || result.stock?.id || null;
       } else if (result.stock) {
         updated++;
+        createdStockId = result.id || result.stock.id;
       } else if (result.error) {
         failed++;
         console.warn(result.error);

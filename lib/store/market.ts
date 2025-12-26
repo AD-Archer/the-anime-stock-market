@@ -989,6 +989,213 @@ export function createMarketActions({
     }
   };
 
+  const massCreateShares = async (
+    shareCount: number,
+    dilutePrices: boolean = true,
+    onProgress?: (progress: {
+      current: number;
+      total: number;
+      message: string;
+    }) => void
+  ) => {
+    const { stocks, priceHistory, logAdminAction, portfolios, unlockAward } =
+      getState();
+
+    if (shareCount <= 0) return;
+
+    onProgress?.({
+      current: 0,
+      total: stocks.length,
+      message: "Starting mass dilution...",
+    });
+
+    // Calculate dilution for each stock
+    const updatedStocks = stocks.map((stock, index) => {
+      if (dilutePrices) {
+        const shareDilutionFactor = shareCount / stock.totalShares;
+        const newPrice = stock.currentPrice / (1 + shareDilutionFactor);
+        const totalNewShares = stock.totalShares + shareCount;
+
+        onProgress?.({
+          current: index + 1,
+          total: stocks.length,
+          message: `Processing ${stock.characterName}...`,
+        });
+
+        return {
+          ...stock,
+          totalShares: totalNewShares,
+          availableShares: stock.availableShares + shareCount,
+          currentPrice: Number(newPrice.toFixed(2)),
+        };
+      } else {
+        // No dilution - just add shares without changing price
+        onProgress?.({
+          current: index + 1,
+          total: stocks.length,
+          message: `Processing ${stock.characterName}...`,
+        });
+
+        return {
+          ...stock,
+          totalShares: stock.totalShares + shareCount,
+          availableShares: stock.availableShares + shareCount,
+        };
+      }
+    });
+
+    onProgress?.({
+      current: stocks.length,
+      total: stocks.length,
+      message: "Updating stock data...",
+    });
+
+    // Create a single mass dilution price history entry instead of individual entries
+    const massDilutionEntry = dilutePrices
+      ? {
+          id: `mass-dilution-${Date.now()}`,
+          stockId: "mass-dilution", // Special ID to indicate mass operation
+          price: 0, // Not applicable for mass dilution
+          timestamp: new Date(),
+          metadata: {
+            type: "mass_dilution",
+            shareCount,
+            stocksAffected: updatedStocks.length,
+            totalSharesAdded: updatedStocks.length * shareCount,
+            averageDilutionFactor: dilutePrices
+              ? Number(
+                  (
+                    (shareCount /
+                      stocks.reduce((sum, s) => sum + s.totalShares, 0)) *
+                    100
+                  ).toFixed(2)
+                )
+              : 0,
+          },
+        }
+      : null;
+
+    setState((state) => ({
+      stocks: updatedStocks,
+      priceHistory: massDilutionEntry
+        ? [...state.priceHistory, massDilutionEntry]
+        : state.priceHistory,
+    }));
+
+    onProgress?.({
+      current: stocks.length,
+      total: stocks.length,
+      message: "Logging admin action...",
+    });
+
+    // Log a single admin action for the mass operation with retry logic
+    const currentUser = getState().currentUser;
+    if (currentUser) {
+      let retryCount = 0;
+      const maxRetries = 3;
+      const retryDelay = 2000; // 2 seconds
+
+      while (retryCount < maxRetries) {
+        try {
+          await logAdminAction("stock_grant", currentUser.id, {
+            action: dilutePrices
+              ? "mass_shares_created_with_dilution"
+              : "mass_shares_created_no_dilution",
+            totalStocksAffected: updatedStocks.length,
+            sharesAddedPerStock: shareCount,
+            totalSharesAdded: updatedStocks.length * shareCount,
+            dilutionEnabled: dilutePrices,
+            massDilutionEntryId: massDilutionEntry?.id,
+            timestamp: new Date().toISOString(),
+          });
+
+          onProgress?.({
+            current: stocks.length,
+            total: stocks.length,
+            message: "Admin action logged successfully",
+          });
+          break; // Success, exit retry loop
+        } catch (error) {
+          retryCount++;
+          console.warn(
+            `Failed to log admin action for mass share creation (attempt ${retryCount}/${maxRetries}):`,
+            error
+          );
+
+          if (retryCount < maxRetries) {
+            onProgress?.({
+              current: stocks.length,
+              total: stocks.length,
+              message: `Rate limited, retrying in ${
+                retryDelay / 1000
+              }s... (${retryCount}/${maxRetries})`,
+            });
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          } else {
+            onProgress?.({
+              current: stocks.length,
+              total: stocks.length,
+              message:
+                "Failed to log admin action after retries, but operation completed",
+            });
+            // Don't fail the entire operation if logging fails due to rate limits
+          }
+        }
+      }
+    }
+
+    onProgress?.({
+      current: stocks.length,
+      total: stocks.length,
+      message: "Unlocking awards...",
+    });
+
+    // Unlock dilution survivor award for all users holding any stock with retry logic
+    if (unlockAward) {
+      const allStockHolders = portfolios.filter((p) =>
+        stocks.some((s) => s.id === p.stockId)
+      );
+      const uniqueHolders = Array.from(
+        new Set(allStockHolders.map((p) => p.userId))
+      );
+
+      let awardUnlockCount = 0;
+      for (const userId of uniqueHolders) {
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+          try {
+            await unlockAward(userId, "stock_dilution_survivor");
+            awardUnlockCount++;
+            onProgress?.({
+              current: awardUnlockCount,
+              total: uniqueHolders.length,
+              message: `Unlocked award for ${awardUnlockCount}/${uniqueHolders.length} users`,
+            });
+            break; // Success, exit retry loop
+          } catch (error) {
+            retryCount++;
+            console.warn(
+              `Failed to unlock award for user ${userId} (attempt ${retryCount}/${maxRetries}):`,
+              error
+            );
+
+            if (retryCount < maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay for awards
+            }
+          }
+        }
+      }
+    }
+
+    onProgress?.({
+      current: stocks.length,
+      total: stocks.length,
+      message: "Mass dilution completed!",
+    });
+  };
+
   const getUserPortfolio = (userId: string): Portfolio[] => {
     return getState().portfolios.filter((p) => p.userId === userId);
   };
@@ -1284,6 +1491,7 @@ export function createMarketActions({
     updateStockPrice,
     deleteStock,
     createShares,
+    massCreateShares,
     getUserPortfolio,
     getStockPriceHistory,
     getMarketData,

@@ -18,6 +18,7 @@ import type {
   AdminActionType,
   Friend,
   DailyReward,
+  CharacterSuggestion,
 } from "../types";
 
 export type AddCommentInput = {
@@ -52,6 +53,8 @@ export interface StoreContextType {
   conversations: Conversation[];
   // Support tickets
   supportTickets: import("../types").SupportTicket[];
+  // Character suggestions
+  characterSuggestions: CharacterSuggestion[];
 
   buyStock: (stockId: string, shares: number) => Promise<boolean>;
   sellStock: (stockId: string, shares: number) => Promise<boolean>;
@@ -108,6 +111,15 @@ export interface StoreContextType {
     shares: number
   ) => Promise<void>;
   inflateMarket: (percentage: number) => void;
+  massCreateShares: (
+    shareCount: number,
+    dilutePrices?: boolean,
+    onProgress?: (progress: {
+      current: number;
+      total: number;
+      message: string;
+    }) => void
+  ) => Promise<void>;
   createBuybackOffer: (
     stockId: string,
     offeredPrice: number,
@@ -174,6 +186,26 @@ export interface StoreContextType {
     ticketId: string,
     message: string
   ) => Promise<import("../types").SupportTicket | null>;
+  submitCharacterSuggestion: (input: {
+    characterName: string;
+    anime: string;
+    description?: string;
+    anilistUrl?: string;
+    anilistCharacterId?: number;
+  }) => Promise<CharacterSuggestion | null>;
+  reviewCharacterSuggestion: (
+    suggestionId: string,
+    status: CharacterSuggestion["status"],
+    options?: {
+      notes?: string;
+      stockId?: string;
+      autoImportStatus?: CharacterSuggestion["autoImportStatus"];
+      autoImportMessage?: string;
+    }
+  ) => Promise<CharacterSuggestion | null>;
+  getCharacterSuggestions: (filters?: {
+    status?: CharacterSuggestion["status"] | "all";
+  }) => Promise<CharacterSuggestion[]>;
 
   sendMessage: (
     conversationId: string,

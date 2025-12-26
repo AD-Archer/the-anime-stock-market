@@ -191,6 +191,9 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               <SelectItem value="moderation">Moderation</SelectItem>
               <SelectItem value="direct_message">Direct Messages</SelectItem>
               <SelectItem value="friend_request">Friend Requests</SelectItem>
+              <SelectItem value="character_suggestion">
+                Character Suggestions
+              </SelectItem>
             </SelectContent>
           </Select>
 

@@ -45,7 +45,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
     anime: "",
     description: "",
     currentPrice: "",
-    totalShares: "",
+    totalShares: "1500",
     imageUrl: "",
   });
 
@@ -178,10 +178,10 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
       return;
     }
 
-    if (isNaN(shares) || shares <= 0) {
+    if (isNaN(shares) || shares < 1500) {
       toast({
         title: "Invalid Shares",
-        description: "Please enter a valid number of shares greater than 0.",
+        description: "Please enter a valid number of shares (minimum 1500).",
         variant: "destructive",
       });
       return;
@@ -225,7 +225,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
         anime: "",
         description: "",
         currentPrice: "",
-        totalShares: "",
+        totalShares: "1500",
         imageUrl: "",
       });
 

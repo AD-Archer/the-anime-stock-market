@@ -160,7 +160,8 @@ export interface Notification {
     | "moderation"
     | "direct_message"
     | "friend_request"
-    | "stock_ipo";
+    | "stock_ipo"
+    | "character_suggestion";
   title: string;
   message: string;
   data?: any; // additional data like buyback offer details
@@ -196,6 +197,26 @@ export interface SupportTicket {
   createdAt: Date;
   updatedAt: Date;
   assignedTo?: string | null;
+}
+
+export type CharacterSuggestionStatus = "pending" | "approved" | "denied";
+
+export interface CharacterSuggestion {
+  id: string;
+  userId?: string;
+  characterName: string;
+  anime: string;
+  description?: string;
+  anilistUrl?: string;
+  anilistCharacterId?: number;
+  status: CharacterSuggestionStatus;
+  createdAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  resolutionNotes?: string;
+  stockId?: string;
+  autoImportStatus?: "not_requested" | "succeeded" | "failed";
+  autoImportMessage?: string;
 }
 
 export interface Report {

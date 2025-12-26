@@ -13,6 +13,7 @@ export { adminActionLogService } from "./database/adminActionLogService";
 export { awardService } from "./database/awardService";
 export { friendService } from "./database/friendService";
 export { supportService } from "./database/supportService";
+export { characterSuggestionService } from "./database/characterSuggestionService";
 
 // Re-export utilities and constants
 export {
@@ -46,4 +47,6 @@ export {
   mapAward,
   mapFriend,
   mapSupportTicket,
+  mapCharacterSuggestion,
+  CHARACTER_SUGGESTIONS_COLLECTION,
 } from "./database/utils";

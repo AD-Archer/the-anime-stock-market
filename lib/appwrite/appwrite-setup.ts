@@ -286,6 +286,36 @@ const collections: CollectionPlan[] = [
     ],
   },
   {
+    id: "character_suggestions",
+    name: "Character Suggestions",
+    attributes: [
+      { kind: "string", key: "userId", size: 64, required: false },
+      { kind: "string", key: "characterName", size: 256, required: true },
+      { kind: "string", key: "anime", size: 256, required: true },
+      { kind: "string", key: "description", size: 5000, required: false },
+      { kind: "string", key: "anilistUrl", size: 1024, required: false },
+      { kind: "integer", key: "anilistCharacterId", required: false },
+      { kind: "string", key: "status", size: 16, required: true },
+      { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "reviewedAt", size: 64, required: false },
+      { kind: "string", key: "reviewedBy", size: 64, required: false },
+      { kind: "string", key: "resolutionNotes", size: 2000, required: false },
+      { kind: "string", key: "stockId", size: 64, required: false },
+      {
+        kind: "string",
+        key: "autoImportStatus",
+        size: 32,
+        required: false,
+      },
+      {
+        kind: "string",
+        key: "autoImportMessage",
+        size: 2000,
+        required: false,
+      },
+    ],
+  },
+  {
     id: "admin_action_logs",
     name: "Admin Action Logs",
     attributes: [
@@ -327,6 +357,15 @@ const collections: CollectionPlan[] = [
       { kind: "integer", key: "longestStreak", required: true, default: 0 },
       { kind: "integer", key: "totalClaimed", required: true, default: 0 },
       { kind: "float", key: "totalAmount", required: true, default: 0 },
+    ],
+  },
+  {
+    id: "metadata",
+    name: "Metadata",
+    attributes: [
+      { kind: "string", key: "key", size: 128, required: true },
+      { kind: "float", key: "value", required: true },
+      { kind: "string", key: "updatedAt", size: 64, required: true },
     ],
   },
 ];
@@ -507,6 +546,18 @@ async function setup() {
       await ensureIndex(databases, collection.id, "message", "fulltext", [
         "message",
       ]);
+    }
+    if (collection.id === "character_suggestions") {
+      await ensureIndex(databases, collection.id, "status", "key", ["status"]);
+      await ensureIndex(databases, collection.id, "anilistCharacterId", "key", [
+        "anilistCharacterId",
+      ]);
+      await ensureIndex(databases, collection.id, "createdAt", "key", [
+        "createdAt",
+      ]);
+    }
+    if (collection.id === "metadata") {
+      await ensureIndex(databases, collection.id, "key", "key", ["key"]);
     }
   }
 

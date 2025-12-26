@@ -18,6 +18,7 @@ import type {
   Award,
   DailyReward,
   SupportTicket,
+  CharacterSuggestion,
 } from "../types";
 
 // Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
@@ -74,6 +75,8 @@ export const ADMIN_ACTION_LOGS_COLLECTION = "admin_action_logs";
 export const AWARDS_COLLECTION = "awards";
 export const FRIENDS_COLLECTION = "friends";
 export const SUPPORTS_COLLECTION = "support_tickets";
+export const CHARACTER_SUGGESTIONS_COLLECTION = "character_suggestions";
+export const METADATA_COLLECTION = "metadata";
 // Daily rewards collection - will gracefully fail if not created
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
@@ -475,6 +478,31 @@ export const mapSupportTicket = (doc: AppwriteDocument): SupportTicket => ({
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   updatedAt: toDate(docValue(doc, "updatedAt") ?? doc.$updatedAt),
   assignedTo: toOptionalString(docValue(doc, "assignedTo")),
+});
+
+export const mapCharacterSuggestion = (
+  doc: AppwriteDocument
+): CharacterSuggestion => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toOptionalString(docValue(doc, "userId")),
+  characterName: toStringOr(docValue(doc, "characterName")),
+  anime: toStringOr(docValue(doc, "anime")),
+  description: toOptionalString(docValue(doc, "description")),
+  anilistUrl: toOptionalString(docValue(doc, "anilistUrl")),
+  anilistCharacterId: toOptionalNumber(docValue(doc, "anilistCharacterId")),
+  status:
+    (docValue(doc, "status") as CharacterSuggestion["status"]) || "pending",
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  reviewedAt: toOptionalDate(docValue(doc, "reviewedAt")),
+  reviewedBy: toOptionalString(docValue(doc, "reviewedBy")),
+  resolutionNotes: toOptionalString(docValue(doc, "resolutionNotes")),
+  stockId: toOptionalString(docValue(doc, "stockId")),
+  autoImportStatus:
+    (docValue(doc, "autoImportStatus") as
+      | "not_requested"
+      | "succeeded"
+      | "failed") ?? "not_requested",
+  autoImportMessage: toOptionalString(docValue(doc, "autoImportMessage")),
 });
 
 export const mapAward = (doc: AppwriteDocument): Award => ({

@@ -17,24 +17,45 @@ import {
   Star,
   Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
 import { MarketOverview } from "@/components/market-overview";
 import { SearchMarket } from "@/components/search-market";
 import { useRouter } from "next/navigation";
+import { formatCurrencyCompact } from "@/lib/utils";
+import { stockService } from "@/lib/database";
 import { TopStocksSection } from "./market/components/top-stocks-section";
 
 export default function LandingPage() {
-  const { stocks, users, transactions, currentUser } = useStore();
+  const { stocks, users, transactions, currentUser, isLoading } = useStore();
   const router = useRouter();
+  const [stockCount, setStockCount] = useState<number>(0);
+  const [isStockCountLoading, setIsStockCountLoading] = useState(true);
 
-  const activeTraders = users.length;
-  const animeCharacters = stocks.length;
-  const totalVolume = transactions.reduce(
-    (sum, t) => sum + (t.totalAmount || 0),
-    0
-  );
+  useEffect(() => {
+    const fetchStockCount = async () => {
+      try {
+        const count = await stockService.getCount();
+        setStockCount(count);
+      } catch (error) {
+        console.error("Failed to fetch stock count:", error);
+        // Fallback to stocks.length if metadata fails
+        setStockCount(stocks.length);
+      } finally {
+        setIsStockCountLoading(false);
+      }
+    };
+
+    fetchStockCount();
+  }, [stocks.length]);
+
+  // Only show stats when data is loaded
+  const activeTraders = isLoading ? 0 : users.length;
+  const animeCharacters = isLoading || isStockCountLoading ? 0 : stockCount;
+  const totalVolume = isLoading
+    ? 0
+    : transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
   const handleSelectStock = (stockId: string) => {
@@ -98,7 +119,8 @@ export default function LandingPage() {
               Live Market - Most Active Characters
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Track the characters with the most trade activity right now, or search for your favorites.
+              Track the characters with the most trade activity right now, or
+              search for your favorites.
             </p>
           </div>
 
@@ -106,7 +128,10 @@ export default function LandingPage() {
             <MarketOverview />
 
             <div className="w-full max-w-md mx-auto">
-              <SearchMarket stocks={stocks} onSelectStock={(stock) => handleSelectStock(stock.id)} />
+              <SearchMarket
+                stocks={stocks}
+                onSelectStock={(stock) => handleSelectStock(stock.id)}
+              />
             </div>
 
             <TopStocksSection topStocks={stocks} onBuy={handleSelectStock} />
@@ -212,19 +237,31 @@ export default function LandingPage() {
           <div className="grid gap-8 md:grid-cols-3 text-center">
             <div>
               <div className="text-4xl md:text-5xl font-bold mb-2">
-                {activeTraders.toLocaleString()}+
+                {isLoading
+                  ? "..."
+                  : activeTraders > 0
+                  ? `${activeTraders.toLocaleString()}+`
+                  : "..."}
               </div>
               <div className="text-lg opacity-90">Active Traders</div>
             </div>
             <div>
               <div className="text-4xl md:text-5xl font-bold mb-2">
-                {animeCharacters.toLocaleString()}+
+                {isLoading
+                  ? "..."
+                  : animeCharacters > 0
+                  ? `${animeCharacters.toLocaleString()}+`
+                  : "..."}
               </div>
               <div className="text-lg opacity-90">Anime Characters</div>
             </div>
             <div>
               <div className="text-4xl md:text-5xl font-bold mb-2">
-                ${totalVolume.toLocaleString()}+
+                {isLoading
+                  ? "..."
+                  : totalVolume > 0
+                  ? `${formatCurrencyCompact(totalVolume)}+`
+                  : "..."}
               </div>
               <div className="text-lg opacity-90">Total Volume</div>
             </div>

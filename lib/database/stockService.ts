@@ -8,6 +8,7 @@ import {
   normalizePayload,
   ensureDatabaseIdAvailable,
 } from "./utils";
+import { metadataService } from "./metadataService";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
@@ -83,6 +84,15 @@ export const stockService = {
         documentId,
         normalizePayload(data)
       );
+
+      // Increment the stock count in metadata
+      try {
+        await metadataService.incrementStockCount(1);
+      } catch (metadataError) {
+        console.warn("Failed to update stock count metadata:", metadataError);
+        // Don't fail the creation if metadata update fails
+      }
+
       return mapStock(response);
     } catch (error) {
       console.warn("Failed to create stock in database:", error);
@@ -110,8 +120,70 @@ export const stockService = {
     try {
       const dbId = ensureDatabaseIdAvailable();
       await databases.deleteDocument(dbId, STOCKS_COLLECTION, id);
+
+      // Decrement the stock count in metadata
+      try {
+        await metadataService.decrementStockCount(1);
+      } catch (metadataError) {
+        console.warn("Failed to update stock count metadata:", metadataError);
+        // Don't fail the deletion if metadata update fails
+      }
     } catch (error) {
       console.warn("Failed to delete stock from database:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get the total count of stocks from metadata (fast O(1) operation)
+   * @param forceActualCount If true, counts all documents instead of using metadata
+   */
+  async getCount(forceActualCount = false): Promise<number> {
+    if (forceActualCount) {
+      // Force actual count by querying all documents
+      try {
+        const dbId = ensureDatabaseIdAvailable();
+        const response = await databases.listDocuments(
+          dbId,
+          STOCKS_COLLECTION,
+          [
+            Query.limit(1), // We only need the total count
+          ]
+        );
+        return response.total;
+      } catch (error) {
+        console.warn("Failed to get actual stock count:", error);
+        return 0;
+      }
+    }
+
+    try {
+      return await metadataService.getStockCount();
+    } catch (error) {
+      console.warn("Failed to get stock count from metadata:", error);
+      // Fallback to counting all documents (expensive but works)
+      try {
+        const allStocks = await this.getAll();
+        return allStocks.length;
+      } catch (fallbackError) {
+        console.warn("Fallback count also failed:", fallbackError);
+        return 0;
+      }
+    }
+  },
+
+  /**
+   * Initialize or update the stock count in metadata
+   * @param count The count to set (if not provided, counts all documents)
+   */
+  async initializeCount(count?: number): Promise<void> {
+    try {
+      const actualCount =
+        count !== undefined ? count : (await this.getAll()).length;
+      await metadataService.setStockCount(actualCount);
+      console.log(`Initialized stock count metadata: ${actualCount}`);
+    } catch (error) {
+      console.error("Failed to initialize stock count:", error);
       throw error;
     }
   },

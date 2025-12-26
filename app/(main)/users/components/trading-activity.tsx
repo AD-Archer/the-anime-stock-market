@@ -47,8 +47,6 @@ export function TradingActivity({
     maxShares: number;
   } | null>(null);
 
-  const tabColsClass = settingsContent ? "grid-cols-3" : "grid-cols-2";
-
   return (
     <Card>
       <CardHeader>
@@ -64,15 +62,26 @@ export function TradingActivity({
             onTabChange?.(val as "portfolio" | "history" | "settings")
           }
         >
-          <TabsList className={`grid w-full ${tabColsClass}`}>
-            <TabsTrigger value="portfolio">
+          <TabsList className="flex w-full flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger
+              value="portfolio"
+              className="flex-1 min-w-0 text-xs sm:text-sm px-2 py-2"
+            >
               Portfolio ({portfolio.length})
             </TabsTrigger>
-            <TabsTrigger value="history">
-              Transaction History ({transactions.length})
+            <TabsTrigger
+              value="history"
+              className="flex-1 min-w-0 text-xs sm:text-sm px-2 py-2"
+            >
+              History ({transactions.length})
             </TabsTrigger>
             {settingsContent && (
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger
+                value="settings"
+                className="flex-1 min-w-0 text-xs sm:text-sm px-2 py-2"
+              >
+                Settings
+              </TabsTrigger>
             )}
           </TabsList>
 

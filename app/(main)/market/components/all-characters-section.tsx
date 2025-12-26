@@ -16,6 +16,7 @@ import {
 import { formatCurrencyCompact, generateAnimeSlug } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import type { Stock } from "@/lib/types";
+import { SuggestCharacterDialog } from "./suggest-character-dialog";
 
 interface AllCharactersSectionProps {
   stocks: Stock[];
@@ -41,6 +42,7 @@ export function AllCharactersSection({
   const [searchQuery, setSearchQuery] = useState("");
   const [showCount, setShowCount] = useState(20); // Initially show 20 characters
   const [sortMode, setSortMode] = useState<SortMode>("marketcap");
+  const [showSuggestDialog, setShowSuggestDialog] = useState(false);
   const router = useRouter();
 
   // Calculate transaction count for each stock
@@ -254,10 +256,20 @@ export function AllCharactersSection({
       </div>
 
       {filteredStocks.length === 0 && (
-        <div className="py-12 text-center">
+        <div className="py-12 text-center space-y-3">
           <p className="text-muted-foreground">
             No characters found matching &quot;{searchQuery}&quot;.
           </p>
+          {searchQuery.trim() && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Would you like to suggest a character?
+              </p>
+              <Button onClick={() => setShowSuggestDialog(true)}>
+                Suggest a character
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -284,6 +296,12 @@ export function AllCharactersSection({
             </p>
           </div>
         )}
+
+      <SuggestCharacterDialog
+        open={showSuggestDialog}
+        onOpenChange={setShowSuggestDialog}
+        defaultCharacterName={searchQuery}
+      />
     </div>
   );
 }

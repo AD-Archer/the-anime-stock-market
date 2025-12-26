@@ -44,28 +44,28 @@ export function generateInitialPrice(rankingInfo?: RankingInfo): number {
  * Generate total shares based on ranking
  * Popular characters (top ranked) have fewer total shares (rarity)
  * Less popular characters have more shares available
- * Rank 1-100: 500-1500 shares
- * Rank 101-500: 1500-3000 shares
- * Rank 501+: 3000-5000 shares
- * No rank: 2000-4000 shares
+ * Rank 1-100: 1500-2500 shares
+ * Rank 101-500: 2500-4000 shares
+ * Rank 501+: 4000-6000 shares
+ * No rank: 3000-5000 shares
  */
 export function generateTotalShares(rankingInfo?: RankingInfo): number {
   if (!rankingInfo?.rank) {
     // No ranking data - medium availability
-    return Math.floor(Math.random() * 2000 + 2000); // 2000-4000
+    return Math.floor(Math.random() * 2000 + 3000); // 3000-5000
   }
 
   const rank = rankingInfo.rank;
 
   if (rank <= 100) {
     // Top 100 - very limited supply (rarer)
-    return Math.floor(Math.random() * 1000 + 500); // 500-1500
+    return Math.floor(Math.random() * 1000 + 1500); // 1500-2500
   } else if (rank <= 500) {
     // Top 500 - moderate supply
-    return Math.floor(Math.random() * 1500 + 1500); // 1500-3000
+    return Math.floor(Math.random() * 1500 + 2500); // 2500-4000
   } else {
     // Beyond top 500 - abundant supply
-    return Math.floor(Math.random() * 2000 + 3000); // 3000-5000
+    return Math.floor(Math.random() * 2000 + 4000); // 4000-6000
   }
 }
 

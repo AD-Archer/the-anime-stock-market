@@ -6,13 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { TrendingUp, DollarSign, BarChart3, AlertTriangle } from "lucide-react";
 
 export function MarketManagement() {
-  const { stocks, inflateMarket, getMarketData } = useStore();
+  const { stocks, inflateMarket, getMarketData, massCreateShares } = useStore();
   const { toast } = useToast();
   const [inflationPercentage, setInflationPercentage] = useState("");
+  const [shareCount, setShareCount] = useState("");
+  const [dilutePrices, setDilutePrices] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
 
   const marketData = getMarketData();
   const totalMarketCap = stocks.reduce(
@@ -45,6 +54,50 @@ export function MarketManagement() {
       } by ${Math.abs(percentage)}%`,
     });
     setInflationPercentage("");
+  };
+
+  const handleMassCreateShares = async () => {
+    const count = Number.parseInt(shareCount);
+    if (isNaN(count) || count <= 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid number of shares greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setProgress({
+      current: 0,
+      total: stocks.length,
+      message: "Starting mass dilution...",
+    });
+
+    try {
+      await massCreateShares(count, dilutePrices, (progress) => {
+        setProgress(progress);
+      });
+
+      toast({
+        title: "Shares Created Successfully",
+        description: dilutePrices
+          ? `Added ${count} shares to all ${stocks.length} stocks with price dilution.`
+          : `Added ${count} shares to all ${stocks.length} stocks without price dilution.`,
+      });
+      setShareCount("");
+    } catch (error) {
+      console.error("Failed to mass create shares:", error);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Error Creating Shares",
+        description: `Failed to create shares: ${errorMsg}. This may be due to rate limiting - try again in a few minutes.`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+      setProgress(null);
+    }
   };
 
   return (
@@ -141,6 +194,79 @@ export function MarketManagement() {
               Example: +10% will increase all stock prices by 10%, -5% will
               decrease them by 5%.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Share Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-blue-500" />
+            Share Management
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Add shares to all stocks simultaneously. This will dilute all stock
+            prices proportionally.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <Label htmlFor="shares">Shares to Add</Label>
+              <Input
+                id="shares"
+                type="number"
+                min="1"
+                value={shareCount}
+                onChange={(e) => setShareCount(e.target.value)}
+                placeholder="e.g., 1000"
+              />
+            </div>
+            <Button onClick={handleMassCreateShares} variant="default">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Add Shares
+            </Button>
+          </div>
+          {progress && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{progress.message}</span>
+                <span>
+                  {progress.current}/{progress.total}
+                </span>
+              </div>
+              <Progress value={(progress.current / progress.total) * 100} />
+            </div>
+          )}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="dilute-prices"
+              checked={dilutePrices}
+              onChange={(e) => setDilutePrices(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label
+              htmlFor="dilute-prices"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Dilute stock prices when adding shares
+            </Label>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <p>
+              <strong>Note:</strong>{" "}
+              {dilutePrices
+                ? "Adding shares will dilute all stock prices to maintain market capitalization."
+                : "Adding shares will not affect stock prices (increases total market capitalization)."}
+            </p>
+            {dilutePrices && (
+              <p>
+                Example: Adding 1000 shares to a stock with 1000 existing shares
+                will reduce the price by ~50%.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

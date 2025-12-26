@@ -11,6 +11,7 @@ import type {
   Award,
   Friend,
   DailyReward,
+  CharacterSuggestion,
 } from "./types";
 
 // Initial users with $100 starting balance
@@ -372,3 +373,4 @@ export const initialAdminActionLogs: AdminActionLog[] = [];
 export const initialAwards: Award[] = [];
 export const initialFriends: Friend[] = [];
 export const initialDailyRewards: DailyReward[] = [];
+export const initialCharacterSuggestions: CharacterSuggestion[] = [];

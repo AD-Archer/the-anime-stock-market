@@ -18,6 +18,7 @@ import {
   initialAwards,
   initialFriends,
   initialDailyRewards,
+  initialCharacterSuggestions,
 } from "./data";
 import { databases } from "./appwrite/appwrite";
 import {
@@ -46,6 +47,7 @@ import {
   mapPriceHistory,
   mapTransaction,
   mapStock,
+  characterSuggestionService,
 } from "./database";
 import { awardService } from "./database/awardService";
 import { dailyRewardService } from "./database/dailyRewardService";
@@ -61,6 +63,7 @@ import { createAdminLogActions } from "./store/admin-log";
 import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
 import { createDailyRewardActions } from "./store/daily-rewards";
+import { createSuggestionActions } from "./store/suggestions";
 import type { StoreState } from "./store/types";
 import type { User, Transaction, PriceHistory } from "./types";
 import { generateDisplaySlug } from "./usernames";
@@ -89,6 +92,10 @@ export const useStore = create<StoreState>((set, get) => {
   const messageActions = createMessageActions({ setState: set, getState: get });
   const appealActions = createAppealActions({ setState: set, getState: get });
   const supportActions = createSupportActions({ setState: set, getState: get });
+  const suggestionActions = createSuggestionActions({
+    setState: set,
+    getState: get,
+  });
   const adminLogActions = createAdminLogActions({
     setState: set,
     getState: get,
@@ -115,6 +122,7 @@ export const useStore = create<StoreState>((set, get) => {
     reports: [],
     appeals: [],
     supportTickets: [],
+    characterSuggestions: [],
     adminActionLogs: [],
     awards: [],
     friends: [],
@@ -129,6 +137,7 @@ export const useStore = create<StoreState>((set, get) => {
     ...messageActions,
     ...appealActions,
     ...supportActions,
+    ...suggestionActions,
     ...adminLogActions,
     ...awardActions,
     ...friendActions,
@@ -161,6 +170,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           priceHistoryData,
           appealsData,
           supportTicketsData,
+          characterSuggestionsData,
           adminLogData,
           awardsData,
           friendsData,
@@ -177,6 +187,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           priceHistoryService.getAll(),
           appealService.getAll(),
           supportService.list(),
+          characterSuggestionService.list(),
           adminActionLogService.getAll(),
           awardService.getAll(),
           (await import("./database")).friendService.getAll(),
@@ -222,6 +233,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           appeals: appealsData.length > 0 ? appealsData : initialAppeals,
           supportTickets:
             supportTicketsData.length > 0 ? supportTicketsData : [],
+          characterSuggestions:
+            characterSuggestionsData.length > 0
+              ? characterSuggestionsData
+              : initialCharacterSuggestions,
           adminActionLogs:
             adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
           awards: awardsData.length > 0 ? awardsData : initialAwards,
@@ -407,7 +422,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
           ),
           appeals: initialAppeals,
+          supportTickets: [],
+          characterSuggestions: initialCharacterSuggestions,
           adminActionLogs: initialAdminActionLogs,
+          awards: initialAwards,
+          friends: initialFriends,
+          dailyRewards: initialDailyRewards,
           currentUser: null,
         });
       } finally {

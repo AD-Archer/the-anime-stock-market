@@ -18,6 +18,7 @@ import { NotificationManagement } from "@/components/admin/notification-manageme
 import { SupportManagement } from "@/components/admin/support-management";
 import { AppealManagement } from "@/components/admin/appeal-management";
 import { AdminActionLogPanel } from "@/components/admin/admin-action-log";
+import { CharacterSuggestions } from "@/components/admin/character-suggestions";
 import dynamic from "next/dynamic";
 const KillSwitchPanel = dynamic(
   () => import("@/components/admin/kill-switch").then((m) => m.KillSwitchPanel),
@@ -84,13 +85,14 @@ export default function AdminPage() {
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
           className="w-full"
         >
-          <TabsList className="grid w-full max-w-4xl grid-cols-10 md:grid-cols-5 lg:grid-cols-10">
+          <TabsList className="grid w-full max-w-5xl grid-cols-11 md:grid-cols-6 lg:grid-cols-11">
             <TabsTrigger value="stocks">Stocks</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
             <TabsTrigger value="market">Market</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="support">Support</TabsTrigger>
+            <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="appeals">Appeals</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -113,6 +115,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="support" className="mt-6">
             <SupportManagement />
+          </TabsContent>
+          <TabsContent value="suggestions" className="mt-6">
+            <CharacterSuggestions />
           </TabsContent>
           <TabsContent value="notifications" className="mt-6">
             <NotificationManagement />
