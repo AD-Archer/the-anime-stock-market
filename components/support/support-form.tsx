@@ -81,7 +81,7 @@ export function SupportForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <Select onValueChange={(v) => setTag(v as any)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" suppressHydrationWarning>
                   <SelectValue>{tag}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>

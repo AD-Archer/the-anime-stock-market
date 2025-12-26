@@ -159,7 +159,7 @@ export function AllCharactersSection({
             value={sortMode}
             onValueChange={(value) => setSortMode(value as SortMode)}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" suppressHydrationWarning>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

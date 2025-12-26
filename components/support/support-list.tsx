@@ -41,7 +41,9 @@ function FollowUpForm({ ticketId }: { ticketId: string }) {
     <form onSubmit={handleSubmit} className="mt-4 space-y-2">
       <Textarea
         value={message}
-        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+          setMessage(e.target.value)
+        }
         placeholder="Type your follow-up message..."
         rows={3}
         disabled={isSubmitting}
@@ -101,7 +103,7 @@ export function SupportList() {
           className="max-w-sm"
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[180px]" suppressHydrationWarning>
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>

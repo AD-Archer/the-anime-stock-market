@@ -3,6 +3,7 @@ import { databases } from "@/lib/appwrite/appwrite";
 import { userService } from "@/lib/database";
 import {
   addAnimeStocks,
+  addMangaStocks,
   addCharacterStocks,
   searchAndAddCharacterStocks,
 } from "@/lib/anilist/ingest-stocks";
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       | null;
 
     // Validate request
-    if (!type || !["anime", "character", "search"].includes(type)) {
+    if (!type || !["anime", "manga", "character", "search"].includes(type)) {
       return NextResponse.json(
         { error: "Invalid or missing type parameter" },
         { status: 400 }
@@ -107,6 +108,24 @@ export async function POST(request: NextRequest) {
       // Server-side log for import result
       console.log(
         `[admin/add-stocks] anime import by ${userId} for media ${mediaId}: added=${result.added}, updated=${result.updated}, failed=${result.failed}`
+      );
+    } else if (type === "manga") {
+      const mediaId = parseInt(id!, 10);
+      if (isNaN(mediaId)) {
+        return NextResponse.json(
+          { error: "Invalid media ID" },
+          { status: 400 }
+        );
+      }
+
+      result = await addMangaStocks(mediaId, userId, {
+        characterNameFilter: characterNameFilter || undefined,
+        minRoleImportance: minRole || undefined,
+      });
+
+      // Server-side log for import result
+      console.log(
+        `[admin/add-stocks] manga import by ${userId} for media ${mediaId}: added=${result.added}, updated=${result.updated}, failed=${result.failed}`
       );
     } else if (type === "character") {
       const characterId = parseInt(id!, 10);

@@ -26,36 +26,59 @@ import { useRouter } from "next/navigation";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { stockService } from "@/lib/database";
 import { TopStocksSection } from "./market/components/top-stocks-section";
+import { metadataService } from "@/lib/database";
 
 export default function LandingPage() {
   const { stocks, users, transactions, currentUser, isLoading } = useStore();
   const router = useRouter();
   const [stockCount, setStockCount] = useState<number>(0);
   const [isStockCountLoading, setIsStockCountLoading] = useState(true);
+  const [userCount, setUserCount] = useState<number>(0);
+  const [totalVolume, setTotalVolume] = useState<number>(0);
+  const [isMetadataLoading, setIsMetadataLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStockCount = async () => {
+    const fetchMetadata = async () => {
       try {
-        const count = await stockService.getCount();
+        const [count, usersTotal, volumeTotal] = await Promise.all([
+          stockService.getCount(),
+          metadataService.getUserCount(),
+          metadataService.getTotalVolume(),
+        ]);
         setStockCount(count);
+        setUserCount(usersTotal);
+        setTotalVolume(volumeTotal);
       } catch (error) {
-        console.error("Failed to fetch stock count:", error);
-        // Fallback to stocks.length if metadata fails
+        console.error("Failed to fetch metadata counts:", error);
+        // Fallbacks if metadata fails
         setStockCount(stocks.length);
+        setUserCount(users.length);
+        setTotalVolume(
+          transactions.reduce(
+            (sum, t) => sum + Math.abs(t.totalAmount || 0),
+            0
+          )
+        );
       } finally {
         setIsStockCountLoading(false);
+        setIsMetadataLoading(false);
       }
     };
 
-    fetchStockCount();
-  }, [stocks.length]);
+    fetchMetadata();
+  }, [stocks.length, users.length, transactions.length, transactions]);
 
   // Only show stats when data is loaded
-  const activeTraders = isLoading ? 0 : users.length;
-  const animeCharacters = isLoading || isStockCountLoading ? 0 : stockCount;
-  const totalVolume = isLoading
-    ? 0
-    : transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+  const transactionVolume = transactions.reduce(
+    (sum, t) => sum + Math.abs(t.totalAmount || 0),
+    0
+  );
+  const activeTraders =
+    isMetadataLoading && isLoading ? 0 : userCount || users.length;
+  const animeCharacters =
+    isStockCountLoading && isLoading ? 0 : stockCount || stocks.length;
+  const totalVolumeDisplay =
+    isMetadataLoading && isLoading ? 0 : totalVolume || transactionVolume;
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
 
   const handleSelectStock = (stockId: string) => {
@@ -259,8 +282,8 @@ export default function LandingPage() {
               <div className="text-4xl md:text-5xl font-bold mb-2">
                 {isLoading
                   ? "..."
-                  : totalVolume > 0
-                  ? `${formatCurrencyCompact(totalVolume)}+`
+                  : totalVolumeDisplay > 0
+                  ? `${formatCurrencyCompact(totalVolumeDisplay)}+`
                   : "..."}
               </div>
               <div className="text-lg opacity-90">Total Volume</div>

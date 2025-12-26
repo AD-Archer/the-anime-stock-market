@@ -17,15 +17,20 @@ interface TopStocksSectionProps {
 
 export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
   const [filter, setFilter] = useState<
-    "most_active" | "marketcap" | "price_desc" | "price_asc" | "rarest" | "recommended"
+    | "most_active"
+    | "marketcap"
+    | "price_desc"
+    | "price_asc"
+    | "rarest"
+    | "recommended"
   >("most_active");
-  
+
   const { transactions } = useStore();
 
   // Calculate transaction count for each stock
   const stockTransactionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    transactions.forEach(transaction => {
+    transactions.forEach((transaction) => {
       counts[transaction.stockId] = (counts[transaction.stockId] || 0) + 1;
     });
     return counts;
@@ -80,7 +85,9 @@ export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
           ) : (
             <TrendingUp className="h-6 w-6" />
           )}
-          {filter === "most_active" ? "Most Active Characters" : "Top 10 Characters"}
+          {filter === "most_active"
+            ? "Most Active Characters"
+            : "Top 10 Characters"}
         </h2>
 
         <div className="flex items-center gap-3">

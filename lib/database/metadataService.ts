@@ -2,6 +2,14 @@ import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import { DATABASE_ID, METADATA_COLLECTION } from "./utils";
 
+const METADATA_KEYS = {
+  stockCount: "stock_count",
+  characterCount: "character_count",
+  userCount: "user_count",
+  totalVolume: "total_volume",
+  characterSequence: "character_sequence",
+} as const;
+
 export interface MetadataDocument {
   id: string;
   key: string;
@@ -129,7 +137,10 @@ export const metadataService = {
    * Get the stock count
    */
   async getStockCount(): Promise<number> {
-    const count = await this.get("stock_count");
+    // Prefer the stock count key, fall back to the character alias
+    const count =
+      (await this.get(METADATA_KEYS.stockCount)) ??
+      (await this.get(METADATA_KEYS.characterCount));
     return count || 0;
   },
 
@@ -137,20 +148,109 @@ export const metadataService = {
    * Set the stock count
    */
   async setStockCount(count: number): Promise<void> {
-    await this.set("stock_count", count);
+    await Promise.all([
+      this.set(METADATA_KEYS.stockCount, count),
+      this.set(METADATA_KEYS.characterCount, count),
+    ]);
   },
 
   /**
    * Increment the stock count
    */
   async incrementStockCount(amount: number = 1): Promise<number> {
-    return this.increment("stock_count", amount);
+    const [newCount] = await Promise.all([
+      this.increment(METADATA_KEYS.stockCount, amount),
+      this.increment(METADATA_KEYS.characterCount, amount),
+    ]);
+    return newCount;
   },
 
   /**
    * Decrement the stock count
    */
   async decrementStockCount(amount: number = 1): Promise<number> {
-    return this.decrement("stock_count", amount);
+    return this.incrementStockCount(-amount);
+  },
+
+  /**
+   * Get the character count (alias for stock count)
+   */
+  async getCharacterCount(): Promise<number> {
+    return this.getStockCount();
+  },
+
+  /**
+   * Get the total user count
+   */
+  async getUserCount(): Promise<number> {
+    const count = await this.get(METADATA_KEYS.userCount);
+    return count || 0;
+  },
+
+  /**
+   * Set the total user count
+   */
+  async setUserCount(count: number): Promise<void> {
+    await this.set(METADATA_KEYS.userCount, count);
+  },
+
+  /**
+   * Increment the total user count
+   */
+  async incrementUserCount(amount: number = 1): Promise<number> {
+    return this.increment(METADATA_KEYS.userCount, amount);
+  },
+
+  /**
+   * Decrement the total user count
+   */
+  async decrementUserCount(amount: number = 1): Promise<number> {
+    return this.decrement(METADATA_KEYS.userCount, amount);
+  },
+
+  /**
+   * Get the running total volume (absolute dollars moved)
+   */
+  async getTotalVolume(): Promise<number> {
+    const volume = await this.get(METADATA_KEYS.totalVolume);
+    return volume || 0;
+  },
+
+  /**
+   * Set the total volume explicitly
+   */
+  async setTotalVolume(amount: number): Promise<void> {
+    const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    await this.set(METADATA_KEYS.totalVolume, safeAmount);
+  },
+
+  /**
+   * Increment total volume by an absolute amount
+   */
+  async addToTotalVolume(amount: number): Promise<number> {
+    const delta = Math.abs(Number(amount));
+    if (!Number.isFinite(delta) || delta === 0) {
+      return this.getTotalVolume();
+    }
+    return this.increment(METADATA_KEYS.totalVolume, delta);
+  },
+
+  /**
+   * Get the next sequential character number.
+   */
+  async nextCharacterNumber(): Promise<number> {
+    try {
+      return await this.increment(METADATA_KEYS.characterSequence, 1);
+    } catch (error) {
+      console.warn("Failed to increment character sequence:", error);
+      return 0;
+    }
+  },
+
+  /**
+   * Set the current character sequence explicitly (e.g., after backfill)
+   */
+  async setCharacterSequence(value: number): Promise<void> {
+    await this.set(METADATA_KEYS.characterSequence, value);
   },
 };

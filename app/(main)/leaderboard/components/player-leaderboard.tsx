@@ -179,7 +179,7 @@ export function PlayerLeaderboard() {
             value={sortType}
             onValueChange={(value: PlayerSortType) => setSortType(value)}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" suppressHydrationWarning>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

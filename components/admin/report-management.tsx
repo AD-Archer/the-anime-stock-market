@@ -37,11 +37,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle, XCircle, Eye } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { AlertTriangle, CheckCircle, XCircle, Eye, Trash2 } from "lucide-react";
 
 export function ReportManagement() {
-  const { reports, resolveReport, reopenReport, getReports, comments, users } =
-    useStore();
+  const {
+    reports,
+    resolveReport,
+    reopenReport,
+    getReports,
+    comments,
+    users,
+    deleteComment,
+    deleteMessage,
+  } = useStore();
+  const { toast } = useToast();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [resolution, setResolution] = useState<"dismiss" | "ban" | "warn">(
     "dismiss"
@@ -122,6 +132,34 @@ export function ReportManagement() {
     await resolveReport(selectedReport.id, resolution);
     setSelectedReport(null);
     setResolution("dismiss");
+  };
+
+  const handleDeleteContent = async (report: Report) => {
+    try {
+      if (report.contentType === "comment" && report.commentId) {
+        await deleteComment(report.commentId);
+        toast({
+          title: "Comment Deleted",
+          description: "The reported comment has been successfully deleted.",
+        });
+      } else if (report.contentType === "message" && report.messageId) {
+        await deleteMessage(report.messageId);
+        toast({
+          title: "Message Deleted",
+          description: "The reported message has been successfully deleted.",
+        });
+      }
+
+      // Refresh reports after deletion
+      await getReports();
+    } catch (error) {
+      console.error("Failed to delete content:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete the reported content. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getReasonBadgeColor = (reason: Report["reason"]) => {
@@ -287,13 +325,22 @@ export function ReportManagement() {
                         {report.status}
                       </Badge>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedReport(report)}
-                    >
-                      Review
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedReport(report)}
+                      >
+                        Review
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteContent(report)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <CardDescription>
                     Reported on{" "}
@@ -332,6 +379,15 @@ export function ReportManagement() {
                     )}
                     <p>
                       <strong>Reported User ID:</strong> {report.reportedUserId}
+                    </p>
+                    <p>
+                      <strong>Reported User:</strong>{" "}
+                      {userMap.get(report.reportedUserId)?.username ||
+                        "Unknown"}
+                    </p>
+                    <p>
+                      <strong>Reporter:</strong>{" "}
+                      {userMap.get(report.reporterId)?.username || "Unknown"}
                     </p>
                   </div>
                 </CardContent>

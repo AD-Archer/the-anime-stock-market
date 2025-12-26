@@ -122,6 +122,8 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "description", size: 10000, required: true },
       { kind: "integer", key: "totalShares", required: true, default: 0 },
       { kind: "integer", key: "availableShares", required: true, default: 0 },
+      // Sequential character number for ordering/backfill
+      { kind: "integer", key: "characterNumber", required: false },
     ],
   },
   {

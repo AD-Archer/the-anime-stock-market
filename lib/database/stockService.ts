@@ -9,10 +9,40 @@ import {
   ensureDatabaseIdAvailable,
 } from "./utils";
 import { metadataService } from "./metadataService";
+import { trackPlausible } from "../analytics";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
 export const stockService = {
+  /**
+   * Count all stocks by paginating through the collection. Useful when the
+   * Appwrite `total` value is unexpectedly lower than the real count.
+   */
+  async countAllStocksByPagination(): Promise<number> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const limit = 100;
+      let offset = 0;
+      let total = 0;
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          STOCKS_COLLECTION,
+          [Query.limit(limit), Query.offset(offset)]
+        );
+        total += response.documents.length;
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return total;
+    } catch (error) {
+      console.warn("Failed to count stocks via pagination:", error);
+      return 0;
+    }
+  },
+
   async getAll(): Promise<Stock[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
@@ -78,11 +108,16 @@ export const stockService = {
       const documentId = stock.id ?? ID.unique();
       const { id: _ignored, ...data } = stock as any;
       const dbId = ensureDatabaseIdAvailable();
+      // Assign a sequential character number if not provided
+      const characterNumber =
+        data.characterNumber ??
+        (await metadataService.nextCharacterNumber());
+
       const response = await databases.createDocument(
         dbId,
         STOCKS_COLLECTION,
         documentId,
-        normalizePayload(data)
+        normalizePayload({ ...data, characterNumber })
       );
 
       // Increment the stock count in metadata
@@ -92,6 +127,7 @@ export const stockService = {
         console.warn("Failed to update stock count metadata:", metadataError);
         // Don't fail the creation if metadata update fails
       }
+      trackPlausible("character_created");
 
       return mapStock(response);
     } catch (error) {
@@ -128,6 +164,7 @@ export const stockService = {
         console.warn("Failed to update stock count metadata:", metadataError);
         // Don't fail the deletion if metadata update fails
       }
+      trackPlausible("character_deleted");
     } catch (error) {
       console.warn("Failed to delete stock from database:", error);
       throw error;
@@ -140,15 +177,16 @@ export const stockService = {
    */
   async getCount(forceActualCount = false): Promise<number> {
     if (forceActualCount) {
-      // Force actual count by querying all documents
+      // Force actual count by querying all documents (pagination to be resilient)
+      const total = await this.countAllStocksByPagination();
+      if (total > 0) return total;
+      // fallback to Appwrite reported total if pagination fails
       try {
         const dbId = ensureDatabaseIdAvailable();
         const response = await databases.listDocuments(
           dbId,
           STOCKS_COLLECTION,
-          [
-            Query.limit(1), // We only need the total count
-          ]
+          [Query.limit(1)]
         );
         return response.total;
       } catch (error) {
@@ -162,13 +200,10 @@ export const stockService = {
     } catch (error) {
       console.warn("Failed to get stock count from metadata:", error);
       // Fallback to counting all documents (expensive but works)
-      try {
-        const allStocks = await this.getAll();
-        return allStocks.length;
-      } catch (fallbackError) {
-        console.warn("Fallback count also failed:", fallbackError);
-        return 0;
-      }
+      const total = await this.countAllStocksByPagination();
+      if (total > 0) return total;
+      console.warn("Fallback count also failed");
+      return 0;
     }
   },
 

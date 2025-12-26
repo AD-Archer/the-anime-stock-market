@@ -338,7 +338,7 @@ export function CharacterLeaderboard() {
               value={sortType}
               onValueChange={(value: CharacterSortType) => setSortType(value)}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[160px]" suppressHydrationWarning>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -371,7 +371,7 @@ export function CharacterLeaderboard() {
 
             {sortType === "byAnime" && (
               <Select value={selectedAnime} onValueChange={setSelectedAnime}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[140px]" suppressHydrationWarning>
                   <SelectValue placeholder="Select Anime" />
                 </SelectTrigger>
                 <SelectContent>

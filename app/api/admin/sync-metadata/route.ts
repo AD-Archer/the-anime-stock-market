@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   metadataService,
   stockService,
@@ -52,9 +52,8 @@ async function adminListAll(
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    // Get the current counts from the collections
     const [adminStocks, adminUsers, adminTxs, existingVolume] =
       await Promise.all([
         adminListAll(STOCKS_COLLECTION),
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
         metadataService.getTotalVolume(),
       ]);
 
-    const currentCount =
+    const stockCount =
       adminStocks.documents.length || (await stockService.getCount(true));
     const userCount =
       adminUsers.documents.length || (await userService.getCount());
@@ -73,26 +72,24 @@ export async function POST(request: NextRequest) {
         ? adminTxs.documents
         : await transactionService.getAll();
 
-    const computedVolume = transactions.reduce((sum, t: any) => {
+    const computedVolume = transactions.reduce((sum, tx: any) => {
       const amount =
-        typeof t.totalAmount === "number"
-          ? t.totalAmount
-          : Number((t as any).totalAmount) || 0;
+        typeof tx.totalAmount === "number"
+          ? tx.totalAmount
+          : Number((tx as any).totalAmount) || 0;
       return sum + Math.abs(amount);
     }, 0);
     const totalVolume = Math.max(existingVolume || 0, computedVolume);
 
-    // Initialize the metadata counters
     await Promise.all([
-      stockService.initializeCount(currentCount),
+      metadataService.setStockCount(stockCount),
       metadataService.setUserCount(userCount),
       metadataService.setTotalVolume(totalVolume),
     ]);
 
     return NextResponse.json({
       success: true,
-      message: `Metadata counters initialized (stocks: ${currentCount}, users: ${userCount})`,
-      count: currentCount,
+      stockCount,
       userCount,
       totalVolume,
       stockSource: adminStocks.documents.length ? "admin" : "client",
@@ -108,9 +105,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Failed to initialize metadata counter:", error);
+    console.error("Failed to sync metadata:", error);
     return NextResponse.json(
-      { error: "Failed to initialize metadata counters" },
+      { error: "Failed to sync metadata" },
       { status: 500 }
     );
   }

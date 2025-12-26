@@ -375,7 +375,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                   value={filter}
                   onValueChange={(value: StockFilter) => setFilter(value)}
                 >
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[140px]" suppressHydrationWarning>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -389,7 +389,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                   value={timePeriod}
                   onValueChange={(value: TimePeriod) => setTimePeriod(value)}
                 >
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[120px]" suppressHydrationWarning>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,7 +449,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                 value={filter}
                 onValueChange={(value: StockFilter) => setFilter(value)}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[140px]" suppressHydrationWarning>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -461,7 +461,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                 value={timePeriod}
                 onValueChange={(value: TimePeriod) => setTimePeriod(value)}
               >
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[120px]" suppressHydrationWarning>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

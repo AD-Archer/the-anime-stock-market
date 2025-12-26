@@ -404,7 +404,7 @@ function CommentThread({
                 setReplyTag(value as "none" | ContentTag)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger suppressHydrationWarning>
                 <SelectValue placeholder="Add a tag (optional)" />
               </SelectTrigger>
               <SelectContent>
@@ -535,8 +535,7 @@ export default function CharacterPage({
     ) ||
     stocks.find((s) => s.id === id);
   const stockId = stock?.id ?? id;
-  const characterIdentifiers =
-    stockId === id ? [stockId] : [stockId, id];
+  const characterIdentifiers = stockId === id ? [stockId] : [stockId, id];
   const priceHistory = getStockPriceHistory(stockId);
   const characterTransactions = transactions
     .filter((t) => characterIdentifiers.includes(t.stockId))
@@ -549,9 +548,9 @@ export default function CharacterPage({
     ).values()
   );
   const userShares = currentUser
-    ? (getUserPortfolio(currentUser.id).find((p) =>
+    ? getUserPortfolio(currentUser.id).find((p) =>
         characterIdentifiers.includes(p.stockId)
-      )?.shares ?? 0)
+      )?.shares ?? 0
     : 0;
   const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
 
@@ -703,7 +702,7 @@ export default function CharacterPage({
                             setCommentTag(value as "none" | ContentTag)
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger suppressHydrationWarning>
                             <SelectValue placeholder="Add a tag (optional)" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1182,7 +1181,7 @@ export default function CharacterPage({
                             setCommentTag(value as "none" | ContentTag)
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger suppressHydrationWarning>
                             <SelectValue placeholder="Add a tag (optional)" />
                           </SelectTrigger>
                           <SelectContent>

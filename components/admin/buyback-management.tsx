@@ -149,7 +149,7 @@ export function BuybackManagement() {
               <div>
                 <Label htmlFor="stock">Stock</Label>
                 <Select value={selectedStock} onValueChange={setSelectedStock}>
-                  <SelectTrigger>
+                  <SelectTrigger suppressHydrationWarning>
                     <SelectValue placeholder="Select a stock" />
                   </SelectTrigger>
                   <SelectContent>
@@ -202,7 +202,7 @@ export function BuybackManagement() {
                     }
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger suppressHydrationWarning>
                     <SelectValue placeholder="Add specific users" />
                   </SelectTrigger>
                   <SelectContent>

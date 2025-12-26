@@ -24,7 +24,7 @@ interface CreateStockDialogProps {
 }
 
 type ImportMode = "manual" | "anilist";
-type ImportType = "anime" | "character" | null;
+type ImportType = "anime" | "manga" | "character" | null;
 
 export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
   const { createStock, currentUser } = useStore();
@@ -33,8 +33,10 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
   const [importMode, setImportMode] = useState<ImportMode>("anilist");
   const [isImporting, setIsImporting] = useState(false);
   const [importType, setImportType] = useState<ImportType>(null);
-  const [anilistUrl, setAnilistUrl] = useState("");
-  const [anilistId, setAnilistId] = useState<number | null>(null);
+  const [anilistUrls, setAnilistUrls] = useState<string>("");
+  const [parsedUrls, setParsedUrls] = useState<
+    Array<{ id: number; type: ImportType; url: string; valid: boolean }>
+  >([]);
   const [rateLimit, setRateLimit] = useState<any>(null);
   const [importResult, setImportResult] = useState<any>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -67,8 +69,8 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
     url: string
   ): { id: number; type: ImportType } | null => {
     try {
-      // Match anilist.co/anime/12345 or anilist.co/character/12345
-      const match = url.match(/anilist\.co\/(anime|character)\/(\d+)/);
+      // Match anilist.co/anime/12345, anilist.co/manga/12345, or anilist.co/character/12345
+      const match = url.match(/anilist\.co\/(anime|manga|character)\/(\d+)/);
       if (match) {
         return {
           id: parseInt(match[2]),
@@ -81,24 +83,42 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
     }
   };
 
-  const handleUrlChange = (url: string) => {
-    setAnilistUrl(url);
+  const handleUrlsChange = (urlsText: string) => {
+    setAnilistUrls(urlsText);
     setImportError(null);
 
-    const parsed = parseAnilistUrl(url);
-    if (parsed) {
-      setAnilistId(parsed.id);
-      setImportType(parsed.type);
+    // Parse each line as a separate URL
+    const urlLines = urlsText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const parsed = urlLines.map((url) => {
+      const parsedUrl = parseAnilistUrl(url);
+      return {
+        url,
+        id: parsedUrl?.id || 0,
+        type: parsedUrl?.type || null,
+        valid: parsedUrl !== null,
+      };
+    });
+
+    setParsedUrls(parsed);
+
+    // Set import type based on first valid URL (for backward compatibility)
+    const firstValid = parsed.find((p) => p.valid);
+    if (firstValid) {
+      setImportType(firstValid.type);
     } else {
-      setAnilistId(null);
       setImportType(null);
     }
   };
 
   const handleImportFromAnilist = async () => {
-    if (!anilistId || !importType) {
+    const validUrls = parsedUrls.filter((p) => p.valid);
+
+    if (validUrls.length === 0) {
       setImportError(
-        "Invalid AniList URL. Please use: anilist.co/anime/12345 or anilist.co/character/12345"
+        "No valid AniList URLs found. Please enter URLs in the format: anilist.co/anime/12345 or anilist.co/character/12345"
       );
       return;
     }
@@ -108,35 +128,55 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
     setImportResult(null);
 
     try {
-      const params = new URLSearchParams();
-      params.set("type", importType);
-      params.set("id", String(anilistId));
-      params.set("userId", currentUser?.id || "");
+      const results = [];
+      let totalAdded = 0;
+      let rateLimitInfo = null;
 
-      const response = await fetch(
-        `/api/admin/add-stocks?${params.toString()}`,
-        { method: "POST" }
-      );
+      for (const urlData of validUrls) {
+        const params = new URLSearchParams();
+        params.set("type", urlData.type!);
+        params.set("id", String(urlData.id));
+        params.set("userId", currentUser?.id || "");
 
-      const data = await response.json();
+        const response = await fetch(
+          `/api/admin/add-stocks?${params.toString()}`,
+          { method: "POST" }
+        );
 
-      if (!response.ok) {
-        setImportError(data.error || "Failed to import from AniList");
-        toast({
-          title: "Import Failed",
-          description: data.error || "Failed to import from AniList",
-          variant: "destructive",
-        });
-      } else {
-        setRateLimit(data.rateLimit);
-        setImportResult(data.result);
-        toast({
-          title: "Import Successful",
-          description: `Added ${
-            data.result.added || data.result.totalAdded || 0
-          } stocks`,
-        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          // For multiple URLs, we'll collect errors but continue with others
+          results.push({
+            url: urlData.url,
+            success: false,
+            error: data.error || "Failed to import",
+          });
+        } else {
+          results.push({
+            url: urlData.url,
+            success: true,
+            result: data.result,
+          });
+          totalAdded += data.result.added || data.result.totalAdded || 0;
+          if (data.rateLimit) {
+            rateLimitInfo = data.rateLimit;
+          }
+        }
       }
+
+      setRateLimit(rateLimitInfo);
+      setImportResult({
+        results,
+        totalAdded,
+        totalProcessed: validUrls.length,
+      });
+
+      const successCount = results.filter((r) => r.success).length;
+      toast({
+        title: "Import Completed",
+        description: `Successfully imported ${successCount}/${validUrls.length} URLs (${totalAdded} stocks added)`,
+      });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       setImportError(errorMsg);
@@ -298,31 +338,61 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
                     Import Complete!
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm text-green-800">
-                  {importResult.added !== undefined && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-green-800">
                     <div>
-                      New Stocks:{" "}
-                      <span className="font-bold">{importResult.added}</span>
+                      URLs Processed:{" "}
+                      <span className="font-bold">
+                        {importResult.totalProcessed}
+                      </span>
                     </div>
-                  )}
-                  {importResult.totalAdded !== undefined && (
                     <div>
-                      Total Added:{" "}
+                      Total Stocks Added:{" "}
                       <span className="font-bold">
                         {importResult.totalAdded}
                       </span>
                     </div>
-                  )}
-                  {importResult.updated !== undefined && (
-                    <div>
-                      Updated:{" "}
-                      <span className="font-bold">{importResult.updated}</span>
-                    </div>
-                  )}
-                  {importResult.failed !== undefined && (
-                    <div>
-                      Failed:{" "}
-                      <span className="font-bold">{importResult.failed}</span>
+                  </div>
+
+                  {importResult.results && importResult.results.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-green-900 mb-2">
+                        Details:
+                      </p>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {importResult.results.map(
+                          (result: any, index: number) => (
+                            <div key={index} className="text-xs">
+                              <span
+                                className={`font-medium ${
+                                  result.success
+                                    ? "text-green-700"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                {result.success ? "✓" : "✗"}
+                              </span>
+                              <span className="ml-1 text-green-800 truncate inline-block max-w-full">
+                                {result.url}
+                              </span>
+                              {result.success && result.result && (
+                                <span className="ml-1 text-green-600">
+                                  (+
+                                  {result.result.added ||
+                                    result.result.totalAdded ||
+                                    0}
+                                  )
+                                </span>
+                              )}
+                              {!result.success && (
+                                <span className="ml-1 text-red-600">
+                                  {result.error}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -374,48 +444,75 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
             {importMode === "anilist" && (
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="anilistUrl">AniList URL</Label>
-                  <Input
-                    id="anilistUrl"
-                    value={anilistUrl}
-                    onChange={(e) => handleUrlChange(e.target.value)}
-                    placeholder="https://anilist.co/anime/38000 or https://anilist.co/character/127303"
+                  <Label htmlFor="anilistUrls">
+                    AniList URLs (one per line)
+                  </Label>
+                  <Textarea
+                    id="anilistUrls"
+                    value={anilistUrls}
+                    onChange={(e) => handleUrlsChange(e.target.value)}
+                    placeholder="https://anilist.co/anime/38000&#10;https://anilist.co/manga/30002&#10;https://anilist.co/character/127303&#10;https://anilist.co/anime/16498"
+                    rows={6}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Paste an AniList anime or character URL
+                    Enter one AniList URL per line. Supports anime, manga, and
+                    character URLs.
                   </p>
                 </div>
 
-                {anilistId && importType && (
-                  <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-blue-900">
-                          {importType === "anime" ? "Anime" : "Character"}{" "}
-                          Detected
-                        </p>
-                        <p className="text-sm text-blue-800">ID: {anilistId}</p>
-                      </div>
-                      <Badge variant="default">Valid</Badge>
-                    </div>
-                  </div>
-                )}
-
-                {anilistUrl && !anilistId && (
-                  <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                      <p className="text-sm text-red-800">
-                        Invalid URL. Use: anilist.co/anime/ID or
-                        anilist.co/character/ID
-                      </p>
+                {parsedUrls.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>
+                      URL Validation ({parsedUrls.filter((p) => p.valid).length}
+                      /{parsedUrls.length} valid)
+                    </Label>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {parsedUrls.map((parsed, index) => (
+                        <div
+                          key={index}
+                          className={`rounded-lg p-3 border ${
+                            parsed.valid
+                              ? "bg-green-50 border-green-200"
+                              : "bg-red-50 border-red-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm font-mono truncate ${
+                                  parsed.valid
+                                    ? "text-green-800"
+                                    : "text-red-800"
+                                }`}
+                              >
+                                {parsed.url}
+                              </p>
+                              {parsed.valid && (
+                                <p className="text-xs text-green-700">
+                                  {parsed.type === "anime"
+                                    ? "Anime"
+                                    : parsed.type === "manga"
+                                    ? "Manga"
+                                    : "Character"}{" "}
+                                  ID: {parsed.id}
+                                </p>
+                              )}
+                            </div>
+                            <Badge
+                              variant={parsed.valid ? "default" : "destructive"}
+                            >
+                              {parsed.valid ? "Valid" : "Invalid"}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
                 <Button
                   onClick={handleImportFromAnilist}
-                  disabled={!anilistId || !importType}
+                  disabled={parsedUrls.filter((p) => p.valid).length === 0}
                   className="w-full"
                   size="lg"
                 >

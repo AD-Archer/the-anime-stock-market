@@ -79,7 +79,7 @@ export function ReportModal({
               value={reason}
               onValueChange={(value) => setReason(value as Report["reason"])}
             >
-              <SelectTrigger>
+              <SelectTrigger suppressHydrationWarning>
                 <SelectValue placeholder="Select a reason" />
               </SelectTrigger>
               <SelectContent>

@@ -200,6 +200,7 @@ export const mapStock = (doc: AppwriteDocument): Stock => ({
   description: toStringOr(docValue(doc, "description")),
   totalShares: toNumberOr(docValue(doc, "totalShares")),
   availableShares: toNumberOr(docValue(doc, "availableShares")),
+  characterNumber: toOptionalNumber(docValue(doc, "characterNumber")),
 });
 
 export const mapTransaction = (doc: AppwriteDocument): Transaction => ({

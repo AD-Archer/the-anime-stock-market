@@ -176,7 +176,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
       {modal && (
         <div className="mb-4">
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" suppressHydrationWarning>
               <SelectValue placeholder="Filter notifications" />
             </SelectTrigger>
             <SelectContent>

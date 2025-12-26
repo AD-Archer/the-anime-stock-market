@@ -77,12 +77,15 @@ export async function queryAniList<T>(
 }
 
 /**
- * Fetch media (anime) with characters by ID
+ * Fetch media (anime or manga) with characters by ID
  */
-export async function fetchMediaWithCharacters(mediaId: number) {
+export async function fetchMediaWithCharacters(
+  mediaId: number,
+  type: "ANIME" | "MANGA" = "ANIME"
+) {
   const query = `
-    query ($id: Int!) {
-      Media(id: $id, type: ANIME) {
+    query ($id: Int!, $type: MediaType!) {
+      Media(id: $id, type: $type) {
         id
         title {
           romaji
@@ -172,7 +175,10 @@ export async function fetchMediaWithCharacters(mediaId: number) {
     Media: Media;
   }
 
-  const result = await queryAniList<MediaResponse>(query, { id: mediaId });
+  const result = await queryAniList<MediaResponse>(query, {
+    id: mediaId,
+    type,
+  });
   return result.Media;
 }
 

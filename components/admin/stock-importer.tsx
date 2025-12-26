@@ -181,7 +181,7 @@ export function StockImporter() {
               value={type}
               onValueChange={(val) => setType(val as ImportType)}
             >
-              <SelectTrigger>
+              <SelectTrigger suppressHydrationWarning>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -249,7 +249,7 @@ export function StockImporter() {
                   value={minRole}
                   onValueChange={(val) => setMinRole(val as any)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger suppressHydrationWarning>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

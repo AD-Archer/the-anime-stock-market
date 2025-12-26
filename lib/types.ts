@@ -52,6 +52,10 @@ export interface Stock {
   totalShares: number;
   availableShares: number;
   /**
+   * Sequential character number (backfilled) to order listings
+   */
+  characterNumber?: number;
+  /**
    * Optional Anilist ID for verification in production seeds.
    * When present, seeds are considered "verified".
    */
@@ -271,7 +275,8 @@ export type AdminActionType =
   | "deletion_scheduled"
   | "deletion_finalized"
   | "support_update"
-  | "kill_switch";
+  | "kill_switch"
+  | "stock_creation";
 
 export interface AdminActionLog {
   id: string;

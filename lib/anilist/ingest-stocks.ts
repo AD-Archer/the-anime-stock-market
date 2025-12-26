@@ -23,6 +23,7 @@ import {
 import { databases } from "../appwrite/appwrite";
 import { Query } from "appwrite";
 import type { Stock } from "../types";
+import { metadataService } from "../database/metadataService";
 
 interface CharacterStockData {
   characterName: string;
@@ -349,6 +350,7 @@ async function addCharacterStock(
       description: description || "No description available",
       createdBy: createdByUserId,
       createdAt: now,
+      characterNumber: await metadataService.nextCharacterNumber(),
     } as Stock);
 
     console.log(
@@ -454,7 +456,7 @@ export async function addAnimeStocks(
     // Log a single admin action for this import
     try {
       await adminActionLogService.create({
-        action: "stock_grant",
+        action: "stock_creation",
         performedBy: createdByUserId,
         targetUserId: createdByUserId,
         metadata: {
@@ -478,6 +480,125 @@ export async function addAnimeStocks(
     return { added, updated, failed, results };
   } catch (error) {
     console.error("Failed to add anime stocks:", error);
+    return { added: 0, updated: 0, failed: 1, results: [] };
+  }
+}
+
+/**
+ * Add all characters from a manga as stocks
+ */
+export async function addMangaStocks(
+  anilistMediaId: number,
+  createdByUserId: string,
+  filters?: {
+    characterNameFilter?: string; // Only add characters with name containing this
+    minRoleImportance?: "MAIN" | "SUPPORTING" | "BACKGROUND"; // Minimum role importance
+  }
+): Promise<{ added: number; updated: number; failed: number; results: any[] }> {
+  try {
+    const media = await fetchMediaWithCharacters(anilistMediaId, "MANGA");
+
+    if (!media.characters?.edges || media.characters.edges.length === 0) {
+      return { added: 0, updated: 0, failed: 0, results: [] };
+    }
+
+    const roleImportanceMap = { MAIN: 3, SUPPORTING: 2, BACKGROUND: 1 };
+    const minRoleValue = filters?.minRoleImportance
+      ? roleImportanceMap[filters.minRoleImportance]
+      : 0;
+
+    let added = 0,
+      updated = 0,
+      failed = 0;
+    const results = [];
+
+    for (const edge of media.characters.edges) {
+      const roleValue =
+        roleImportanceMap[edge.role as keyof typeof roleImportanceMap] || 0;
+      if (roleValue < minRoleValue) continue;
+
+      if (
+        filters?.characterNameFilter &&
+        !edge.node.name.full
+          .toLowerCase()
+          .includes(filters.characterNameFilter.toLowerCase())
+      ) {
+        continue;
+      }
+
+      const primaryRank = media.rankings?.find(
+        (r) => r.allTime && r.type === "RATED"
+      )?.rank;
+
+      try {
+        const result = await addCharacterStock(
+          media.id,
+          edge.node.id,
+          edge.node.name.full,
+          media.title.romaji || media.title.english || "Unknown Manga",
+          edge.node.image?.large || null,
+          null, // animeImageUrl - not applicable for manga
+          edge.node.description || null,
+          primaryRank,
+          createdByUserId
+        );
+
+        if (result.added) {
+          added++;
+        } else if (result.stock) {
+          updated++;
+        } else if (result.error) {
+          failed++;
+          console.warn(result.error);
+        }
+
+        results.push({
+          characterName: edge.node.name.full,
+          added: result.added,
+          updated: !!result.stock,
+          id: result.id,
+          error: result.error,
+        });
+      } catch (error) {
+        console.error(`Failed to add character ${edge.node.name.full}:`, error);
+        failed++;
+        results.push({
+          characterName: edge.node.name.full,
+          added: false,
+          updated: false,
+          id: null,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    // Log a single admin action for this import
+    try {
+      await adminActionLogService.create({
+        action: "stock_creation",
+        performedBy: createdByUserId,
+        targetUserId: createdByUserId,
+        metadata: {
+          type: "manga",
+          mediaId: anilistMediaId,
+          added,
+          updated,
+          failed,
+          details: results.map((r) => ({
+            name: r.characterName || r.error || "unknown",
+            added: r.added || false,
+            id: r.id || null,
+            error: r.error || null,
+          })),
+        },
+      });
+    } catch (err) {
+      console.warn("Failed to create admin log for manga stock import:", err);
+    }
+
+    return { added, updated, failed, results };
+  } catch (error) {
+    console.error("Failed to add manga stocks:", error);
     return { added: 0, updated: 0, failed: 1, results: [] };
   }
 }

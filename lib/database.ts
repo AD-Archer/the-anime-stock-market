@@ -14,6 +14,7 @@ export { awardService } from "./database/awardService";
 export { friendService } from "./database/friendService";
 export { supportService } from "./database/supportService";
 export { characterSuggestionService } from "./database/characterSuggestionService";
+export { metadataService } from "./database/metadataService";
 
 // Re-export utilities and constants
 export {
