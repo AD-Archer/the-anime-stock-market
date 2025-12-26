@@ -8,8 +8,7 @@ const canUseAppwrite = () =>
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://animestockexchange.adarcher.app";
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
   const defaultOg = `${baseUrl}/icons/icon1.png`;
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -109,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       images: [
         stock.imageUrl?.startsWith("http")
           ? stock.imageUrl
-          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg
+          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
       ],
     })),
     ...stocks.map((stock) => ({
@@ -120,7 +119,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       images: [
         stock.imageUrl?.startsWith("http")
           ? stock.imageUrl
-          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg
+          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
       ],
     })),
     ...users.map((user) => ({

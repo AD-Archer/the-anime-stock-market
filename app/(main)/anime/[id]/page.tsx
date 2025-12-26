@@ -676,6 +676,10 @@ export default function AnimeDetailPage({
     });
   };
   const animeName = animeCharacters.length > 0 ? animeCharacters[0].anime : "";
+  const animeCoverImage =
+    animeCharacters.find((char) => char.animeImageUrl)?.animeImageUrl ||
+    animeCharacters.find((char) => char.imageUrl)?.imageUrl ||
+    "/placeholder.svg";
   const comments = getAnimeComments(id);
 
   // Process comments into threaded structure
@@ -815,28 +819,42 @@ export default function AnimeDetailPage({
           </Button>
         </Link>
 
-        <div className="mb-8">
-          <h1 className="mb-4 text-4xl font-bold text-foreground">
-            {animeName}
-          </h1>
-          <div className="flex gap-6">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Characters</p>
-              <p className="text-2xl font-bold text-foreground">
-                {animeCharacters.length}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Market Cap</p>
-              <p className="text-xl font-bold text-foreground break-all md:text-2xl">
-                ${totalMarketCap.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Average Price</p>
-              <p className="text-xl font-bold text-foreground break-all md:text-2xl">
-                ${averagePrice.toFixed(2)}
-              </p>
+        <div className="mb-8 grid gap-6 lg:grid-cols-[260px,1fr]">
+          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border bg-muted">
+            <Image
+              src={animeCoverImage}
+              alt={`${animeName || "Anime"} cover art`}
+              fill
+              className="object-cover"
+            />
+          </div>
+          <div>
+            <h1 className="mb-4 text-4xl font-bold text-foreground">
+              {animeName}
+            </h1>
+            <div className="mt-2 grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Total Characters
+                </p>
+                <p className="text-2xl font-bold text-foreground">
+                  {animeCharacters.length}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Total Market Cap
+                </p>
+                <p className="text-xl font-bold text-foreground break-all md:text-2xl">
+                  ${totalMarketCap.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Average Price</p>
+                <p className="text-xl font-bold text-foreground break-all md:text-2xl">
+                  ${averagePrice.toFixed(2)}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -17,7 +17,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://animestockexchange.adarcher.app";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
 const defaultOg = `${baseUrl}/icons/icon1.png`;
 
 // Theme script to prevent flash
@@ -45,7 +45,7 @@ const themeScript = `(function() {
   })();`;
 
 export const metadata: Metadata = {
-  title: "Anime Stock Exchange",
+  title: "The Anime Stock Market",
   description: "Trade your favorite anime characters",
   icons: {
     icon: defaultOg,
@@ -53,14 +53,14 @@ export const metadata: Metadata = {
     shortcut: defaultOg,
   },
   openGraph: {
-    title: "Anime Stock Exchange",
+    title: "Anime Stock Market",
     description: "Trade your favorite anime characters in real-time",
     url: baseUrl,
-    siteName: "Anime Stock Exchange",
+    siteName: "Anime Stock Market",
     images: [
       {
         url: defaultOg,
-        alt: "Anime Stock Exchange Open Graph",
+        alt: "Anime Stock Market Open Graph",
       },
     ],
     type: "website",

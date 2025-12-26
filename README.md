@@ -200,7 +200,7 @@ This project includes a lightweight client-side Plausible initializer (`componen
 
 ```env
 # domain used by Plausible (optional - derived from NEXT_PUBLIC_SITE_URL if not set)
-NEXT_PUBLIC_PLAUSIBLE_DOMAIN=animestockexchange.adarcher.app
+NEXT_PUBLIC_PLAUSIBLE_DOMAIN=www.animestockmarket.tech
 # optional Plausible proxy/API host
 NEXT_PUBLIC_PLAUSIBLE_API_HOST=https://plausible.adarcher.app
 ```

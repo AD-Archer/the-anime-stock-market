@@ -54,10 +54,7 @@ export default function LandingPage() {
         setStockCount(stocks.length);
         setUserCount(users.length);
         setTotalVolume(
-          transactions.reduce(
-            (sum, t) => sum + Math.abs(t.totalAmount || 0),
-            0
-          )
+          transactions.reduce((sum, t) => sum + Math.abs(t.totalAmount || 0), 0)
         );
       } finally {
         setIsStockCountLoading(false);
@@ -96,7 +93,7 @@ export default function LandingPage() {
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
               Welcome to the{" "}
-              <span className="text-primary">Anime Stock Exchange</span>
+              <span className="text-primary">Anime Stock Market</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               A just-for-fun market game where anime characters become your
@@ -176,7 +173,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Why Choose Anime Stock Exchange?
+              Why Choose Anime Stock Market?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Experience the thrill of trading in a universe where your favorite

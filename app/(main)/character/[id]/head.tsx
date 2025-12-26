@@ -2,13 +2,12 @@ import React from "react";
 
 export default async function Head({ params }: { params: { id: string } }) {
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://animestockexchange.adarcher.app";
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
   const defaultOg = `${siteUrl}/icons/icon1.png`;
   const id = params.id;
 
-  let title = "Character — Anime Stock Exchange";
-  let description = "Character page on Anime Stock Exchange.";
+  let title = "Character — Anime Stock Market";
+  let description = "Character page on Anime Stock Market.";
   let image = defaultOg;
   let url = `${siteUrl}/character/${id}`;
 

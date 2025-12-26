@@ -41,7 +41,7 @@ async function handlePasswordChanged(userId: string) {
 
   await sendSystemEmail({
     to: user.email,
-    subject: "Your Anime Stock Exchange password changed",
+    subject: "Your Anime Stock Market password changed",
     text: `Hi ${user.username},\n\nYour password was just updated. If this wasn't you, please reset your password immediately.`,
     html: `<p>Hi ${
       user.username
@@ -58,7 +58,7 @@ async function handleUserBanned(userId: string, bannedUntil?: string) {
   const until = friendlyDate(bannedUntil);
   await sendSystemEmail({
     to: user.email,
-    subject: "Your Anime Stock Exchange account was banned",
+    subject: "Your Anime Stock Market account was banned",
     text: `Hi ${user.username},\n\nYour account has been banned until ${until}. You can reply to this email if you believe this is a mistake.`,
     html: `<p>Hi ${user.username},</p><p>Your account has been banned until <strong>${until}</strong>. You can reply to this email if you believe this is a mistake.</p>`,
   });
@@ -71,7 +71,7 @@ async function handleDeletionScheduled(userId: string, date?: string) {
   const when = friendlyDate(date);
   await sendSystemEmail({
     to: user.email,
-    subject: "Your Anime Stock Exchange account is scheduled for deletion",
+    subject: "Your Anime Stock Market account is scheduled for deletion",
     text: `Hi ${user.username},\n\nAn administrator scheduled your account for deletion on ${when}. Your account will remain banned until that time. If you would like to appeal, please reply to this message or submit an in-app appeal.`,
     html: `<p>Hi ${user.username},</p><p>An administrator scheduled your account for deletion on <strong>${when}</strong>. Your account will remain banned until that time. If you would like to appeal, please reply to this message or submit an in-app appeal.</p>`,
   });
@@ -84,7 +84,7 @@ async function handleAccountDeleted(userId: string, deletedAt?: string) {
   const when = friendlyDate(deletedAt);
   await sendSystemEmail({
     to: user.email,
-    subject: "Your Anime Stock Exchange account was deleted",
+    subject: "Your Anime Stock Market account was deleted",
     text: `Hi ${user.username},\n\nYour account has been permanently deleted on ${when}. Thank you for being part of the community.`,
     html: `<p>Hi ${user.username},</p><p>Your account has been permanently deleted on <strong>${when}</strong>. Thank you for being part of the community.</p>`,
   });
@@ -141,7 +141,7 @@ async function handleSupportTicketCreated(event: any) {
         try {
           await sendSystemEmail({
             to,
-            subject: `Anime Stock Exchange [Support] ${subject}`,
+            subject: `Anime Stock Market [Support] ${subject}`,
             text: bodyText,
             html: bodyHtml,
             replyTo: contactEmail,

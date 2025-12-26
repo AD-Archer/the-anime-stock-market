@@ -73,7 +73,7 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                By accessing and using the Anime Stock Exchange application, you
+                By accessing and using the Anime Stock Market application, you
                 accept and agree to be bound by the terms and provision of this
                 agreement. If you do not agree to abide by the above, please do
                 not use this service.
@@ -89,8 +89,8 @@ export default function TermsPage() {
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p>
                   Permission is granted to temporarily use the Anime Stock
-                  Exchange application for personal, non-commercial
-                  entertainment purposes only.
+                  Market application for personal, non-commercial entertainment
+                  purposes only.
                 </p>
                 <p>This permission does not include:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
@@ -158,7 +158,7 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                In no event shall the Anime Stock Exchange or its creators be
+                In no event shall the Anime Stock Market or its creators be
                 liable for any direct, indirect, incidental, special, or
                 consequential damages arising out of or in any way connected
                 with the use of this application, whether based on contract,

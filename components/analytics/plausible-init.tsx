@@ -19,7 +19,7 @@ export default function PlausibleInit() {
     const domain =
       process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN ??
       derivedHost ??
-      "animestockexchange.adarcher.app";
+      "www.animestockmarket.tech";
     const apiHost =
       process.env.NEXT_PUBLIC_PLAUSIBLE_API_HOST ??
       "https://plausible.adarcher.app";
@@ -31,16 +31,16 @@ export default function PlausibleInit() {
 
       try {
         const { init } = await import("@plausible-analytics/tracker");
-        
+
         init({
           domain,
           endpoint: `${apiHost}/api/event`,
           autoCapturePageviews: true,
           hashBasedRouting: true,
-          captureOnLocalhost: process.env.NODE_ENV === 'development',
+          captureOnLocalhost: process.env.NODE_ENV === "development",
         });
 
-        console.log('Plausible tracker initialized for domain:', domain);
+        console.log("Plausible tracker initialized for domain:", domain);
       } catch (err) {
         console.warn(
           "Plausible tracker import failed, falling back to CDN",

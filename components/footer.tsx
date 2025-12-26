@@ -13,7 +13,7 @@ export function Footer() {
               href="/"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              © 2025 Anime Stock Exchange. All rights reserved.
+              © 2025 Anime Stock Market. All rights reserved.
             </Link>
           </div>
 

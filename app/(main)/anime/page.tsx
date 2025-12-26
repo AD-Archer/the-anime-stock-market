@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { generateAnimeSlug } from "@/lib/utils";
+import { generateAnimeSlug, formatCurrencyCompact } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -13,12 +13,28 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { formatCurrencyCompact } from "@/lib/utils";
 
 export default function AnimePage() {
   const { stocks } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
+
+  const getAnimeCoverImage = (characters: typeof stocks) => {
+    const sortedByMarketCap = [...characters].sort(
+      (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
+    );
+    const coverCharacter =
+      sortedByMarketCap.find(
+        (character) => character.animeImageUrl || character.imageUrl
+      ) ?? sortedByMarketCap[0];
+
+    return (
+      coverCharacter?.animeImageUrl ||
+      coverCharacter?.imageUrl ||
+      "/placeholder.svg"
+    );
+  };
 
   // Group stocks by anime
   const animeMap = new Map<string, typeof stocks>();
@@ -32,15 +48,20 @@ export default function AnimePage() {
 
   // Convert to array and filter by search
   const animeList = Array.from(animeMap.entries())
-    .map(([animeId, characters]) => ({
-      id: animeId,
-      name: characters[0].anime,
-      characters,
-      totalMarketCap: characters.reduce(
-        (sum, char) => sum + char.currentPrice * char.totalShares,
-        0
-      ),
-    }))
+    .map(([animeId, characters]) => {
+      const coverImage = getAnimeCoverImage(characters);
+
+      return {
+        id: animeId,
+        name: characters[0].anime,
+        characters,
+        coverImage,
+        totalMarketCap: characters.reduce(
+          (sum, char) => sum + char.currentPrice * char.totalShares,
+          0
+        ),
+      };
+    })
     .filter((anime) =>
       anime.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
@@ -76,14 +97,23 @@ export default function AnimePage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {animeList.map((anime) => (
             <Link key={anime.id} href={`/anime/${anime.id}`}>
-              <Card className="transition-all hover:shadow-lg">
-                <CardHeader>
+              <Card className="overflow-hidden transition-all hover:shadow-lg">
+                <div className="relative h-40 w-full bg-muted">
+                  <Image
+                    src={anime.coverImage}
+                    alt={`${anime.name} cover art`}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                </div>
+                <CardHeader className="pb-2">
                   <CardTitle>{anime.name}</CardTitle>
                   <CardDescription>
                     {anime.characters.length} characters available
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="mb-4 flex flex-wrap gap-2">
                     {anime.characters.slice(0, 5).map((char) => (
                       <Badge key={char.id} variant="secondary">
