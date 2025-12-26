@@ -6,27 +6,25 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { StockManagement } from "@/components/admin/stock-management";
-import { UserManagement } from "@/components/admin/user-management";
-import { CreateStockDialog } from "@/components/admin/create-stock-dialog";
-import { BuybackManagement } from "@/components/admin/buyback-management";
-import { MarketManagement } from "@/components/admin/market-management";
-import { ReportManagement } from "@/components/admin/report-management";
-import { NotificationManagement } from "@/components/admin/notification-management";
-import { SupportManagement } from "@/components/admin/support-management";
-import { AppealManagement } from "@/components/admin/appeal-management";
-import { AdminActionLogPanel } from "@/components/admin/admin-action-log";
-import { CharacterSuggestions } from "@/components/admin/character-suggestions";
+import { StockManagement } from "@/app/(main)/admin/components/stock-management";
+import { UserManagement } from "@/app/(main)/admin/components/user-management";
+import { CreateStockDialog } from "@/app/(main)/admin/components/create-stock-dialog";
+import { BuybackManagement } from "@/app/(main)/admin/components/buyback-management";
+import { MarketManagement } from "@/app/(main)/admin/components/market-management";
+import { ReportManagement } from "@/app/(main)/admin/components/report-management";
+import { NotificationManagement } from "@/app/(main)/admin/components/notification-management";
+import { SupportManagement } from "@/app/(main)/admin/components/support-management";
+import { AppealManagement } from "@/app/(main)/admin/components/appeal-management";
+import { AdminActionLogPanel } from "@/app/(main)/admin/components/admin-action-log";
+import { CharacterSuggestions } from "@/app/(main)/admin/components/character-suggestions";
 import dynamic from "next/dynamic";
 const KillSwitchPanel = dynamic(
-  () => import("@/components/admin/kill-switch").then((m) => m.KillSwitchPanel),
+  () => import("@/app/(main)/admin/components/kill-switch").then((m) => m.KillSwitchPanel),
   { ssr: false }
 );
 
 // Danger extra can be client-side rendered directly
-import { DangerZoneExtra } from "@/components/admin/danger-zone-extra";
+import { DangerZoneExtra } from "@/app/(main)/admin/components/danger-zone-extra";
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
