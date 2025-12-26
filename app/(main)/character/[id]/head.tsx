@@ -15,7 +15,7 @@ export default async function Head({ params }: { params: { id: string } }) {
     const { stockService } = await import("@/lib/database/stockService");
     const stock = await stockService.getById(id);
     if (stock) {
-      title = `${stock.characterName} | ${stock.anime} — Anime Stock Exchange`;
+      title = `${stock.characterName} | ${stock.anime} — Anime Stock Market`;
       description =
         (stock.description && stock.description.slice(0, 160)) ||
         `Character page for ${stock.characterName} from ${stock.anime}.`;

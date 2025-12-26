@@ -26,7 +26,7 @@ const tag = process.argv[2] || "latest";
 // Ensure tag is properly formatted
 const imageName = tag.includes("/")
   ? tag
-  : `adarcher/the-anime-stock-exchange:${tag}`;
+  : `adarcher/the-anime-stock-market:${tag}`;
 
 console.log("🐳 Building Docker image...");
 console.log(`📦 Image name: ${imageName}`);

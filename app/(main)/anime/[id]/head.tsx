@@ -32,7 +32,7 @@ export default async function Head({ params }: { params: { id: string } }) {
         .slice(0, 3)
         .map((s) => s.characterName);
 
-      title = `${animeName} stocks — Anime Stock Exchange`;
+      title = `${animeName} stocks — Anime Stock Market`;
 
       const seoPhrases = [
         `${animeName} stocks`,
@@ -51,7 +51,7 @@ export default async function Head({ params }: { params: { id: string } }) {
 
       description = `${animeName} stocks and character markets — trade ${
         topCharsStr || "popular characters"
-      } and more on Anime Stock Exchange. Keywords: ${seoPhrases.join(", ")}`;
+      } and more on Anime Stock Market. Keywords: ${seoPhrases.join(", ")}`;
 
       keywords = Array.from(
         new Set([...keywords, ...seoPhrases, ...topCharacters])

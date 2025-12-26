@@ -54,11 +54,13 @@ const buildMarketData = (priceHistory: PriceHistory[]): MarketDataPoint[] => {
 };
 
 const applyPriceImpact = (stock: Stock, sharesDelta: number): number => {
+  const direction = Math.sign(sharesDelta) || 1; // ensure 0 defaults to positive
   const liquidityFactor = Math.max(
     0.05,
-    Math.min(0.5, sharesDelta / stock.totalShares)
+    Math.min(0.5, Math.abs(sharesDelta) / stock.totalShares)
   );
-  const impact = liquidityFactor * 0.5; // scale to avoid extreme swings
+  // Apply impact in the direction of the trade (buys raise price, sells lower it)
+  const impact = liquidityFactor * 0.5 * direction; // scale to avoid extreme swings
   const newPrice = stock.currentPrice * (1 + impact);
   return Math.max(0.01, Number(newPrice.toFixed(2)));
 };
@@ -267,7 +269,9 @@ export function createMarketActions({
       return false;
     }
 
-    const totalCost = stock.currentPrice * shares;
+    const newPrice = applyPriceImpact(stock, shares);
+    const executionPrice = newPrice;
+    const totalCost = executionPrice * shares;
     if (currentUser.balance < totalCost) return false;
 
     const updatedUsers = users.map((u) =>
@@ -278,7 +282,6 @@ export function createMarketActions({
       currentUser: { ...currentUser, balance: currentUser.balance - totalCost },
     });
 
-    const newPrice = applyPriceImpact(stock, shares);
     const updatedStocks = stocks.map((s) =>
       s.id === stockId
         ? {
@@ -307,7 +310,7 @@ export function createMarketActions({
       stockId,
       type: "buy",
       shares,
-      pricePerShare: stock.currentPrice,
+      pricePerShare: executionPrice,
       totalAmount: totalCost,
       timestamp: new Date(),
     };
@@ -321,7 +324,7 @@ export function createMarketActions({
       const totalShares = existingPortfolio.shares + shares;
       const newAverageBuyPrice =
         (existingPortfolio.averageBuyPrice * existingPortfolio.shares +
-          stock.currentPrice * shares) /
+          executionPrice * shares) /
         totalShares;
 
       const updatedPortfolios = portfolios.map((p) =>
@@ -339,7 +342,7 @@ export function createMarketActions({
             userId: currentUser.id,
             stockId,
             shares,
-            averageBuyPrice: stock.currentPrice,
+            averageBuyPrice: executionPrice,
           },
         ],
       });
@@ -368,7 +371,7 @@ export function createMarketActions({
             averageBuyPrice:
               ((dbPortfolio?.averageBuyPrice ?? 0) *
                 (dbPortfolio?.shares ?? 0) +
-                stock.currentPrice * shares) /
+                executionPrice * shares) /
               ((dbPortfolio?.shares ?? 0) + shares),
           });
         } else {
@@ -380,7 +383,7 @@ export function createMarketActions({
           userId: currentUser.id,
           stockId,
           shares,
-          averageBuyPrice: stock.currentPrice,
+          averageBuyPrice: executionPrice,
         });
       }
 
@@ -454,7 +457,8 @@ export function createMarketActions({
     if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
       return false;
 
-    const { portfolios, stocks, users, transactions } = getState();
+    const { portfolios, stocks, users, transactions, priceHistory } =
+      getState();
     const portfolio = portfolios.find(
       (p) => p.userId === currentUser.id && p.stockId === stockId
     );
@@ -463,7 +467,19 @@ export function createMarketActions({
     const stock = stocks.find((s) => s.id === stockId);
     if (!stock) return false;
 
-    const totalRevenue = stock.currentPrice * shares;
+    // Snapshot for rollback in case persistence fails
+    const prevState = {
+      users,
+      currentUser,
+      stocks,
+      portfolios,
+      transactions,
+      priceHistory,
+    };
+
+    const newPrice = applyPriceImpact(stock, -shares);
+    const executionPrice = newPrice;
+    const totalRevenue = executionPrice * shares;
 
     const updatedUsers = users.map((u) =>
       u.id === currentUser.id ? { ...u, balance: u.balance + totalRevenue } : u
@@ -478,7 +494,11 @@ export function createMarketActions({
 
     const updatedStocks = stocks.map((s) =>
       s.id === stockId
-        ? { ...s, availableShares: s.availableShares + shares }
+        ? {
+            ...s,
+            availableShares: s.availableShares + shares,
+            currentPrice: newPrice,
+          }
         : s
     );
     setState({ stocks: updatedStocks });
@@ -489,7 +509,7 @@ export function createMarketActions({
       stockId,
       type: "sell",
       shares,
-      pricePerShare: stock.currentPrice,
+      pricePerShare: executionPrice,
       totalAmount: totalRevenue,
       timestamp: new Date(),
     };
@@ -509,16 +529,6 @@ export function createMarketActions({
       );
       setState({ portfolios: updatedPortfolios });
     }
-
-    // Snapshot for rollback in case persistence fails
-    const prevState = {
-      users: getState().users,
-      currentUser: getState().currentUser,
-      stocks: getState().stocks,
-      portfolios: getState().portfolios,
-      transactions: getState().transactions,
-      priceHistory: getState().priceHistory,
-    };
 
     try {
       const newShareCount = portfolio.shares - shares;
@@ -547,12 +557,9 @@ export function createMarketActions({
       const priceHistoryEntry = {
         id: uuidv4(),
         stockId,
-        price: 0,
+        price: newPrice,
         timestamp: new Date(),
       };
-
-      const newPrice = applyPriceImpact(stock, -shares);
-      priceHistoryEntry.price = newPrice;
 
       await Promise.all([
         stockService.update(stockId, {

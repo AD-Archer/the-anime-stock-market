@@ -1,6 +1,6 @@
 services:
   anime-stock-market:
-    image: adarcher/the-anime-stock-exchange:latest
+    image: adarcher/the-anime-stock-market:latest
     ports:
       - "3000:3000"
     env_file:
