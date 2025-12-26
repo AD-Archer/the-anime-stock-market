@@ -7,7 +7,7 @@ import { User } from "@/lib/types";
 import {
   formatCompactNumber,
   formatCurrencyCompact,
-  generateAnimeSlug,
+  formatCurrencySmart,
 } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,12 +36,12 @@ export default function CharacterInfo({
   return (
     <Card className="lg:col-span-1">
       <CardContent className="pt-6">
-        <div className="relative mb-4 aspect-[3/4] overflow-hidden rounded-lg bg-muted">
+        <div className="relative mb-4 aspect-square overflow-hidden rounded-lg bg-muted">
           <Image
             src={stock.imageUrl || "/placeholder.svg"}
             alt={stock.characterName}
             fill
-            className="object-contain"
+            className="object-cover"
           />
         </div>
         <h1 className="mb-2 text-2xl font-bold text-foreground">
@@ -65,7 +65,7 @@ export default function CharacterInfo({
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Current Price</span>
             <span className="text-xl font-bold text-foreground break-all">
-              {formatCurrencyCompact(stock.currentPrice, {
+              {formatCurrencySmart(stock.currentPrice, {
                 maximumFractionDigits: 2,
               })}
             </span>

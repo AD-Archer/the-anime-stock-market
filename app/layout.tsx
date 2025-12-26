@@ -18,7 +18,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
-const defaultOg = `${baseUrl}/icons/icon1.png`;
+const defaultOg = `${baseUrl}/icons/images.jpg`;
 
 // Theme script to prevent flash
 const themeScript = `(function() {

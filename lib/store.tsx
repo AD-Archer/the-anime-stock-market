@@ -35,15 +35,19 @@ import {
   supportService,
   adminActionLogService,
   DATABASE_ID,
+  USERS_COLLECTION,
+  PORTFOLIOS_COLLECTION,
   COMMENTS_COLLECTION,
   FRIENDS_COLLECTION,
   NOTIFICATIONS_COLLECTION,
   TRANSACTIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
+  mapUser,
   mapComment,
   mapFriend,
   mapNotification,
+  mapPortfolio,
   mapPriceHistory,
   mapTransaction,
   mapStock,
@@ -440,10 +444,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const mergePriceHistory = useCallback((incoming: PriceHistory[]) => {
     if (!incoming.length) return;
+
+    const valid = incoming.filter((ph) => {
+      if (ph.price > 0) return true;
+      console.warn(
+        "[realtime][price_history] dropped non-positive price entry",
+        ph
+      );
+      return false;
+    });
+    if (!valid.length) return;
+
     useStore.setState((state) => {
       const merged = new Map<string, PriceHistory>();
       state.priceHistory.forEach((ph) => merged.set(ph.id, ph));
-      incoming.forEach((ph) => merged.set(ph.id, ph));
+      valid.forEach((ph) => merged.set(ph.id, ph));
 
       const mergedList = Array.from(merged.values()).sort(
         (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
@@ -617,6 +632,88 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
+    const usersUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${USERS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+        const incomingUser = mapUser(document);
+
+        if (event.includes("create")) {
+          useStore.setState((state) =>
+            state.users.some((u) => u.id === incomingUser.id)
+              ? state
+              : { users: [...state.users, incomingUser] }
+          );
+        } else if (event.includes("update")) {
+          useStore.setState((state) => {
+            const users = state.users.some((u) => u.id === incomingUser.id)
+              ? state.users.map((u) =>
+                  u.id === incomingUser.id ? incomingUser : u
+                )
+              : [...state.users, incomingUser];
+
+            const currentUser =
+              state.currentUser?.id === incomingUser.id
+                ? { ...state.currentUser, ...incomingUser }
+                : state.currentUser;
+
+            return { users, currentUser };
+          });
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => ({
+            users: state.users.filter((u) => u.id !== deletedId),
+            currentUser:
+              state.currentUser?.id === deletedId ? null : state.currentUser,
+          }));
+        }
+      }
+    );
+
+    const portfoliosUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${PORTFOLIOS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create") || event.includes("update")) {
+          const incoming = mapPortfolio(document);
+          useStore.setState((state) => {
+            const existingIndex = state.portfolios.findIndex(
+              (p) => p.id === incoming.id
+            );
+            if (existingIndex !== -1) {
+              return {
+                portfolios: state.portfolios.map((p) =>
+                  p.id === incoming.id ? incoming : p
+                ),
+              };
+            }
+            return { portfolios: [...state.portfolios, incoming] };
+          });
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => ({
+            portfolios: state.portfolios.filter((p) => p.id !== deletedId),
+          }));
+        }
+      }
+    );
+
+    return () => {
+      try {
+        usersUnsub();
+      } catch {}
+      try {
+        portfoliosUnsub();
+      } catch {}
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
     const sortTransactions = (txs: Transaction[]) =>
       [...txs].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
@@ -668,21 +765,67 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const document = response.payload as any;
 
         if (event.includes("create")) {
-          const newStock = mapStock(document);
+          const incoming = mapStock(document);
           useStore.setState((state) => {
+            const latestHistory = state.priceHistory
+              .filter((ph) => ph.stockId === incoming.id)
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+            const currentPrice =
+              incoming.currentPrice > 0
+                ? incoming.currentPrice
+                : latestHistory?.price ?? incoming.currentPrice;
+
             // Only add if it doesn't already exist (prevent duplicates from manual creation)
-            if (!state.stocks.some((s) => s.id === newStock.id)) {
-              return { stocks: [...state.stocks, newStock] };
+            if (!state.stocks.some((s) => s.id === incoming.id)) {
+              if (incoming.currentPrice <= 0) {
+                console.warn(
+                  "[realtime][stocks:create] incoming price is zero/undefined; using fallback",
+                  {
+                    stockId: incoming.id,
+                    fallback: currentPrice,
+                    latestHistory: latestHistory?.price,
+                  }
+                );
+              }
+              return {
+                stocks: [...state.stocks, { ...incoming, currentPrice }],
+              };
             }
             return state;
           });
         } else if (event.includes("update")) {
-          const updatedStock = mapStock(document);
-          useStore.setState((state) => ({
-            stocks: state.stocks.map((s) =>
-              s.id === updatedStock.id ? updatedStock : s
-            ),
-          }));
+          const incoming = mapStock(document);
+          useStore.setState((state) => {
+            const latestHistory = state.priceHistory
+              .filter((ph) => ph.stockId === incoming.id)
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+            const existing = state.stocks.find((s) => s.id === incoming.id);
+            const currentPrice =
+              incoming.currentPrice > 0
+                ? incoming.currentPrice
+                : latestHistory?.price ??
+                  existing?.currentPrice ??
+                  incoming.currentPrice;
+
+            if (
+              incoming.currentPrice <= 0 ||
+              (existing && incoming.currentPrice < existing.currentPrice / 10)
+            ) {
+              console.warn("[realtime][stocks:update] price fallback applied", {
+                stockId: incoming.id,
+                incoming: incoming.currentPrice,
+                existing: existing?.currentPrice,
+                history: latestHistory?.price,
+                effective: currentPrice,
+              });
+            }
+
+            return {
+              stocks: state.stocks.map((s) =>
+                s.id === incoming.id ? { ...incoming, currentPrice } : s
+              ),
+            };
+          });
         } else if (event.includes("delete")) {
           const deletedId = document.$id;
           useStore.setState((state) => ({
@@ -700,6 +843,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (event.includes("create")) {
           const newPH = mapPriceHistory(document);
+          if (newPH.price <= 0) {
+            console.warn(
+              "[realtime][price_history:create] non-positive price ignored",
+              newPH
+            );
+            return;
+          }
           mergePriceHistory([newPH]);
         }
       }

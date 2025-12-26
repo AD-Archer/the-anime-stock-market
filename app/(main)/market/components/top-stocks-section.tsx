@@ -36,7 +36,7 @@ export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
     return counts;
   }, [transactions]);
 
-  const compute = () => {
+  const top10 = useMemo(() => {
     if (!topStocks || !Array.isArray(topStocks)) return [];
     let arr = [...topStocks];
     switch (filter) {
@@ -72,9 +72,7 @@ export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
         break;
     }
     return arr.slice(0, 10);
-  };
-
-  const top10 = compute();
+  }, [filter, stockTransactionCounts, topStocks]);
 
   return (
     <div className="mb-8">

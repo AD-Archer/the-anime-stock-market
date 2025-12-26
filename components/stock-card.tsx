@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {
@@ -33,18 +34,31 @@ export function StockCard({
   showDescription = false,
   compact = true,
 }: StockCardProps) {
-  const { getStockPriceHistory } = useStore();
-  const priceHistory = getStockPriceHistory(stock.id);
+  const priceHistory = useStore((state) => state.priceHistory);
+  const stockHistory = useMemo(
+    () =>
+      priceHistory
+        .filter((ph) => ph.stockId === stock.id)
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()),
+    [priceHistory, stock.id]
+  );
 
   // Calculate price change
-  let priceChange = 0;
-  let priceChangePercent = 0;
-  if (priceHistory.length >= 2) {
-    const previousPrice = priceHistory[priceHistory.length - 2].price;
-    priceChange = stock.currentPrice - previousPrice;
-    priceChangePercent =
-      previousPrice !== 0 ? (priceChange / previousPrice) * 100 : 0;
-  }
+  const startPrice =
+    stockHistory[0]?.price ??
+    (stock.currentPrice > 0 ? stock.currentPrice : undefined);
+  const latestPrice =
+    stockHistory[stockHistory.length - 1]?.price ??
+    (stock.currentPrice > 0 ? stock.currentPrice : undefined);
+
+  const priceChange =
+    startPrice !== undefined && latestPrice !== undefined
+      ? latestPrice - startPrice
+      : 0;
+  const priceChangePercent =
+    startPrice && startPrice !== 0
+      ? (priceChange / startPrice) * 100
+      : 0;
 
   const isPositive = priceChange > 0;
   const isNegative = priceChange < 0;

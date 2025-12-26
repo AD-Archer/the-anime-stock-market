@@ -8,6 +8,7 @@ import {
   normalizePayload,
   ensureDatabaseIdAvailable,
 } from "./utils";
+import { activityService } from "./activityService";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
 
@@ -69,7 +70,16 @@ export const transactionService = {
         documentId,
         normalizePayload(data)
       );
-      return mapTransaction(response);
+      const created = mapTransaction(response);
+
+      // Update activity counter (best-effort)
+      if (created.stockId) {
+        activityService.adjustCountForStock(created.stockId, 1).catch(() => {
+          /* ignore */
+        });
+      }
+
+      return created;
     } catch (error) {
       console.warn("Failed to create transaction in database:", error);
       throw error;
@@ -82,13 +92,31 @@ export const transactionService = {
   ): Promise<Transaction> {
     try {
       const dbId = ensureDatabaseIdAvailable();
+
+      // Get previous transaction to detect stockId changes
+      const prev = await this.getById(id);
+
       const response = await databases.updateDocument(
         dbId,
         TRANSACTIONS_COLLECTION,
         id,
         normalizePayload(transaction)
       );
-      return mapTransaction(response);
+      const updated = mapTransaction(response);
+
+      // If stockId changed, adjust counts
+      if (prev && prev.stockId !== updated.stockId) {
+        if (prev.stockId) {
+          activityService.adjustCountForStock(prev.stockId, -1).catch(() => {});
+        }
+        if (updated.stockId) {
+          activityService
+            .adjustCountForStock(updated.stockId, 1)
+            .catch(() => {});
+        }
+      }
+
+      return updated;
     } catch (error) {
       console.warn("Failed to update transaction in database:", error);
       throw error;
@@ -98,6 +126,13 @@ export const transactionService = {
   async delete(id: string): Promise<void> {
     try {
       const dbId = ensureDatabaseIdAvailable();
+
+      // Fetch the transaction so we can decrement the activity counter
+      const prev = await this.getById(id);
+      if (prev && prev.stockId) {
+        activityService.adjustCountForStock(prev.stockId, -1).catch(() => {});
+      }
+
       await databases.deleteDocument(dbId, TRANSACTIONS_COLLECTION, id);
     } catch (error) {
       console.warn("Failed to delete transaction from database:", error);

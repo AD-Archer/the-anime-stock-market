@@ -5,7 +5,7 @@ import { stockService } from "@/lib/database/stockService";
 export default async function Head({ params }: { params: { id: string } }) {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
-  const defaultOg = `${siteUrl}/icons/icon1.png`;
+  const defaultOg = `${siteUrl}/icons/images.jpg`;
   const id = params.id;
 
   let title = "Anime — Anime Stock Market";

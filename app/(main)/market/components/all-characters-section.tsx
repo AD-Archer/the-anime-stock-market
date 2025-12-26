@@ -38,7 +38,9 @@ export function AllCharactersSection({
   onBuy,
 }: AllCharactersSectionProps) {
   const { getStockPriceHistory, transactions } = useStore();
-  const priceHistory = useStore((state) => state.priceHistory);
+  const priceHistoryVersion = useStore(
+    (state) => state.priceHistory.length
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [showCount, setShowCount] = useState(20); // Initially show 20 characters
   const [sortMode, setSortMode] = useState<SortMode>("marketcap");
@@ -55,7 +57,7 @@ export function AllCharactersSection({
   }, [transactions]);
 
   const filteredStocks = useMemo(() => {
-    const historyVersion = priceHistory.length; // ensure recompute when price history updates
+    const historyVersion = priceHistoryVersion; // ensure recompute when price history updates
     const withChange = stocks.map((stock) => {
       const history = getStockPriceHistory(stock.id);
       let priceChange = 0;
@@ -132,7 +134,7 @@ export function AllCharactersSection({
     showCount,
     sortMode,
     getStockPriceHistory,
-    priceHistory.length,
+    priceHistoryVersion,
     stockTransactionCounts,
   ]);
 

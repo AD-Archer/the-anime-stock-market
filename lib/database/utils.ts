@@ -77,6 +77,7 @@ export const FRIENDS_COLLECTION = "friends";
 export const SUPPORTS_COLLECTION = "support_tickets";
 export const CHARACTER_SUGGESTIONS_COLLECTION = "character_suggestions";
 export const METADATA_COLLECTION = "metadata";
+export const TRANSACTION_ACTIVITY_COLLECTION = "transaction_activity";
 // Daily rewards collection - will gracefully fail if not created
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
