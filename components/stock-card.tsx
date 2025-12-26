@@ -4,7 +4,7 @@ import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {
   formatCompactNumber,
-  formatCurrencyCompact,
+  formatCurrencySmart,
   formatCurrency,
   generateAnimeSlug,
 } from "@/lib/utils";
@@ -76,7 +76,7 @@ export function StockCard({
             <div className="space-y-2 pt-2">
               <div className="flex items-baseline justify-between">
                 <p className="text-lg font-bold text-foreground">
-                  {formatCurrency(stock.currentPrice)}
+                  {formatCurrencySmart(stock.currentPrice)}
                 </p>
                 <div className="flex items-center gap-1">
                   {isPositive && (
@@ -170,7 +170,7 @@ export function StockCard({
         <div className="grid grid-cols-1 gap-3 items-start sm:grid-cols-2">
           <div className="space-y-1">
             <p className="text-xl font-bold text-foreground">
-              {formatCurrency(stock.currentPrice)}
+              {formatCurrencySmart(stock.currentPrice)}
             </p>
             <div className="flex items-center gap-1">
               {isPositive && <TrendingUp className="h-4 w-4 text-chart-4" />}

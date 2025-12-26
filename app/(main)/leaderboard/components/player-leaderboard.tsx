@@ -145,7 +145,7 @@ export function PlayerLeaderboard() {
   const getValueDisplay = (player: PlayerWithStats) => {
     switch (sortType) {
       case "richest":
-        return formatCurrencyCompact(player.totalAssets);
+        return formatCurrency(player.totalAssets);
       case "mostStocks":
         return `${formatCompactNumber(player.totalStocks)} shares`;
       case "mostActive":

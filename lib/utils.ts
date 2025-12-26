@@ -83,3 +83,18 @@ export function formatCurrency(
     ...options,
   }).format(value);
 }
+
+/**
+ * Format a currency value with standard notation for small amounts and compact notation for large amounts.
+ */
+export function formatCurrencySmart(
+  value: number,
+  options?: Intl.NumberFormatOptions
+): string {
+  // Use compact notation for values >= 1000, standard for smaller values
+  if (Math.abs(value) >= 1000) {
+    return formatCurrencyCompact(value, options);
+  } else {
+    return formatCurrency(value, options);
+  }
+}

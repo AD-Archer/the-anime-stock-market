@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { formatCurrency } from "@/lib/utils";
 
 export function MarketTicker({
   limit = 12,
@@ -46,7 +47,7 @@ export function MarketTicker({
             {stock.characterName}
           </span>
           <span className="font-mono text-foreground text-sm sm:text-base">
-            ${stock.currentPrice.toFixed(2)}
+            {formatCurrency(stock.currentPrice)}
           </span>
           <span
             className={`font-mono text-sm sm:text-base ${
