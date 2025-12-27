@@ -13,7 +13,11 @@ import type {
   DailyReward,
   CharacterSuggestion,
   DirectionalBet,
+  PremiumMeta,
 } from "./types";
+import { DEFAULT_PREMIUM_META } from "./premium";
+
+const createPremiumMeta = (): PremiumMeta => ({ ...DEFAULT_PREMIUM_META });
 
 // Initial users with $100 starting balance
 export const initialUsers: User[] = [
@@ -33,6 +37,9 @@ export const initialUsers: User[] = [
     isPortfolioPublic: true,
     hideTransactions: false,
     anonymousTransactions: false,
+    emailNotificationsEnabled: false,
+    directMessageEmailNotifications: false,
+    premiumMeta: createPremiumMeta(),
     pendingDeletionAt: null,
   },
   {
@@ -51,6 +58,9 @@ export const initialUsers: User[] = [
     isPortfolioPublic: false,
     hideTransactions: false,
     anonymousTransactions: false,
+    emailNotificationsEnabled: false,
+    directMessageEmailNotifications: false,
+    premiumMeta: createPremiumMeta(),
     pendingDeletionAt: null,
   },
   {
@@ -69,6 +79,9 @@ export const initialUsers: User[] = [
     isPortfolioPublic: true,
     hideTransactions: false,
     anonymousTransactions: false,
+    emailNotificationsEnabled: false,
+    directMessageEmailNotifications: false,
+    premiumMeta: createPremiumMeta(),
     pendingDeletionAt: null,
   },
 ];
@@ -89,6 +102,7 @@ export const initialStocks: Stock[] = [
     description: "The future Pirate King! Captain of the Straw Hat Pirates.",
     totalShares: 10000,
     availableShares: 9500,
+    mediaType: "anime",
   },
   {
     id: "stock-2",
@@ -104,6 +118,7 @@ export const initialStocks: Stock[] = [
     description: "Believe it! The Seventh Hokage of the Hidden Leaf Village.",
     totalShares: 8000,
     availableShares: 7200,
+    mediaType: "anime",
   },
   {
     id: "stock-3",
@@ -119,6 +134,7 @@ export const initialStocks: Stock[] = [
     description: "The legendary Super Saiyan warrior protecting Earth.",
     totalShares: 5000,
     availableShares: 4000,
+    mediaType: "anime",
   },
   {
     id: "stock-4",
@@ -135,6 +151,7 @@ export const initialStocks: Stock[] = [
       "Humanity's strongest soldier and captain of the Survey Corps.",
     totalShares: 6000,
     availableShares: 5400,
+    mediaType: "anime",
   },
   {
     id: "stock-5",
@@ -152,6 +169,7 @@ export const initialStocks: Stock[] = [
       "The Fullmetal Alchemist searching for the Philosopher's Stone.",
     totalShares: 7000,
     availableShares: 6300,
+    mediaType: "anime",
   },
 ];
 

@@ -25,12 +25,16 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     characterId,
     parentId,
     tags = [],
+    premiumOnly = false,
+    location,
   }: {
     animeId?: string;
     content: string;
     characterId?: string;
     parentId?: string;
     tags?: ContentTag[];
+    premiumOnly?: boolean;
+    location?: string;
   }) => {
     const currentUser = getState().currentUser;
     if (!currentUser) return;
@@ -50,6 +54,8 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
       tags: normalizedTags,
       likedBy: [],
       dislikedBy: [],
+      premiumOnly,
+      location,
     };
     setComments((prev) => [...prev, tempComment]);
 
@@ -64,6 +70,8 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
         tags: normalizedTags,
         likedBy: [],
         dislikedBy: [],
+        premiumOnly,
+        location,
       });
 
       setComments((prev) =>
@@ -86,6 +94,15 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     } catch (error) {
       console.warn("Failed to save comment to database:", error);
       setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
+    }
+  };
+
+  const refreshComments = async () => {
+    try {
+      const allComments = await commentService.getAll();
+      setComments(allComments);
+    } catch (error) {
+      console.warn("Failed to refresh comments:", error);
     }
   };
 
@@ -144,7 +161,13 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
 
   const getMarketComments = (): Comment[] => {
     return getState()
-      .comments.filter((c) => !c.animeId && !c.characterId)
+      .comments.filter(
+        (c) =>
+          !c.animeId &&
+          !c.characterId &&
+          c.location !== "premium_page" &&
+          c.premiumOnly !== true
+      )
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   };
 
@@ -298,6 +321,7 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     getCharacterComments,
     getMarketComments,
     toggleCommentReaction,
+    refreshComments,
     buildThreadContext,
     describeCommentLocation,
   };

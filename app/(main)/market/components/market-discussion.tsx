@@ -25,6 +25,11 @@ import { ContentModeration } from "@/components/content-moderation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ThumbsUp, ThumbsDown, Flag } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Flag, Crown } from "lucide-react";
 import { MessageContent } from "@/components/chat/message-content";
 import { getUserProfileHref } from "@/lib/user-profile";
 
@@ -405,6 +410,16 @@ function CommentThread({
             >
               {user?.username || "Unknown"}
             </Link>
+            {user?.premiumMeta?.isPremium && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Crown className="h-4 w-4 text-purple-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Premium User</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {user?.isAdmin && (
               <Badge variant="secondary" className="text-xs">
                 Admin

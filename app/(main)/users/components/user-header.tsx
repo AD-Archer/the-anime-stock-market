@@ -7,12 +7,17 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Share2, MessageSquare, Settings } from "lucide-react";
+import { Share2, MessageSquare, Settings, Crown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import type { User as StoreUser } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 
 type UserHeaderProps = {
@@ -70,9 +75,7 @@ export function UserHeader({
               alt={profileUser.displayName || profileUser.username}
             />
             <AvatarFallback className="bg-primary/10 text-primary text-xl">
-              {getUserInitials(
-                profileUser.displayName || profileUser.username
-              )}
+              {getUserInitials(profileUser.displayName || profileUser.username)}
             </AvatarFallback>
           </Avatar>
           <div>
@@ -80,6 +83,16 @@ export function UserHeader({
               <CardTitle className="text-3xl text-foreground">
                 {profileUser.displayName || profileUser.username}
               </CardTitle>
+              {profileUser.premiumMeta?.isPremium && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Crown className="h-5 w-5 text-purple-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Premium User</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {profileUser.isAdmin && <Badge variant="secondary">Admin</Badge>}
             </div>
             <CardDescription>

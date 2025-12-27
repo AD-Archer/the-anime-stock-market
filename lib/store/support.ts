@@ -1,6 +1,6 @@
 import type { StoreApi } from "zustand";
 import { supportService } from "../database";
-import type { SupportTicket } from "../types";
+import type { SupportTicket, SupportTicketTag } from "../types";
 import type { StoreState } from "./types";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
@@ -9,6 +9,7 @@ export function createSupportActions({ setState, getState }: StoreMutators) {
   const getSupportTickets = async (filters?: {
     status?: string;
     searchQuery?: string;
+    tag?: SupportTicketTag;
   }): Promise<SupportTicket[]> => {
     const tickets = await supportService.list(filters);
     setState((state) => ({ supportTickets: tickets }));

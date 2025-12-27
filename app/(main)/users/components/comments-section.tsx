@@ -26,11 +26,27 @@ import { useStore } from "@/lib/store";
 type CommentsSectionProps = {
   comments: Comment[];
   stocks: Stock[];
+  hideOnProfile?: boolean; // Hide premium-only comments when viewing profile
 };
 
-export function CommentsSection({ comments, stocks }: CommentsSectionProps) {
+export function CommentsSection({
+  comments: allComments,
+  stocks,
+  hideOnProfile = true, // Default to hiding premium-only on profile
+}: CommentsSectionProps) {
   const [sortMode, setSortMode] = useState<"recent" | "popular">("recent");
   const { users } = useStore();
+
+  // Filter out premium-only comments if viewing profile
+  const comments = useMemo(() => {
+    if (hideOnProfile) {
+      return allComments.filter(
+        (c) =>
+          c.premiumOnly !== true && c.location !== "premium_page"
+      );
+    }
+    return allComments;
+  }, [allComments, hideOnProfile]);
 
   const sortedComments = useMemo(() => {
     const next = [...comments];

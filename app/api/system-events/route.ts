@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { getAdminDatabases, Query } from "@/lib/appwrite/appwrite-admin";
 import { DATABASE_ID, USERS_COLLECTION } from "@/lib/database";
 import { sendSystemEmail } from "@/lib/email/mailer";
-import type { SystemEventRequest } from "@/lib/system-events";
+import type {
+  NotificationEmailEvent,
+  PremiumStatusChangedEvent,
+  SystemEventRequest,
+} from "@/lib/system-events";
 
 const friendlyDate = (value: string | undefined): string => {
   if (!value) return "soon";
@@ -156,6 +160,51 @@ async function handleSupportTicketCreated(event: any) {
   }
 }
 
+async function handlePremiumStatusChanged(event: PremiumStatusChangedEvent) {
+  if (!event.metadata?.enabled) return;
+
+  const user = await fetchUser(event.userId);
+  if (!user || !user.email) return;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const premiumUrl = `${siteUrl || ""}/premium`;
+
+  await sendSystemEmail({
+    to: user.email,
+    subject: "Your Anime Stock Market premium access is active",
+    text: `Hi ${user.username},\n\nAn administrator granted you premium access. Visit ${premiumUrl} to explore the new tools and perks. If you didn't expect this change, reply to this email or open support.`,
+    html: `<p>Hi ${user.username},</p><p>An administrator granted you premium access. Visit <a href="${premiumUrl}">the premium dashboard</a> to explore the tools and perks. If you didn't expect this change, reply to this email or open support in the app.</p>`,
+  });
+}
+
+async function handleNotificationEmail(event: NotificationEmailEvent) {
+  const user = await fetchUser(event.userId);
+  if (!user || !user.email) return;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const isDirectMessage = event.metadata.type === "direct_message";
+  const targetPath = isDirectMessage ? "/messages" : "/notifications";
+  const targetUrl = `${siteUrl}${targetPath}`;
+  const trimmedTitle = event.metadata.title?.trim() || "";
+  const subject = trimmedTitle
+    ? `[Anime Stock Market] ${trimmedTitle}`
+    : isDirectMessage
+    ? "[Anime Stock Market] New direct message"
+    : "[Anime Stock Market] New notification";
+  const shortMessage = event.metadata.message || "You have a new alert.";
+  const text = `${shortMessage}\n\nView it here: ${targetUrl}`;
+  const html = `<p>${shortMessage}</p><p><a href="${targetUrl}">View it in ${
+    isDirectMessage ? "Messages" : "Notifications"
+  }</a></p>`;
+
+  await sendSystemEmail({
+    to: user.email,
+    subject,
+    text,
+    html,
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SystemEventRequest | null;
@@ -179,6 +228,12 @@ export async function POST(req: Request) {
       case "support_ticket_created":
         // email all admins with ticket details
         await handleSupportTicketCreated(body as any);
+        break;
+      case "premium_status_changed":
+        await handlePremiumStatusChanged(body as PremiumStatusChangedEvent);
+        break;
+      case "notification_email":
+        await handleNotificationEmail(body as NotificationEmailEvent);
         break;
       default:
         return NextResponse.json(

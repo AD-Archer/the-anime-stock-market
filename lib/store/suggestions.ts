@@ -26,6 +26,7 @@ export function createSuggestionActions({
     description?: string;
     anilistUrl?: string;
     anilistCharacterId?: number;
+    priority?: boolean;
   }): Promise<CharacterSuggestion | null> => {
     const currentUser = getState().currentUser;
     if (!currentUser) {
@@ -82,6 +83,7 @@ export function createSuggestionActions({
         description: input.description?.trim(),
         anilistUrl: input.anilistUrl?.trim(),
         anilistCharacterId: resolvedCharacterId,
+        priority: input.priority ?? false,
         status: "pending",
         reviewedBy: undefined,
         resolutionNotes: undefined,

@@ -29,6 +29,12 @@ import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import { getUserProfileHref } from "@/lib/user-profile";
 import { Badge } from "@/components/ui/badge";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Crown } from "lucide-react";
+import {
   MessageCircle,
   Send,
   Search,
@@ -477,13 +483,28 @@ export default function MessagesPage() {
                         </Link>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <Link
-                              href={getUserProfileHref(otherUser, otherUserId)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="font-medium truncate hover:underline"
-                            >
-                              {otherUser?.username || "Unknown User"}
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={getUserProfileHref(
+                                  otherUser,
+                                  otherUserId
+                                )}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-medium truncate hover:underline"
+                              >
+                                {otherUser?.username || "Unknown User"}
+                              </Link>
+                              {otherUser?.premiumMeta?.isPremium && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Crown className="h-4 w-4 text-purple-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Premium User</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">
                                 {conversation.lastMessage.timestamp.toLocaleDateString()}
@@ -527,7 +548,12 @@ export default function MessagesPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Link href={getUserProfileHref(otherParticipant, otherParticipant.id)}>
+                  <Link
+                    href={getUserProfileHref(
+                      otherParticipant,
+                      otherParticipant.id
+                    )}
+                  >
                     <CardTitle className="hover:underline cursor-pointer">
                       {otherParticipant.username}
                     </CardTitle>

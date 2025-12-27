@@ -45,6 +45,7 @@ export default function PublicProfilePage({
     createConversation,
     transactions,
     updateContentPreferences,
+    updateNotificationPreferences,
     setUserAvatar,
     deleteUser,
     friends,
@@ -328,6 +329,7 @@ export default function PublicProfilePage({
                 onUpdateName={updateName}
                 onUpdatePassword={updatePassword}
                 onUpdatePreferences={handlePreferenceChange}
+                onUpdateNotificationPreferences={updateNotificationPreferences}
                 onUpdateAvatar={setUserAvatar}
                 onExportData={handleExportData}
                 onDeleteAccount={handleDeleteAccount}

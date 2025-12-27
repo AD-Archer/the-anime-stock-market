@@ -1,9 +1,13 @@
+import type { Notification } from "./types";
+
 export type SystemEventType =
   | "password_changed"
   | "user_banned"
   | "deletion_scheduled"
   | "account_deleted"
-  | "support_ticket_created";
+  | "support_ticket_created"
+  | "premium_status_changed"
+  | "notification_email";
 
 export type PasswordChangedEvent = {
   type: "password_changed";
@@ -46,9 +50,31 @@ export type SupportTicketCreatedEvent = {
   };
 };
 
+export type PremiumStatusChangedEvent = {
+  type: "premium_status_changed";
+  userId: string;
+  metadata?: {
+    enabled: boolean;
+    performedBy?: string;
+  };
+};
+
+export type NotificationEmailEvent = {
+  type: "notification_email";
+  userId: string;
+  metadata: {
+    notificationId: string;
+    type: Notification["type"];
+    title: string;
+    message: string;
+  };
+};
+
 export type SystemEventRequest =
   | PasswordChangedEvent
   | UserBannedEvent
   | DeletionScheduledEvent
   | AccountDeletedEvent
-  | SupportTicketCreatedEvent;
+  | SupportTicketCreatedEvent
+  | PremiumStatusChangedEvent
+  | NotificationEmailEvent;

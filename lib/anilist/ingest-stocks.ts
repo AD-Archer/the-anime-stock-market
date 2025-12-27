@@ -69,31 +69,66 @@ async function findExistingStock(
     console.log(
       `[findExistingStock] Searching for character ID: ${anilistCharacterId} or name: ${maybeName}`
     );
-    const response = await databases.listDocuments(
-      DATABASE_ID,
-      STOCKS_COLLECTION,
-      []
-    );
-    const stockDoc = response.documents.find((doc: any) => {
-      // 1) Exact anilistCharacterId match
-      if (
-        doc.anilistCharacterId &&
-        Number(doc.anilistCharacterId) === anilistCharacterId
-      ) {
-        return true;
-      }
 
-      // 2) If a name is provided, match by normalized name to avoid dupes
-      if (
-        maybeName &&
-        doc.characterName &&
-        isSameName(doc.characterName, maybeName)
-      ) {
-        return true;
-      }
+    const mapDoc = (doc: any): Stock => ({
+      id: doc.$id,
+      characterName: doc.characterName,
+      characterSlug: doc.characterSlug,
+      anilistCharacterId: doc.anilistCharacterId,
+      anilistMediaIds: doc.anilistMediaIds || [],
+      anime: doc.anime,
+      anilistRank: doc.anilistRank,
+      currentPrice: doc.currentPrice,
+      totalShares: doc.totalShares,
+      availableShares: doc.availableShares,
+      imageUrl: doc.imageUrl,
+      description: doc.description,
+      createdBy: doc.createdBy,
+      createdAt: new Date(doc.createdAt),
+    } as Stock);
 
-      return false;
-    });
+    if (DATABASE_ID) {
+      const byId = await databases.listDocuments(
+        DATABASE_ID,
+        STOCKS_COLLECTION,
+        [
+          Query.equal("anilistCharacterId", anilistCharacterId),
+          Query.limit(5),
+        ]
+      );
+      if (byId.documents.length > 0) {
+        const match = byId.documents[0];
+        console.log(
+          `[findExistingStock] Found existing stock by ID: ${match.$id} for character ${match.characterName}`
+        );
+        return mapDoc(match);
+      }
+    }
+
+    let stockDoc: any | undefined;
+    if (maybeName && DATABASE_ID) {
+      const exactName = await databases.listDocuments(
+        DATABASE_ID,
+        STOCKS_COLLECTION,
+        [Query.equal("characterName", maybeName), Query.limit(5)]
+      );
+      stockDoc = exactName.documents.find(
+        (doc: any) => doc.characterName && isSameName(doc.characterName, maybeName)
+      );
+
+      if (!stockDoc) {
+        const allDocs = await databases.listDocuments(
+          DATABASE_ID,
+          STOCKS_COLLECTION,
+          [Query.limit(100)]
+        );
+        stockDoc = allDocs.documents.find(
+          (doc: any) =>
+            doc.characterName &&
+            isSameName(String(doc.characterName), String(maybeName))
+        );
+      }
+    }
 
     if (!stockDoc) {
       console.log(
@@ -106,23 +141,7 @@ async function findExistingStock(
       `[findExistingStock] Found existing stock: ${stockDoc.$id} for character ${stockDoc.characterName}`
     );
 
-    // Map the document to Stock type
-    return {
-      id: stockDoc.$id,
-      characterName: stockDoc.characterName,
-      characterSlug: stockDoc.characterSlug,
-      anilistCharacterId: stockDoc.anilistCharacterId,
-      anilistMediaIds: stockDoc.anilistMediaIds || [],
-      anime: stockDoc.anime,
-      anilistRank: stockDoc.anilistRank,
-      currentPrice: stockDoc.currentPrice,
-      totalShares: stockDoc.totalShares,
-      availableShares: stockDoc.availableShares,
-      imageUrl: stockDoc.imageUrl,
-      description: stockDoc.description,
-      createdBy: stockDoc.createdBy,
-      createdAt: new Date(stockDoc.createdAt),
-    } as Stock;
+    return mapDoc(stockDoc);
   } catch (error) {
     console.warn("Failed to find existing stock:", error);
     return null;
@@ -383,7 +402,8 @@ export async function addAnimeStocks(
   filters?: {
     characterNameFilter?: string; // Only add characters with name containing this
     minRoleImportance?: "MAIN" | "SUPPORTING" | "BACKGROUND"; // Minimum role importance
-  }
+  },
+  logContext?: { createdByRole?: string; creationSource?: string }
 ): Promise<{ added: number; updated: number; failed: number; results: any[] }> {
   try {
     const media = await fetchMediaWithCharacters(anilistMediaId);
@@ -465,6 +485,8 @@ export async function addAnimeStocks(
           added,
           updated,
           failed,
+          createdByRole: logContext?.createdByRole,
+          creationSource: logContext?.creationSource ?? "anilist",
           details: results.map((r) => ({
             name: r.stock?.characterName || r.error || "unknown",
             added: r.added || false,
@@ -493,7 +515,8 @@ export async function addMangaStocks(
   filters?: {
     characterNameFilter?: string; // Only add characters with name containing this
     minRoleImportance?: "MAIN" | "SUPPORTING" | "BACKGROUND"; // Minimum role importance
-  }
+  },
+  logContext?: { createdByRole?: string; creationSource?: string }
 ): Promise<{ added: number; updated: number; failed: number; results: any[] }> {
   try {
     const media = await fetchMediaWithCharacters(anilistMediaId, "MANGA");
@@ -584,6 +607,8 @@ export async function addMangaStocks(
           added,
           updated,
           failed,
+          createdByRole: logContext?.createdByRole,
+          creationSource: logContext?.creationSource ?? "anilist",
           details: results.map((r) => ({
             name: r.characterName || r.error || "unknown",
             added: r.added || false,
@@ -608,7 +633,8 @@ export async function addMangaStocks(
  */
 export async function addCharacterStocks(
   anilistCharacterId: number,
-  createdByUserId: string
+  createdByUserId: string,
+  logContext?: { createdByRole?: string; creationSource?: string }
 ): Promise<{ added: number; updated: number; failed: number; results: any[] }> {
   try {
     console.log(
@@ -695,6 +721,8 @@ export async function addCharacterStocks(
           added,
           updated,
           failed,
+          createdByRole: logContext?.createdByRole,
+          creationSource: logContext?.creationSource ?? "anilist",
         },
       });
     } catch (err) {
@@ -713,7 +741,8 @@ export async function addCharacterStocks(
  */
 export async function searchAndAddCharacterStocks(
   characterName: string,
-  createdByUserId: string
+  createdByUserId: string,
+  logContext?: { createdByRole?: string; creationSource?: string }
 ): Promise<{
   charactersFound: number;
   totalAdded: number;
@@ -740,7 +769,11 @@ export async function searchAndAddCharacterStocks(
     const details = [];
 
     for (const character of characters) {
-      const result = await addCharacterStocks(character.id, createdByUserId);
+      const result = await addCharacterStocks(
+        character.id,
+        createdByUserId,
+        logContext
+      );
       totalAdded += result.added;
       totalUpdated += result.updated;
       totalFailed += result.failed;
@@ -765,6 +798,8 @@ export async function searchAndAddCharacterStocks(
           totalAdded,
           totalUpdated,
           totalFailed,
+          createdByRole: logContext?.createdByRole,
+          creationSource: logContext?.creationSource ?? "anilist",
         },
       });
     } catch (err) {

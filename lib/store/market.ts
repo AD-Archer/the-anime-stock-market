@@ -4,6 +4,7 @@ import type {
   BuybackOffer,
   DirectionalBet,
   MarketDataPoint,
+  MediaType,
   Notification,
   Portfolio,
   PriceHistory,
@@ -18,11 +19,13 @@ import {
   userService,
   priceHistoryService,
   buybackOfferService,
+  characterSuggestionService,
   directionalBetService,
 } from "../database";
 import { toast } from "@/hooks/use-toast";
 import type { StoreState } from "./types";
 import { generateShortId } from "../utils";
+import { canAddPremiumCharacter, DEFAULT_PREMIUM_META } from "../premium";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -694,13 +697,46 @@ export function createMarketActions({
   const createStock = async (stock: Omit<Stock, "id" | "createdAt">) => {
     const { stocks, priceHistory, logAdminAction, users, sendNotification } =
       getState();
+    const currentUser = getState().currentUser;
+    if (!currentUser) {
+      throw new Error("Please sign in to add new characters.");
+    }
+
+    const premiumMeta = currentUser.premiumMeta ?? DEFAULT_PREMIUM_META;
+    const isAdmin = Boolean(currentUser.isAdmin);
+    const isPremium = Boolean(premiumMeta.isPremium);
+    if (!isAdmin && !isPremium) {
+      throw new Error(
+        "Only admins or premium members can create new characters."
+      );
+    }
+
+    const mediaType: MediaType = (stock.mediaType || "anime") as MediaType;
+    const stockPayload = { ...stock, mediaType };
+
+    if (!isAdmin) {
+      const { allowed, reason } = canAddPremiumCharacter(
+        premiumMeta,
+        mediaType
+      );
+      if (!allowed) {
+        throw new Error(
+          reason ?? "Your premium quota for today has been reached."
+        );
+      }
+    }
+
+    const incrementPremiumCharacterCount =
+      getState().incrementPremiumCharacterCount;
+    const addPremiumAdditions = getState().addPremiumAdditions;
+    const autoAddEnabled = Boolean(premiumMeta.autoAdd);
 
     // Generate ID with retry logic to avoid collisions
     let newStock: Stock;
     let attempts = 0;
     do {
       newStock = {
-        ...stock,
+        ...stockPayload,
         id: generateShortId(),
         createdAt: new Date(),
       };
@@ -720,12 +756,21 @@ export function createMarketActions({
     // Check if a stock with the same character and anime already exists
     const existingStock = stocks.find(
       (s) =>
-        s.characterName.toLowerCase() === stock.characterName.toLowerCase() &&
-        s.anime.toLowerCase() === stock.anime.toLowerCase()
+        s.characterName.toLowerCase() ===
+          stockPayload.characterName.toLowerCase() &&
+        s.anime.toLowerCase() === stockPayload.anime.toLowerCase()
     );
     if (existingStock) {
+      if (!isAdmin && isPremium) {
+        // For premium users, return early without consuming quota
+        // The character already exists, so no need to add it again
+        throw new Error(
+          `${stockPayload.characterName} from ${stockPayload.anime} is already on the market and doesn't consume your quota.`
+        );
+      }
+      // For admins, prevent duplicate creation
       throw new Error(
-        `A stock for ${stock.characterName} from ${stock.anime} already exists`
+        `A stock for ${stockPayload.characterName} from ${stockPayload.anime} already exists`
       );
     }
 
@@ -760,11 +805,21 @@ export function createMarketActions({
       console.error("Failed to persist price history:", error);
     }
 
+    const createdByRole = isAdmin
+      ? isPremium
+        ? "admin+premium"
+        : "admin"
+      : isPremium
+      ? "premium"
+      : "user";
+
     logAdminAction("stock_creation", newStock.createdBy, {
       stockId: newStock.id,
       characterName: newStock.characterName,
       anime: newStock.anime,
       initialPrice: newStock.currentPrice,
+      createdByRole,
+      creationSource: newStock.source ?? "manual",
     });
 
     // Broadcast IPO notification to all users
@@ -783,6 +838,77 @@ export function createMarketActions({
         }
       );
     });
+
+    if (isPremium && incrementPremiumCharacterCount) {
+      try {
+        await incrementPremiumCharacterCount(currentUser.id, mediaType, 1, 0);
+        await addPremiumAdditions?.(currentUser.id, [
+          {
+            stockId: newStock.id,
+            characterName: newStock.characterName,
+            characterSlug: newStock.characterSlug,
+            anime: newStock.anime,
+            imageUrl: newStock.imageUrl,
+            mediaType,
+            status: "added",
+            source: newStock.source === "anilist" ? "anilist" : "manual",
+          },
+        ]);
+      } catch (error) {
+        console.error("Failed to update premium character usage:", error);
+      }
+    }
+
+    if (!isAdmin && isPremium && autoAddEnabled) {
+      const suggestions = getState().characterSuggestions;
+      const normalizedCharacter = stockPayload.characterName
+        .toLowerCase()
+        .trim();
+      const normalizedAnime = stockPayload.anime.toLowerCase().trim();
+      const match = suggestions.find(
+        (suggestion) =>
+          suggestion.status !== "approved" &&
+          suggestion.characterName.toLowerCase().trim() ===
+            normalizedCharacter &&
+          suggestion.anime.toLowerCase().trim() === normalizedAnime
+      );
+      if (match) {
+        try {
+          const updatedSuggestion = await characterSuggestionService.update(
+            match.id,
+            {
+              status: "approved",
+              reviewedAt: new Date(),
+              reviewedBy: currentUser.id,
+              stockId: newStock.id,
+              resolutionNotes: "Auto-approved via premium creation.",
+              autoImportStatus: "succeeded",
+              autoImportMessage: "Premium member added this character.",
+            }
+          );
+          setState((state) => ({
+            characterSuggestions: state.characterSuggestions.map((s) =>
+              s.id === match.id ? updatedSuggestion : s
+            ),
+          }));
+          if (match.userId) {
+            sendNotification(
+              match.userId,
+              "character_suggestion",
+              "Suggestion auto-approved",
+              `${match.characterName} is now on the market thanks to premium creation.`,
+              {
+                suggestionId: match.id,
+                stockId: newStock.id,
+                status: "approved",
+              }
+            );
+          }
+        } catch (error) {
+          console.error("Failed to auto-approve suggestion:", error);
+        }
+      }
+    }
   };
 
   const updateStockPrice = (stockId: string, newPrice: number) => {

@@ -4,8 +4,18 @@ import { messageService } from "../database";
 import type { StoreState } from "./types";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
+type MessageActionsArgs = StoreMutators & {
+  sendNotification: StoreState["sendNotification"];
+};
 
-export function createMessageActions({ setState, getState }: StoreMutators) {
+const truncate = (text: string, length = 120) =>
+  text.length > length ? `${text.slice(0, length - 3)}...` : text;
+
+export function createMessageActions({
+  setState,
+  getState,
+  sendNotification,
+}: MessageActionsArgs) {
   const sendMessage = async (
     conversationId: string,
     content: string,
@@ -38,6 +48,27 @@ export function createMessageActions({ setState, getState }: StoreMutators) {
             : conv
         ),
       }));
+
+      const conversation = getState().conversations.find(
+        (conv) => conv.id === conversationId
+      );
+      const participants =
+        conversation?.participants ??
+        conversationId.split("-").filter((id) => id);
+      const recipientIds = Array.from(new Set(participants)).filter(
+        (id) => id && id !== currentUser.id
+      );
+      const senderName = currentUser.displayName || currentUser.username;
+      const snippet = truncate(content);
+      recipientIds.forEach((recipientId) => {
+        sendNotification(
+          recipientId,
+          "direct_message",
+          `New message from ${senderName}`,
+          snippet,
+          { conversationId, messageId: message.id }
+        );
+      });
 
       // Unlock social_butterfly once the user has sent messages in 10 distinct conversations.
       const state = getState();

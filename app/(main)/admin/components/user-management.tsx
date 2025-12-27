@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import type { User as UserType } from "@/lib/types";
+import type { PremiumMeta, User as UserType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { sendSystemEvent } from "@/lib/system-events-client";
 import Link from "next/link";
 import {
   Ban,
@@ -36,9 +37,20 @@ import {
   TrendingDown,
   Search,
   Crown,
-  Coins,
+  Star,
 } from "lucide-react";
 import { StockSelector } from "@/components/stock-selector";
+import {
+  DEFAULT_PREMIUM_META,
+  getPremiumQuotaStatus,
+  getPremiumTierByDonation,
+  getMonthlyDonationTotal,
+  getMonthlyDonationTotalFromHistory,
+  getDonationsForMonth,
+  getLatestDonation,
+  PREMIUM_TIERS,
+  getTierForMeta,
+} from "@/lib/premium";
 
 export function UserManagement() {
   const {
@@ -58,6 +70,9 @@ export function UserManagement() {
     removeUserStocks,
     sendNotification,
     getStockPriceHistory,
+    setPremiumStatus,
+    updatePremiumMeta,
+    logAdminAction,
   } = useStore();
   const { toast } = useToast();
 
@@ -76,6 +91,13 @@ export function UserManagement() {
     "week" | "month" | "year" | "forever"
   >("week");
   const [customBanDate, setCustomBanDate] = useState("");
+  const [donationDialogUser, setDonationDialogUser] =
+    useState<UserType | null>(null);
+  const [donationAmountInput, setDonationAmountInput] = useState("");
+  const [donationDateInput, setDonationDateInput] = useState("");
+  const [isSavingDonation, setIsSavingDonation] = useState(false);
+  const [expandedPremiumUserId, setExpandedPremiumUserId] =
+    useState<string | null>(null);
 
   const isUserBanned = (user: UserType): boolean => {
     return user.bannedUntil !== null && user.bannedUntil > new Date();
@@ -246,6 +268,181 @@ export function UserManagement() {
     }
   };
 
+  const handlePremiumToggle = async (user: UserType) => {
+    if (!setPremiumStatus) return;
+    try {
+      const currentlyPremium = Boolean(user.premiumMeta?.isPremium);
+      const shouldEnable = !currentlyPremium;
+      await setPremiumStatus(user.id, shouldEnable);
+      toast({
+        title: shouldEnable ? "Premium Granted" : "Premium Revoked",
+        description: shouldEnable
+          ? `${user.username} now has premium access.`
+          : `${user.username} is no longer premium.`,
+      });
+      sendNotification(
+        user.id,
+        "admin_message",
+        shouldEnable ? "Premium Access Activated" : "Premium Access Revoked",
+        shouldEnable
+          ? "An admin granted you premium access. Enjoy the extra tools!"
+          : "An admin removed your premium access. Reach out to support if you have questions."
+      );
+      if (shouldEnable) {
+        void sendSystemEvent({
+          type: "premium_status_changed",
+          userId: user.id,
+          metadata: {
+            enabled: true,
+            performedBy: currentUser?.id,
+          },
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Action Failed",
+        description: "Could not update premium status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetDonationDialog = () => {
+    setDonationDialogUser(null);
+    setDonationAmountInput("");
+    setDonationDateInput("");
+  };
+
+  const openDonationDialog = (user: UserType) => {
+    const meta: PremiumMeta = user.premiumMeta ?? DEFAULT_PREMIUM_META;
+    setDonationDialogUser(user);
+    setDonationAmountInput(
+      meta.donationAmount !== undefined ? String(meta.donationAmount) : ""
+    );
+    setDonationDateInput(
+      meta.donationDate
+        ? new Date(meta.donationDate).toISOString().slice(0, 16)
+        : ""
+    );
+  };
+
+  const handleDonationSave = async () => {
+    if (!donationDialogUser) return;
+    setIsSavingDonation(true);
+    try {
+      const parsedAmount =
+        donationAmountInput.trim().length > 0
+          ? Number.parseFloat(donationAmountInput)
+          : undefined;
+      if (
+        parsedAmount === undefined ||
+        Number.isNaN(parsedAmount) ||
+        parsedAmount <= 0
+      ) {
+        throw new Error("Please enter a valid donation amount.");
+      }
+      const entryDate = donationDateInput
+        ? new Date(donationDateInput)
+        : new Date();
+      const history =
+        donationDialogUser.premiumMeta?.donationHistory ?? [];
+      const nextHistory = [...history, { amount: parsedAmount, date: entryDate }];
+      const pseudoMeta: PremiumMeta = {
+        ...donationDialogUser.premiumMeta,
+        donationHistory: nextHistory,
+      };
+      const monthlyTotal = getMonthlyDonationTotal(pseudoMeta, entryDate);
+      const computedTier = getPremiumTierByDonation(monthlyTotal);
+      const wasPremium = Boolean(donationDialogUser.premiumMeta?.isPremium);
+      const enablePremium = Boolean(computedTier);
+      const nextMeta: Partial<PremiumMeta> = {
+        donationHistory: nextHistory,
+        donationDate: entryDate,
+        donationAmount: monthlyTotal,
+        tierLevel: computedTier?.level,
+      };
+      if (enablePremium) {
+        nextMeta.isPremium = true;
+        if (!donationDialogUser.premiumMeta?.premiumSince) {
+          nextMeta.premiumSince = new Date();
+        }
+      }
+      await updatePremiumMeta(donationDialogUser.id, nextMeta);
+      await logAdminAction("premium_tier_update", donationDialogUser.id, {
+        donationAmount: monthlyTotal,
+        tierLevel: computedTier?.level,
+        tierLabel: computedTier?.label,
+        entryAmount: parsedAmount,
+        entryDate: entryDate.toISOString(),
+      });
+      if (!wasPremium && enablePremium) {
+        void sendSystemEvent({
+          type: "premium_status_changed",
+          userId: donationDialogUser.id,
+          metadata: {
+            enabled: true,
+            performedBy: currentUser?.id,
+          },
+        });
+      }
+      if (computedTier) {
+        sendNotification(
+          donationDialogUser.id,
+          "admin_message",
+          "Premium tier updated",
+          `Your account is now ${computedTier.label} after donating $${monthlyTotal.toFixed(
+            2
+          )} this month.`
+        );
+      } else {
+        sendNotification(
+          donationDialogUser.id,
+          "admin_message",
+          "Premium tier updated",
+          "Your donation record has been updated."
+        );
+      }
+      resetDonationDialog();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save donation info.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingDonation(false);
+    }
+  };
+
+  const previewAmountValue =
+    donationAmountInput.trim().length > 0
+      ? Number.parseFloat(donationAmountInput)
+      : undefined;
+  const previewDate = donationDateInput
+    ? new Date(donationDateInput)
+    : new Date();
+  const isPreviewAmountInvalid =
+    donationAmountInput.trim().length > 0 &&
+    (Number.isNaN(previewAmountValue ?? Number.NaN) ||
+      (previewAmountValue ?? 0) <= 0);
+  const previewHistory = donationDialogUser?.premiumMeta?.donationHistory ?? [];
+  const previewMonthlyExisting =
+    getMonthlyDonationTotalFromHistory(previewHistory, previewDate);
+  const previewMonthlyTotal =
+    (isPreviewAmountInvalid ? 0 : previewAmountValue ?? 0) +
+    previewMonthlyExisting;
+  const donationTierPreview =
+    isPreviewAmountInvalid || previewMonthlyTotal === 0
+      ? undefined
+      : getPremiumTierByDonation(previewMonthlyTotal);
+  const previewMonthLabel = previewDate.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
+
   const handleMoneyAction = async (give: boolean) => {
     if (!actionDialog.userId) return;
 
@@ -345,6 +542,20 @@ export function UserManagement() {
       {/* User List */}
       {filteredUsers.map((user) => {
         const portfolio = getUserPortfolio(user.id);
+        const premiumMeta = user.premiumMeta ?? DEFAULT_PREMIUM_META;
+        const isPremium = Boolean(premiumMeta.isPremium);
+        const quotaStatus = isPremium
+          ? getPremiumQuotaStatus(premiumMeta)
+          : null;
+        const userTier = getTierForMeta(premiumMeta);
+        const monthlyDonationTotal = getMonthlyDonationTotal(premiumMeta);
+        const currentMonthLabel = new Date().toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        });
+        const thisMonthDonations = getDonationsForMonth(premiumMeta);
+        const latestDonation = getLatestDonation(premiumMeta);
+        const isPremiumSectionOpen = expandedPremiumUserId === user.id;
         let portfolioValue = 0;
         portfolio.forEach((p) => {
           const stock = stocks.find((s) => s.id === p.stockId);
@@ -385,6 +596,11 @@ export function UserManagement() {
                       {user.pendingDeletionAt && (
                         <Badge variant="outline" className="text-xs">
                           Deletion Scheduled
+                        </Badge>
+                      )}
+                      {isPremium && (
+                        <Badge variant="secondary" className="text-xs">
+                          Premium
                         </Badge>
                       )}
                     </div>
@@ -486,6 +702,146 @@ export function UserManagement() {
                   <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     {portfolio.length} stocks
                   </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardContent className="pt-0">
+              <div className="border-t border-border pt-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Premium access</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {isPremium ? "Active" : "Inactive"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() =>
+                        setExpandedPremiumUserId(
+                          isPremiumSectionOpen ? null : user.id
+                        )
+                      }
+                    >
+                      {isPremiumSectionOpen
+                        ? "Hide premium usage"
+                        : "View premium usage"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => handlePremiumToggle(user)}
+                    >
+                      <Star className="h-4 w-4" />
+                      {isPremium ? "Revoke Premium" : "Grant Premium"}
+                    </Button>
+                  </div>
+                </div>
+                {isPremiumSectionOpen && (
+                  <div className="space-y-3 pt-3 border-t border-border">
+                    {isPremium && quotaStatus ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg border border-border p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Current limit
+                          </p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {quotaStatus.totalLimit} characters/day
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Amount claimed
+                          </p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {quotaStatus.totalUsed} characters
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Amount left to claim
+                          </p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {quotaStatus.totalRemaining} characters
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Premium usage details will appear here once access is
+                        enabled.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="border-t border-border pt-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Donation tier
+                      </p>
+                      <p className="text-sm text-foreground">
+                        {userTier
+                          ? `${userTier.label} • ${userTier.characterLimit} characters/day • $${userTier.reward} reward`
+                          : "No tier assigned"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {monthlyDonationTotal > 0
+                          ? `Donated $${monthlyDonationTotal.toFixed(
+                              2
+                            )} in ${currentMonthLabel}`
+                          : `No donations recorded for ${currentMonthLabel}.`}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setExpandedPremiumUserId(
+                            isPremiumSectionOpen ? null : user.id
+                          )
+                        }
+                      >
+                        {isPremiumSectionOpen ? "Collapse" : "View details"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDonationDialog(user)}
+                      >
+                        Update donation tier
+                      </Button>
+                    </div>
+                  </div>
+                  {isPremiumSectionOpen && (
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      {latestDonation && (
+                        <p className="text-xs text-muted-foreground">
+                          Latest gift: ${latestDonation.amount.toFixed(2)} on{" "}
+                          {latestDonation.date.toLocaleDateString()}
+                        </p>
+                      )}
+                      {thisMonthDonations.length > 0 && (
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {currentMonthLabel} contributions
+                          </p>
+                          {thisMonthDonations.map((donation) => (
+                            <div
+                              key={`${donation.date.toISOString()}-${donation.amount}`}
+                              className="flex justify-between text-foreground"
+                            >
+                              <span>{donation.date.toLocaleDateString()}</span>
+                              <span>${donation.amount.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -678,6 +1034,82 @@ export function UserManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Donation Tier Dialog */}
+      <Dialog
+        open={!!donationDialogUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetDonationDialog();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Donation tier</DialogTitle>
+            <DialogDescription>
+              Record how much the user donated and the team will assign the
+              closest tier automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Computed tier</Label>
+              <p className="text-sm text-foreground">
+                {isPreviewAmountInvalid
+                  ? "Enter a valid donation amount to see the matching tier."
+                  : previewMonthlyTotal > 0
+                  ? `${previewMonthLabel} total: $${previewMonthlyTotal.toFixed(
+                      2
+                    )}`
+                  : "Tier 1 is at $5, Tier 2 at $10, Tier 3 at $20, and Tier 4 at $30."}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isPreviewAmountInvalid
+                  ? ""
+                  : donationTierPreview
+                  ? `This would unlock ${donationTierPreview.label}.`
+                  : `Add more to reach Tier 1 at $5.`}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="donationAmount">Donation amount</Label>
+              <Input
+                id="donationAmount"
+                type="number"
+                step="0.01"
+                value={donationAmountInput}
+                onChange={(event) => setDonationAmountInput(event.target.value)}
+                placeholder="Amount donated"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="donationDate">Donation date</Label>
+              <Input
+                id="donationDate"
+                type="datetime-local"
+                value={donationDateInput}
+                onChange={(event) => setDonationDateInput(event.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={resetDonationDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDonationSave}
+                disabled={isSavingDonation}
+              >
+                {isSavingDonation ? "Saving…" : "Save donation info"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

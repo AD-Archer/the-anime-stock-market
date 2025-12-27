@@ -33,6 +33,10 @@ type ProfileSettingsProps = {
       | "anonymousTransactions",
     value: boolean
   ) => Promise<void>;
+  onUpdateNotificationPreferences: (preferences: {
+    emailNotificationsEnabled?: boolean;
+    directMessageEmailNotifications?: boolean;
+  }) => Promise<void>;
   onUpdateAvatar: (avatarUrl: string | null) => Promise<void>;
   onExportData: () => void;
   onDeleteAccount: () => Promise<void>;
@@ -46,6 +50,7 @@ export function ProfileSettings({
   onUpdateName,
   onUpdatePassword,
   onUpdatePreferences,
+  onUpdateNotificationPreferences,
   onUpdateAvatar,
   onExportData,
   onDeleteAccount,
@@ -73,12 +78,18 @@ export function ProfileSettings({
     useState(false);
   const [anonymousTransactionsPreference, setAnonymousTransactionsPreference] =
     useState(false);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] =
+    useState(false);
+  const [directMessageEmailNotifications, setDirectMessageEmailNotifications] =
+    useState(false);
   const [avatarSearch, setAvatarSearch] = useState("");
   const [avatarUpdating, setAvatarUpdating] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [preferenceLoading, setPreferenceLoading] = useState<
     null | "spoilers" | "nsfw" | "portfolio" | "transactions"
   >(null);
+  const [notificationPreferenceLoading, setNotificationPreferenceLoading] =
+    useState<null | "email" | "direct">(null);
   const {
     signInWithGoogle,
     getLinkedProviders,
@@ -86,6 +97,9 @@ export function ProfileSettings({
     createPassword,
     hasPassword,
   } = useAuth();
+  const isOwnProfile = Boolean(
+    authUser && storeUser && authUser.id === storeUser.id
+  );
   const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
@@ -163,6 +177,10 @@ export function ProfileSettings({
       setPortfolioPublicPreference(storeUser.isPortfolioPublic);
       setHideTransactionsPreference(storeUser.hideTransactions);
       setAnonymousTransactionsPreference(storeUser.anonymousTransactions);
+      setEmailNotificationsEnabled(!!storeUser.emailNotificationsEnabled);
+      setDirectMessageEmailNotifications(
+        !!storeUser.directMessageEmailNotifications
+      );
     }
   }, [storeUser]);
 
@@ -401,6 +419,38 @@ export function ProfileSettings({
     }
   };
 
+  const handleEmailNotificationToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    setEmailNotificationsEnabled(value);
+    setNotificationPreferenceLoading("email");
+    try {
+      await onUpdateNotificationPreferences({
+        emailNotificationsEnabled: value,
+      });
+    } catch (error) {
+      console.error("Failed to update email notifications", error);
+      setEmailNotificationsEnabled((prev) => !value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleDirectMessageEmailToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    setDirectMessageEmailNotifications(value);
+    setNotificationPreferenceLoading("direct");
+    try {
+      await onUpdateNotificationPreferences({
+        directMessageEmailNotifications: value,
+      });
+    } catch (error) {
+      console.error("Failed to update DM email notifications", error);
+      setDirectMessageEmailNotifications((prev) => !value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
   if (authLoading || !authUser || !storeUser) {
     return null;
   }
@@ -474,6 +524,21 @@ export function ProfileSettings({
             </Button>
           </div>
         )}
+      </div>
+      <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
+        <p className="text-sm font-semibold">Premium Membership</p>
+        <p className="text-xs text-muted-foreground">
+          {storeUser.premiumMeta?.isPremium
+            ? "Thank you for supporting the project! Manage your premium tools below."
+            : "Upgrade to premium to unlock character creation, priority suggestions, and the DM board."}
+        </p>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/premium">
+            {storeUser.premiumMeta?.isPremium
+              ? "Manage Premium"
+              : "Learn about Premium"}
+          </Link>
+        </Button>
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Profile Picture</label>
@@ -761,6 +826,43 @@ export function ProfileSettings({
                 handlePreferenceChange("anonymousTransactions", value);
               }}
               disabled={preferenceLoading === "transactions"}
+              className="h-4 w-4 accent-primary"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <label className="text-sm font-medium">Notification Preferences</label>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-foreground">Email notifications</p>
+              <p className="text-xs text-muted-foreground">
+                Receive a digest of your notifications in your inbox
+                (notifications still stay in the app).
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={emailNotificationsEnabled}
+              onChange={(e) => handleEmailNotificationToggle(e.target.checked)}
+              disabled={notificationPreferenceLoading === "email"}
+              className="h-4 w-4 accent-primary"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-foreground">Direct message emails</p>
+              <p className="text-xs text-muted-foreground">
+                Get an email whenever someone sends you a direct message.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={directMessageEmailNotifications}
+              onChange={(e) => handleDirectMessageEmailToggle(e.target.checked)}
+              disabled={notificationPreferenceLoading === "direct"}
               className="h-4 w-4 accent-primary"
             />
           </div>

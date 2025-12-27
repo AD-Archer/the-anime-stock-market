@@ -6,7 +6,7 @@ import {
   AreaChart,
   CartesianGrid,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as ChartTooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ComparisonChart } from "@/app/(main)/character/components/comparison-chart";
+import { formatCurrencyCompact } from "@/lib/utils";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -109,8 +110,9 @@ export default function PriceCharts({
                   stroke="currentColor"
                   fontSize={isMobile ? 10 : 12}
                   width={isMobile ? 40 : 60}
+                  tickFormatter={(value) => formatCurrencyCompact(value)}
                 />
-                <Tooltip
+                <ChartTooltip
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--border)",
@@ -118,6 +120,10 @@ export default function PriceCharts({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
+                  formatter={(value: any, name?: string) => [
+                    formatCurrencyCompact(Number(value)),
+                    name === "price" ? "Price" : name ?? "Value",
+                  ]}
                 />
                 <Area
                   type="monotone"
@@ -175,8 +181,9 @@ export default function PriceCharts({
                   tick={{ fill: "currentColor" }}
                   fontSize={isMobile ? 10 : 12}
                   width={isMobile ? 40 : 60}
+                  tickFormatter={(value) => formatCurrencyCompact(value)}
                 />
-                <Tooltip
+                <ChartTooltip
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--border)",
@@ -184,6 +191,10 @@ export default function PriceCharts({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
+                  formatter={(value: any, name?: string) => [
+                    formatCurrencyCompact(Number(value)),
+                    name === "marketCap" ? "Market Cap" : name ?? "Value",
+                  ]}
                 />
                 <Area
                   type="monotone"

@@ -20,7 +20,15 @@ import type {
   SupportTicket,
   CharacterSuggestion,
   DirectionalBet,
+  PremiumMeta,
+  PremiumComboMode,
+  PremiumDonationEntry,
+  PremiumAddition,
+  PremiumAdditionStatus,
+  PremiumAdditionSource,
+  MediaType,
 } from "../types";
+import { DEFAULT_PREMIUM_META } from "../premium";
 
 // Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
 export const DATABASE_ID =
@@ -80,6 +88,7 @@ export const CHARACTER_SUGGESTIONS_COLLECTION = "character_suggestions";
 export const METADATA_COLLECTION = "metadata";
 export const TRANSACTION_ACTIVITY_COLLECTION = "transaction_activity";
 export const DIRECTIONAL_BETS_COLLECTION = "directional_bets";
+export const PREMIUM_ADDITIONS_COLLECTION = "premium_additions";
 // Daily rewards collection - will gracefully fail if not created
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
@@ -116,9 +125,13 @@ export const toNumberOr = (value: unknown, fallback = 0): number => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-export const toOptionalNumber = (value: unknown): number | undefined => {
-  if (value === undefined || value === null) return undefined;
-  return toNumberOr(value);
+export const toOptionalNumber = (
+  value: unknown,
+  fallback?: number
+): number | undefined => {
+  if (value === undefined || value === null) return fallback;
+  const numeric = toNumberOr(value);
+  return Number.isNaN(numeric) ? fallback : numeric;
 };
 
 export const toBooleanOr = (value: unknown, fallback = false): boolean => {
@@ -144,10 +157,18 @@ export const normalizePayload = <T extends object>(
   Object.fromEntries(
     Object.entries(payload as Record<string, unknown>)
       .filter(([key]) => key !== "id") // Filter out 'id' since Appwrite uses $id
-      .map(([key, value]) => [
-        key,
-        value instanceof Date ? value.toISOString() : value,
-      ])
+      .map(([key, value]) => {
+        if (key === "premiumMeta") {
+          if (value === undefined || value === null) {
+            return [key, value];
+          }
+          return [
+            key,
+            typeof value === "string" ? value : JSON.stringify(value),
+          ];
+        }
+        return [key, value instanceof Date ? value.toISOString() : value];
+      })
   );
 
 export const mapUser = (doc: AppwriteDocument): User => ({
@@ -181,11 +202,20 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   pendingDeletionAt: docValue(doc, "pendingDeletionAt")
     ? toDate(docValue(doc, "pendingDeletionAt"))
     : null,
+  premiumMeta: parsePremiumMeta(docValue(doc, "premiumMeta")),
   lastDailyRewardClaim: toOptionalDate(docValue(doc, "lastDailyRewardClaim")),
   // optional theme preference
   theme: toOptionalString(docValue(doc, "theme")) as User["theme"],
   // whether the user has a password set
   hasPassword: toBooleanOr(docValue(doc, "hasPassword"), false),
+  emailNotificationsEnabled: toBooleanOr(
+    docValue(doc, "emailNotificationsEnabled"),
+    false
+  ),
+  directMessageEmailNotifications: toBooleanOr(
+    docValue(doc, "directMessageEmailNotifications"),
+    false
+  ),
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({
@@ -203,6 +233,7 @@ export const mapStock = (doc: AppwriteDocument): Stock => ({
   description: toStringOr(docValue(doc, "description")),
   totalShares: toNumberOr(docValue(doc, "totalShares")),
   availableShares: toNumberOr(docValue(doc, "availableShares")),
+  mediaType: (docValue(doc, "mediaType") as Stock["mediaType"]) ?? "anime",
   characterNumber: toOptionalNumber(docValue(doc, "characterNumber")),
 });
 
@@ -246,6 +277,8 @@ export const mapComment = (doc: AppwriteDocument): Comment => {
     likedBy: toArrayOr<string>(docValue(doc, "likedBy"), []),
     dislikedBy: toArrayOr<string>(docValue(doc, "dislikedBy"), []),
     editedAt: toOptionalDate(docValue(doc, "editedAt")),
+    premiumOnly: toBooleanOr(docValue(doc, "premiumOnly"), false),
+    location: toOptionalString(docValue(doc, "location")),
   };
 };
 
@@ -273,8 +306,7 @@ export const mapDirectionalBet = (doc: AppwriteDocument): DirectionalBet => ({
   entryPrice: toNumberOr(docValue(doc, "entryPrice")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
   expiresAt: toDate(docValue(doc, "expiresAt") ?? doc.$createdAt),
-  status:
-    (docValue(doc, "status") as DirectionalBet["status"]) ?? "open",
+  status: (docValue(doc, "status") as DirectionalBet["status"]) ?? "open",
   result: toOptionalString(docValue(doc, "result")) as
     | DirectionalBet["result"]
     | undefined,
@@ -289,6 +321,7 @@ export const mapNotification = (doc: AppwriteDocument): Notification => ({
   data: docValue(doc, "data"),
   read: toBooleanOr(docValue(doc, "read")),
   createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  clearedAt: toOptionalDate(docValue(doc, "clearedAt")),
 });
 
 export const mapReport = (doc: AppwriteDocument): Report => {
@@ -434,6 +467,72 @@ const parseRecord = (value: unknown): Record<string, unknown> | undefined => {
   return undefined;
 };
 
+const parseDonationHistory = (value: unknown): PremiumDonationEntry[] => {
+  if (!value || !Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return undefined;
+      }
+      const record = entry as Record<string, unknown>;
+      const amount = toOptionalNumber(record.amount);
+      const date =
+        toOptionalDate(record.date) ?? toOptionalDate(record.donationDate);
+      if (amount === undefined || !date) {
+        return undefined;
+      }
+      return { amount, date };
+    })
+    .filter((entry): entry is PremiumDonationEntry => Boolean(entry));
+};
+
+const parsePremiumMeta = (value: unknown): PremiumMeta => {
+  const parsed = parseRecord(value);
+  if (!parsed) return DEFAULT_PREMIUM_META;
+  return {
+    ...DEFAULT_PREMIUM_META,
+    isPremium: toBooleanOr(parsed.isPremium, DEFAULT_PREMIUM_META.isPremium),
+    premiumSince:
+      parsed.premiumSince !== undefined
+        ? toOptionalDate(parsed.premiumSince)
+        : DEFAULT_PREMIUM_META.premiumSince,
+    charactersAddedToday: toOptionalNumber(
+      parsed.charactersAddedToday,
+      DEFAULT_PREMIUM_META.charactersAddedToday ?? 0
+    ),
+    charactersAddedTodayAnime: toOptionalNumber(
+      parsed.charactersAddedTodayAnime,
+      DEFAULT_PREMIUM_META.charactersAddedTodayAnime ?? 0
+    ),
+    charactersAddedTodayManga: toOptionalNumber(
+      parsed.charactersAddedTodayManga,
+      DEFAULT_PREMIUM_META.charactersAddedTodayManga ?? 0
+    ),
+    charactersDuplicateToday: toOptionalNumber(
+      parsed.charactersDuplicateToday,
+      DEFAULT_PREMIUM_META.charactersDuplicateToday ?? 0
+    ),
+    quotaResetAt:
+      parsed.quotaResetAt !== undefined
+        ? toOptionalDate(parsed.quotaResetAt)
+        : DEFAULT_PREMIUM_META.quotaResetAt,
+    autoAdd: toBooleanOr(parsed.autoAdd, DEFAULT_PREMIUM_META.autoAdd),
+    comboMode:
+      (parsed.comboMode as PremiumComboMode) ?? DEFAULT_PREMIUM_META.comboMode,
+    tierLevel: toOptionalNumber(parsed.tierLevel),
+    donationAmount: toOptionalNumber(parsed.donationAmount),
+    donationDate:
+      parsed.donationDate !== undefined
+        ? toOptionalDate(parsed.donationDate)
+        : DEFAULT_PREMIUM_META.donationDate,
+    donationHistory: parseDonationHistory(parsed.donationHistory),
+    lastPremiumRewardClaim:
+      parsed.lastPremiumRewardClaim !== undefined
+        ? toOptionalDate(parsed.lastPremiumRewardClaim)
+        : DEFAULT_PREMIUM_META.lastPremiumRewardClaim,
+  };
+};
+
 // Message mapping
 export const mapMessage = (doc: AppwriteDocument): Message => ({
   id: toStringOr(docValue(doc, "id"), doc.$id),
@@ -508,6 +607,7 @@ export const mapCharacterSuggestion = (
   characterName: toStringOr(docValue(doc, "characterName")),
   anime: toStringOr(docValue(doc, "anime")),
   description: toOptionalString(docValue(doc, "description")),
+  priority: toBooleanOr(docValue(doc, "priority"), false),
   anilistUrl: toOptionalString(docValue(doc, "anilistUrl")),
   anilistCharacterId: toOptionalNumber(docValue(doc, "anilistCharacterId")),
   status:
@@ -553,4 +653,18 @@ export const mapDailyReward = (doc: AppwriteDocument): DailyReward => ({
   longestStreak: toNumberOr(docValue(doc, "longestStreak"), 0),
   totalClaimed: toNumberOr(docValue(doc, "totalClaimed"), 0),
   totalAmount: toNumberOr(docValue(doc, "totalAmount"), 0),
+});
+
+export const mapPremiumAddition = (doc: AppwriteDocument): PremiumAddition => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toStringOr(docValue(doc, "userId")),
+  stockId: toStringOr(docValue(doc, "stockId")),
+  characterName: toStringOr(docValue(doc, "characterName")),
+  characterSlug: toStringOr(docValue(doc, "characterSlug")),
+  anime: toStringOr(docValue(doc, "anime")),
+  imageUrl: toStringOr(docValue(doc, "imageUrl")),
+  mediaType: (docValue(doc, "mediaType") as MediaType) ?? "anime",
+  status: (docValue(doc, "status") as PremiumAdditionStatus) ?? "added",
+  source: (docValue(doc, "source") as PremiumAdditionSource) ?? "manual",
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
 });

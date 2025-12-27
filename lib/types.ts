@@ -1,4 +1,9 @@
 export type ContentTag = "nsfw" | "spoiler";
+export type MediaType = "anime" | "manga";
+export type PremiumComboMode =
+  | "standard"
+  | "anime-1-manga-1"
+  | "anime-2-manga-2";
 
 export interface CommentSnapshot {
   id: string;
@@ -33,6 +38,9 @@ export interface User {
   lastDailyRewardClaim?: Date;
   // optional user theme preference
   theme?: "light" | "dark" | "system";
+  emailNotificationsEnabled?: boolean;
+  directMessageEmailNotifications?: boolean;
+  premiumMeta?: PremiumMeta;
 }
 
 export interface Stock {
@@ -64,6 +72,7 @@ export interface Stock {
    * Source of the stock data. Prefer "anilist" for verified items.
    */
   source?: "anilist" | "manual" | string;
+  mediaType?: MediaType;
 }
 
 export interface Transaction {
@@ -107,6 +116,8 @@ export interface Comment {
   reactions?: Record<string, "like" | "dislike">;
   userReactions?: Record<string, "like" | "dislike">;
   editedAt?: Date;
+  premiumOnly?: boolean; // For premium-only comments
+  location?: string; // Location identifier (e.g., "premium_page", "anime_123", etc.)
 }
 
 export interface Message {
@@ -184,6 +195,7 @@ export interface Notification {
   data?: any; // additional data like buyback offer details
   read: boolean;
   createdAt: Date;
+  clearedAt?: Date | null;
 }
 
 export interface SupportTicketMessage {
@@ -197,6 +209,8 @@ export type SupportTicketTag =
   | "bug"
   | "question"
   | "report"
+  | "donation"
+  | "premium"
   | "other";
 
 export interface SupportTicket {
@@ -216,6 +230,11 @@ export interface SupportTicket {
   assignedTo?: string | null;
 }
 
+export interface PremiumDonationEntry {
+  amount: number;
+  date: Date;
+}
+
 export type CharacterSuggestionStatus = "pending" | "approved" | "denied";
 
 export interface CharacterSuggestion {
@@ -224,6 +243,7 @@ export interface CharacterSuggestion {
   characterName: string;
   anime: string;
   description?: string;
+  priority?: boolean;
   anilistUrl?: string;
   anilistCharacterId?: number;
   status: CharacterSuggestionStatus;
@@ -234,6 +254,40 @@ export interface CharacterSuggestion {
   stockId?: string;
   autoImportStatus?: "not_requested" | "succeeded" | "failed";
   autoImportMessage?: string;
+}
+
+export interface PremiumMeta {
+  isPremium?: boolean;
+  premiumSince?: Date | null;
+  charactersAddedToday?: number;
+  charactersAddedTodayAnime?: number;
+  charactersAddedTodayManga?: number;
+  charactersDuplicateToday?: number;
+  quotaResetAt?: Date | null;
+  autoAdd?: boolean;
+  comboMode?: PremiumComboMode;
+  tierLevel?: number;
+  donationAmount?: number;
+  donationDate?: Date | null;
+  donationHistory?: PremiumDonationEntry[];
+  lastPremiumRewardClaim?: Date | null;
+}
+
+export type PremiumAdditionStatus = "added" | "duplicate";
+export type PremiumAdditionSource = "manual" | "anilist";
+
+export interface PremiumAddition {
+  id: string;
+  userId: string;
+  stockId: string;
+  characterName: string;
+  characterSlug: string;
+  anime: string;
+  imageUrl: string;
+  mediaType: MediaType;
+  status: PremiumAdditionStatus;
+  source: PremiumAdditionSource;
+  createdAt: Date;
 }
 
 export interface Report {
@@ -288,6 +342,7 @@ export type AdminActionType =
   | "deletion_scheduled"
   | "deletion_finalized"
   | "support_update"
+  | "premium_tier_update"
   | "kill_switch"
   | "stock_creation";
 

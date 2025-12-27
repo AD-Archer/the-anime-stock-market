@@ -16,7 +16,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import { getUserProfileHref } from "@/lib/user-profile";
 import { Badge } from "@/components/ui/badge";
-import { User, LogOut, Bell, Crown, MessageCircle, Gift, Shield } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Bell,
+  Crown,
+  MessageCircle,
+  Gift,
+  Shield,
+  Star,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,8 +42,13 @@ export function UserMenu() {
     markAllNotificationsRead,
     getDailyRewardInfo,
     messages,
-    conversations,
   } = useStore();
+  const userNotifications = currentUser
+    ? notifications.filter((n) => n.userId === currentUser.id)
+    : [];
+  const unreadUserNotificationsCount = userNotifications.filter(
+    (n) => !n.read
+  ).length;
   const [showNotifications, setShowNotifications] = useState(false);
   const rewardInfo = getDailyRewardInfo();
 
@@ -73,7 +87,7 @@ export function UserMenu() {
         onClick={() => setShowNotifications(true)}
       >
         <Bell className="h-5 w-5" />
-        {notifications.some((n) => !n.read) && (
+        {userNotifications.some((n) => !n.read) && (
           <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
         )}
       </Button>
@@ -116,6 +130,12 @@ export function UserMenu() {
                   Available
                 </Badge>
               )}
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href="/premium" className="flex items-center">
+              <Star className="mr-2 h-4 w-4 text-purple-600" />
+              <span className="font-semibold text-purple-600">Premium</span>
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -194,9 +214,9 @@ export function UserMenu() {
             <DialogTitle>Notifications</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between mb-3">
-            {notifications.some((n) => !n.read) && (
+            {unreadUserNotificationsCount > 0 && (
               <span className="text-xs text-muted-foreground">
-                {notifications.filter((n) => !n.read).length} unread
+                {unreadUserNotificationsCount} unread
               </span>
             )}
           </div>

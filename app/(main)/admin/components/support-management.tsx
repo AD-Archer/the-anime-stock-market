@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
+import type { SupportTicketTag, User } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -26,6 +28,21 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { getUserProfileHref } from "@/lib/user-profile";
+
+type SupportTagFilterValue = SupportTicketTag | "all";
+
+const SUPPORT_TAG_FILTERS: { value: SupportTagFilterValue; label: string }[] =
+  [
+    { value: "all", label: "All types" },
+    { value: "premium", label: "Premium requests" },
+    { value: "donation", label: "Donations" },
+    { value: "feature", label: "Feature requests" },
+    { value: "bug", label: "Bug reports" },
+    { value: "question", label: "Questions" },
+    { value: "report", label: "Reports" },
+    { value: "other", label: "Other" },
+  ];
 
 export function SupportManagement() {
   const {
@@ -33,6 +50,7 @@ export function SupportManagement() {
     getSupportTickets,
     updateSupportTicket,
     currentUser,
+    users,
   } = useStore();
   const [selected, setSelected] = useState<any | null>(null);
   const [reply, setReply] = useState("");
@@ -41,25 +59,44 @@ export function SupportManagement() {
   );
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [tagFilter, setTagFilter] =
+    useState<SupportTagFilterValue>("all");
   const [loading, setLoading] = useState(false);
+
+  const tagFilterLabel =
+    SUPPORT_TAG_FILTERS.find((option) => option.value === tagFilter)
+      ?.label ?? "Filter by type";
+  const userById = useMemo(() => {
+    return users.reduce<Record<string, User>>((acc, user) => {
+      acc[user.id] = user;
+      return acc;
+    }, {});
+  }, [users]);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       try {
-        const filters: { status?: string; searchQuery?: string } = {};
+        const filters: {
+          status?: string;
+          searchQuery?: string;
+          tag?: SupportTicketTag;
+        } = {};
         if (statusFilter !== "all") {
           filters.status = statusFilter;
         }
         if (searchQuery) {
           filters.searchQuery = searchQuery;
         }
+        if (tagFilter !== "all") {
+          filters.tag = tagFilter;
+        }
         await getSupportTickets(filters);
       } finally {
         setLoading(false);
       }
     })();
-  }, [getSupportTickets, statusFilter, searchQuery]);
+  }, [getSupportTickets, statusFilter, searchQuery, tagFilter]);
 
   const openTicket = (t: any) => {
     setSelected(t);
@@ -89,6 +126,9 @@ export function SupportManagement() {
     setReply("");
   };
 
+  const selectedUser =
+    selected && selected.userId ? userById[selected.userId] : undefined;
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4">
@@ -110,6 +150,23 @@ export function SupportManagement() {
               <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
+          <Select
+            value={tagFilter}
+            onValueChange={(value) =>
+              setTagFilter(value as SupportTagFilterValue)
+            }
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue>{tagFilterLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORT_TAG_FILTERS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
@@ -125,50 +182,71 @@ export function SupportManagement() {
             </CardContent>
           </Card>
         ) : (
-          supportTickets.map((t) => (
-            <Card key={t.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span>{t.subject}</span>
-                    <Badge
-                      variant={
-                        t.status === "open"
-                          ? "default"
-                          : t.status === "in_progress"
-                          ? "secondary"
-                          : "outline"
-                      }
-                    >
-                      {t.status}
-                    </Badge>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(t.createdAt).toLocaleString()}
-                  </span>
-                </CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">
-                  {t.contactEmail || t.userId || "Anonymous"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-foreground whitespace-pre-wrap">
-                    {t.message}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openTicket(t)}
-                    >
-                      View
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+          <>
+            {supportTickets.map((t) => {
+              const ticketUser = t.userId ? userById[t.userId] : undefined;
+              return (
+                <Card key={t.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span>{t.subject}</span>
+                        <Badge
+                          variant={
+                            t.status === "open"
+                              ? "default"
+                              : t.status === "in_progress"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {t.status}
+                        </Badge>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(t.createdAt).toLocaleString()}
+                      </span>
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground flex flex-wrap gap-2 items-center">
+                      {ticketUser ? (
+                        <Link
+                          href={getUserProfileHref(ticketUser, ticketUser.id)}
+                          className="text-foreground underline-offset-4 hover:underline"
+                        >
+                          {ticketUser.username}
+                        </Link>
+                      ) : (
+                        <span>
+                          {t.contactEmail || t.userId || "Anonymous"}
+                        </span>
+                      )}
+                      {ticketUser?.email && (
+                        <span className="text-xs text-muted-foreground">
+                          {ticketUser.email}
+                        </span>
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-foreground whitespace-pre-wrap">
+                        {t.message}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTicket(t)}
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </>
         )}
       </div>
 
@@ -181,9 +259,27 @@ export function SupportManagement() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-semibold">{selected.subject}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {selected.email || selected.userId || "Anonymous"} •{" "}
-                  {new Date(selected.createdAt).toLocaleString()}
+                <p className="text-sm text-muted-foreground flex flex-wrap gap-2 items-center">
+                  {selectedUser ? (
+                    <Link
+                      href={getUserProfileHref(selectedUser, selectedUser.id)}
+                      className="text-foreground underline-offset-4 hover:underline"
+                    >
+                      {selectedUser.username}
+                    </Link>
+                  ) : (
+                    <span>
+                      {selected.contactEmail || selected.userId || "Anonymous"}
+                    </span>
+                  )}
+                  {selectedUser?.email && (
+                    <span className="text-xs text-muted-foreground">
+                      {selectedUser.email}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    • {new Date(selected.createdAt).toLocaleString()}
+                  </span>
                 </p>
               </div>
 

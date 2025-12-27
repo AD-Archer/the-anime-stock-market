@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import Image from "next/image";
 import { getUserProfileHref } from "@/lib/user-profile";
@@ -191,6 +196,16 @@ export default function ActivityDiscussion({
                             <p className="font-medium text-foreground truncate">
                               {user.username}
                             </p>
+                            {user.premiumMeta?.isPremium && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Crown className="h-4 w-4 text-purple-500" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Premium User</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Badge
                               variant={
                                 tx.type === "buy" ? "default" : "secondary"

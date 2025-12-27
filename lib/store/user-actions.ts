@@ -1,9 +1,28 @@
 import type { StoreApi } from "zustand";
-import type { AdminActionType, Portfolio, Transaction, User } from "../types";
-import { portfolioService, transactionService, userService } from "../database";
+import type {
+  AdminActionType,
+  MediaType,
+  Portfolio,
+  PremiumComboMode,
+  PremiumMeta,
+  PremiumAddition,
+  Transaction,
+  User,
+} from "../types";
+import {
+  portfolioService,
+  premiumAdditionService,
+  transactionService,
+  userService,
+} from "../database";
 import type { StoreState } from "./types";
 import { sendSystemEvent } from "../system-events-client";
 import { generateShortId } from "../utils";
+import {
+  DEFAULT_PREMIUM_META,
+  getTierForMeta,
+  incrementPremiumMetaBy,
+} from "../premium";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -45,6 +64,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.pendingDeletionAt !== undefined) {
         optionalKeys.push("pendingDeletionAt");
       }
+      if (updates.premiumMeta !== undefined) {
+        optionalKeys.push("premiumMeta");
+      }
       const preferenceKeys: (keyof User)[] = [];
       if (updates.hideTransactions !== undefined) {
         preferenceKeys.push("hideTransactions");
@@ -55,6 +77,12 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       // Persist theme preference if present
       if (updates.theme !== undefined) {
         preferenceKeys.push("theme");
+      }
+      if (updates.emailNotificationsEnabled !== undefined) {
+        preferenceKeys.push("emailNotificationsEnabled");
+      }
+      if (updates.directMessageEmailNotifications !== undefined) {
+        preferenceKeys.push("directMessageEmailNotifications");
       }
 
       const buildPayload = (keys: (keyof User)[]) =>
@@ -146,6 +174,19 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     }
   };
 
+  const getUserPremiumMeta = (userId: string): PremiumMeta => {
+    const user = getState().users.find((u) => u.id === userId);
+    return user?.premiumMeta ?? DEFAULT_PREMIUM_META;
+  };
+
+  const updatePremiumMeta = async (
+    userId: string,
+    updater: (meta: PremiumMeta) => PremiumMeta
+  ) => {
+    const nextMeta = updater(getUserPremiumMeta(userId));
+    await persistUserUpdate(userId, { premiumMeta: nextMeta });
+  };
+
   const logAdmin = async (
     action: AdminActionType,
     targetUserId: string,
@@ -174,6 +215,16 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     await persistUserUpdate(currentUser.id, preferences);
   };
 
+  const updateNotificationPreferences = async (preferences: {
+    emailNotificationsEnabled?: boolean;
+    directMessageEmailNotifications?: boolean;
+  }) => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return;
+
+    await persistUserUpdate(currentUser.id, preferences);
+  };
+
   const setUserAvatar = async (avatarUrl: string | null) => {
     const currentUser = getState().currentUser;
     if (!currentUser) return;
@@ -191,6 +242,156 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     } catch (error) {
       console.error("Failed to persist theme:", error);
       return false;
+    }
+  };
+
+  const setPremiumStatus = async (userId: string, enabled: boolean) => {
+    await updatePremiumMeta(userId, (meta) => {
+      if (!enabled) {
+        return { ...DEFAULT_PREMIUM_META };
+      }
+      return {
+        ...meta,
+        isPremium: true,
+        premiumSince: meta.premiumSince ?? new Date(),
+      };
+    });
+  };
+
+  const setPremiumComboMode = async (
+    userId: string,
+    comboMode: PremiumComboMode
+  ) => {
+    await updatePremiumMeta(userId, (meta) => ({
+      ...meta,
+      comboMode,
+    }));
+  };
+
+  const setPremiumAutoAdd = async (userId: string, enabled: boolean) => {
+    await updatePremiumMeta(userId, (meta) => ({
+      ...meta,
+      autoAdd: enabled,
+    }));
+  };
+
+  const updatePremiumMetaFields = async (
+    userId: string,
+    patch: Partial<PremiumMeta>
+  ) => {
+    const currentMeta = getUserPremiumMeta(userId);
+    const nextMeta = { ...currentMeta, ...patch };
+    await persistUserUpdate(userId, { premiumMeta: nextMeta });
+  };
+
+  const incrementPremiumCharacterCount = async (
+    userId: string,
+    mediaType: MediaType,
+    addedCount = 1,
+    duplicateCount = 0
+  ) => {
+    await updatePremiumMeta(userId, (meta) =>
+      incrementPremiumMetaBy(meta, mediaType, addedCount, duplicateCount)
+    );
+  };
+
+  const addPremiumAdditions = async (
+    userId: string,
+    additions: Omit<PremiumAddition, "id" | "createdAt" | "userId">[]
+  ) => {
+    if (additions.length === 0) return [];
+    const created = await premiumAdditionService.createMany(
+      additions.map((addition) => ({
+        ...addition,
+        userId,
+        createdAt: new Date(),
+      }))
+    );
+    if (created.length > 0) {
+      setState((state) => ({
+        premiumAdditions: [
+          ...created,
+          ...state.premiumAdditions.filter((entry) => entry.userId === userId),
+        ]
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 50),
+      }));
+    }
+    return created;
+  };
+
+  const refreshPremiumAdditions = async (userId?: string) => {
+    const resolvedUserId = userId ?? getState().currentUser?.id;
+    if (!resolvedUserId) return;
+    const additions = await premiumAdditionService.listByUser(
+      resolvedUserId,
+      25
+    );
+    setState({ premiumAdditions: additions });
+  };
+
+  const claimPremiumReward = async () => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) {
+      return {
+        success: false,
+        message: "You must be logged in to claim premium rewards.",
+      };
+    }
+
+    const meta = currentUser.premiumMeta ?? DEFAULT_PREMIUM_META;
+    if (!meta.isPremium) {
+      return {
+        success: false,
+        message: "Premium access is required to claim tier rewards.",
+      };
+    }
+    const tier = getTierForMeta(meta);
+    if (!tier) {
+      return {
+        success: false,
+        message: "No premium tier reward is available yet.",
+      };
+    }
+
+    const lastClaim = meta.lastPremiumRewardClaim ?? null;
+    const now = new Date();
+    if (lastClaim) {
+      const hoursSince =
+        (now.getTime() - lastClaim.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) {
+        const hoursUntil = Math.ceil(24 - hoursSince);
+        return {
+          success: false,
+          message: `You can claim your next premium reward in ${hoursUntil} hours.`,
+        };
+      }
+    }
+
+    try {
+      const rewardAmount = tier.reward;
+      const nextMeta = { ...meta, lastPremiumRewardClaim: now };
+      const updatedUser = await persistUserUpdate(currentUser.id, {
+        balance: currentUser.balance + rewardAmount,
+        premiumMeta: nextMeta,
+      });
+      if (!updatedUser) {
+        return {
+          success: false,
+          message: "Unable to claim your premium reward right now.",
+        };
+      }
+      return {
+        success: true,
+        amount: rewardAmount,
+        message: `Claimed $${rewardAmount.toFixed(2)} premium tier reward.`,
+      };
+    } catch (error) {
+      console.error("Failed to claim premium reward:", error);
+      return {
+        success: false,
+        message: "Failed to claim your premium reward. Please try again.",
+      };
     }
   };
 
@@ -471,8 +672,17 @@ export function createUserActions({ setState, getState }: StoreMutators) {
 
   return {
     updateContentPreferences,
+    updateNotificationPreferences,
     setUserAvatar,
     updateTheme,
+    setPremiumStatus,
+    setPremiumComboMode,
+    setPremiumAutoAdd,
+    updatePremiumMeta: updatePremiumMetaFields,
+    incrementPremiumCharacterCount,
+    addPremiumAdditions,
+    refreshPremiumAdditions,
+    claimPremiumReward,
     banUser,
     unbanUser,
     deleteUser,

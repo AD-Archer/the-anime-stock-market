@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Github, Shield, FileText } from "lucide-react";
+import { Github, Shield, FileText, Heart } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function Footer() {
   return (
@@ -40,6 +41,14 @@ export function Footer() {
             >
               <Shield className="h-4 w-4" />
               Support
+            </Link>
+
+            <Link
+              href="/donate"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Heart className="h-4 w-4" />
+              Donate
             </Link>
 
             <Link

@@ -20,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Crown } from "lucide-react";
 import type { DirectionalBet } from "@/lib/types";
 
 export default function CallsAndPutsPage() {
@@ -482,9 +488,21 @@ function ActivitySection({
               className="rounded-xl border border-border/60 bg-muted/50 p-3 text-sm transition hover:bg-muted/70"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-foreground line-clamp-1">
-                  {user?.displayName || "Anonymous"}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-foreground line-clamp-1">
+                    {user?.displayName || "Anonymous"}
+                  </p>
+                  {user?.premiumMeta?.isPremium && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Crown className="h-4 w-4 text-purple-500" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Premium User</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
                 <span
                   className={`text-xs font-semibold whitespace-nowrap ${colorClass}`}
                 >

@@ -23,11 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Flag, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Flag, ThumbsUp, ThumbsDown, Crown } from "lucide-react";
 import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { ReportModal } from "@/components/report-modal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CommentThreadProps {
   comment: Comment & { replies?: Comment[] };
@@ -205,6 +210,16 @@ export default function CommentThread({
               >
                 {user?.username || "Unknown"}
               </Link>
+              {user?.premiumMeta?.isPremium && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Crown className="h-4 w-4 text-purple-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Premium User</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {user?.isAdmin && (
                 <Badge variant="secondary" className="text-xs">
                   Admin

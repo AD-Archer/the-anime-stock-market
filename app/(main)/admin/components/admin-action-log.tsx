@@ -25,6 +25,7 @@ const actionLabels: Record<AdminActionType, string> = {
   deletion_scheduled: "Deletion Scheduled",
   deletion_finalized: "Deletion Finalized",
   support_update: "Support Ticket",
+  premium_tier_update: "Premium Tier",
   kill_switch: "Kill Switch",
 };
 
@@ -42,6 +43,7 @@ const badgeVariants: Record<
   deletion_scheduled: "secondary",
   deletion_finalized: "destructive",
   support_update: "secondary",
+  premium_tier_update: "secondary",
   kill_switch: "destructive",
 };
 
@@ -120,6 +122,21 @@ function formatMetadataForDisplay(
       displayLines.push({
         label: "New Price",
         value: `$${metadata.newPrice.toFixed(2)}`,
+      });
+    }
+    if (metadata.createdByRole) {
+      const roleLabel = String(metadata.createdByRole)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      displayLines.push({
+        label: "Creator Type",
+        value: roleLabel,
+      });
+    }
+    if (metadata.creationSource) {
+      displayLines.push({
+        label: "Source",
+        value: String(metadata.creationSource),
       });
     }
   }

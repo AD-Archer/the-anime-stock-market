@@ -89,7 +89,25 @@ const collections: CollectionPlan[] = [
         required: false,
         default: false,
       },
+      {
+        kind: "boolean",
+        key: "emailNotificationsEnabled",
+        required: false,
+        default: false,
+      },
+      {
+        kind: "boolean",
+        key: "directMessageEmailNotifications",
+        required: false,
+        default: false,
+      },
       { kind: "string", key: "pendingDeletionAt", size: 64, required: false },
+      {
+        kind: "string",
+        key: "premiumMeta",
+        size: 4000,
+        required: false,
+      },
       {
         kind: "string",
         key: "lastDailyRewardClaim",
@@ -113,6 +131,13 @@ const collections: CollectionPlan[] = [
         array: true,
       },
       { kind: "string", key: "anime", size: 128, required: true },
+      {
+        kind: "string",
+        key: "mediaType",
+        size: 32,
+        required: false,
+        default: "anime",
+      },
       { kind: "integer", key: "anilistRank", required: false },
       { kind: "float", key: "currentPrice", required: true, default: 0 },
       { kind: "string", key: "createdBy", size: 64, required: true },
@@ -183,6 +208,8 @@ const collections: CollectionPlan[] = [
         required: false,
         array: true,
       },
+      { kind: "boolean", key: "premiumOnly", required: false, default: false },
+      { kind: "string", key: "location", size: 64, required: false },
       { kind: "string", key: "editedAt", size: 64, required: false },
     ],
   },
@@ -232,6 +259,7 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "data", size: 20000, required: false },
       { kind: "boolean", key: "read", required: true, default: false },
       { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "clearedAt", size: 64, required: false },
     ],
   },
   {
@@ -312,6 +340,7 @@ const collections: CollectionPlan[] = [
       { kind: "string", key: "description", size: 5000, required: false },
       { kind: "string", key: "anilistUrl", size: 1024, required: false },
       { kind: "integer", key: "anilistCharacterId", required: false },
+      { kind: "boolean", key: "priority", required: false, default: false },
       { kind: "string", key: "status", size: 16, required: true },
       { kind: "string", key: "createdAt", size: 64, required: true },
       { kind: "string", key: "reviewedAt", size: 64, required: false },
@@ -374,6 +403,22 @@ const collections: CollectionPlan[] = [
       { kind: "integer", key: "longestStreak", required: true, default: 0 },
       { kind: "integer", key: "totalClaimed", required: true, default: 0 },
       { kind: "float", key: "totalAmount", required: true, default: 0 },
+    ],
+  },
+  {
+    id: "premium_additions",
+    name: "Premium Additions",
+    attributes: [
+      { kind: "string", key: "userId", size: 64, required: true },
+      { kind: "string", key: "stockId", size: 64, required: true },
+      { kind: "string", key: "characterName", size: 128, required: true },
+      { kind: "string", key: "characterSlug", size: 256, required: true },
+      { kind: "string", key: "anime", size: 128, required: true },
+      { kind: "string", key: "imageUrl", size: 1024, required: true },
+      { kind: "string", key: "mediaType", size: 32, required: true },
+      { kind: "string", key: "status", size: 16, required: true },
+      { kind: "string", key: "source", size: 16, required: true },
+      { kind: "string", key: "createdAt", size: 64, required: true },
     ],
   },
   {
@@ -445,51 +490,75 @@ async function ensureAttribute(
   // We still keep the attribute required and rely on the app/seed to provide values.
   const defaultIfAllowed = !attr.required ? (attr as any).default : undefined;
 
+  const createAttributeSafe = async (
+    createFn: () => Promise<unknown>
+  ): Promise<void> => {
+    try {
+      await createFn();
+    } catch (error: any) {
+      if (error?.code === 409 && error?.type === "attribute_already_exists") {
+        console.log(
+          `    Attribute already exists, skipping: ${collectionId}.${attr.key}`
+        );
+        return;
+      }
+      throw error;
+    }
+  };
+
   if (attr.kind === "string") {
-    await databases.createStringAttribute(
-      DATABASE_ID,
-      collectionId,
-      attr.key,
-      attr.size,
-      attr.required,
-      defaultIfAllowed,
-      attr.array ?? false
+    await createAttributeSafe(() =>
+      databases.createStringAttribute(
+        DATABASE_ID,
+        collectionId,
+        attr.key,
+        attr.size,
+        attr.required,
+        defaultIfAllowed,
+        attr.array ?? false
+      )
     );
     return;
   }
 
   if (attr.kind === "integer") {
-    await databases.createIntegerAttribute(
-      DATABASE_ID,
-      collectionId,
-      attr.key,
-      attr.required,
-      attr.min,
-      attr.max,
-      defaultIfAllowed
+    await createAttributeSafe(() =>
+      databases.createIntegerAttribute(
+        DATABASE_ID,
+        collectionId,
+        attr.key,
+        attr.required,
+        attr.min,
+        attr.max,
+        defaultIfAllowed
+      )
     );
     return;
   }
 
   if (attr.kind === "float") {
-    await databases.createFloatAttribute(
-      DATABASE_ID,
-      collectionId,
-      attr.key,
-      attr.required,
-      attr.min,
-      attr.max,
-      defaultIfAllowed
+    await createAttributeSafe(() =>
+      databases.createFloatAttribute(
+        DATABASE_ID,
+        collectionId,
+        attr.key,
+        attr.required,
+        attr.min,
+        attr.max,
+        defaultIfAllowed
+      )
     );
     return;
   }
 
-  await databases.createBooleanAttribute(
-    DATABASE_ID,
-    collectionId,
-    attr.key,
-    attr.required,
-    defaultIfAllowed
+  await createAttributeSafe(() =>
+    databases.createBooleanAttribute(
+      DATABASE_ID,
+      collectionId,
+      attr.key,
+      attr.required,
+      defaultIfAllowed
+    )
   );
 }
 
@@ -566,7 +635,9 @@ async function setup() {
     }
     if (collection.id === "directional_bets") {
       await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
-      await ensureIndex(databases, collection.id, "stockId", "key", ["stockId"]);
+      await ensureIndex(databases, collection.id, "stockId", "key", [
+        "stockId",
+      ]);
       await ensureIndex(databases, collection.id, "status", "key", ["status"]);
       await ensureIndex(databases, collection.id, "type", "key", ["type"]);
     }
@@ -575,6 +646,12 @@ async function setup() {
       await ensureIndex(databases, collection.id, "anilistCharacterId", "key", [
         "anilistCharacterId",
       ]);
+      await ensureIndex(databases, collection.id, "createdAt", "key", [
+        "createdAt",
+      ]);
+    }
+    if (collection.id === "premium_additions") {
+      await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
       await ensureIndex(databases, collection.id, "createdAt", "key", [
         "createdAt",
       ]);

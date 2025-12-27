@@ -18,6 +18,7 @@ import {
   FRIENDS_COLLECTION,
   SUPPORTS_COLLECTION,
   DAILY_REWARDS_COLLECTION,
+  PREMIUM_ADDITIONS_COLLECTION,
 } from "./utils";
 
 // Note: This function is destructive. It deletes documents within collections.
@@ -41,6 +42,7 @@ export async function clearDatabase(): Promise<Record<string, number>> {
     FRIENDS_COLLECTION,
     SUPPORTS_COLLECTION,
     DAILY_REWARDS_COLLECTION,
+    PREMIUM_ADDITIONS_COLLECTION,
   ];
 
   const result: Record<string, number> = {};

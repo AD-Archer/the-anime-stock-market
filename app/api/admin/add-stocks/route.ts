@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user exists and is admin
+    // Verify user exists
     let userDoc;
     try {
       userDoc = await userService.getById(userId);
@@ -47,11 +47,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userDoc || !userDoc.isAdmin) {
+    // Check if user is admin or premium
+    const isAdmin = userDoc?.isAdmin;
+    const isPremium = userDoc?.premiumMeta?.isPremium;
+
+    if (!isAdmin && !isPremium) {
       return NextResponse.json(
         {
           error:
-            "Admin access required - Your account does not have admin privileges",
+            "Admin or premium access required - Your account does not have the necessary privileges",
         },
         { status: 403 }
       );
@@ -91,6 +95,18 @@ export async function POST(request: NextRequest) {
 
     let result;
 
+    const createdByRole = isAdmin
+      ? isPremium
+        ? "admin+premium"
+        : "admin"
+      : isPremium
+      ? "premium"
+      : "user";
+    const logContext = {
+      createdByRole,
+      creationSource: "anilist",
+    };
+
     if (type === "anime") {
       const mediaId = parseInt(id!, 10);
       if (isNaN(mediaId)) {
@@ -100,10 +116,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await addAnimeStocks(mediaId, userId, {
-        characterNameFilter: characterNameFilter || undefined,
-        minRoleImportance: minRole || undefined,
-      });
+      result = await addAnimeStocks(
+        mediaId,
+        userId,
+        {
+          characterNameFilter: characterNameFilter || undefined,
+          minRoleImportance: minRole || undefined,
+        },
+        logContext
+      );
 
       // Server-side log for import result
       console.log(
@@ -118,10 +139,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await addMangaStocks(mediaId, userId, {
-        characterNameFilter: characterNameFilter || undefined,
-        minRoleImportance: minRole || undefined,
-      });
+      result = await addMangaStocks(
+        mediaId,
+        userId,
+        {
+          characterNameFilter: characterNameFilter || undefined,
+          minRoleImportance: minRole || undefined,
+        },
+        logContext
+      );
 
       // Server-side log for import result
       console.log(
@@ -136,9 +162,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      result = await addCharacterStocks(characterId, userId);
+      result = await addCharacterStocks(characterId, userId, logContext);
     } else if (type === "search") {
-      result = await searchAndAddCharacterStocks(search!, userId);
+      result = await searchAndAddCharacterStocks(search!, userId, logContext);
     }
 
     const rateLimitStatus = getRateLimitStatus();
@@ -178,7 +204,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user exists and is admin
+    // Verify user exists
     let userDoc;
     try {
       userDoc = await userService.getById(userId);
@@ -186,10 +212,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check admin status
-    if (!userDoc || !userDoc.isAdmin) {
+    // Check if user is admin or premium
+    const isAdmin = userDoc?.isAdmin;
+    const isPremium = userDoc?.premiumMeta?.isPremium;
+
+    if (!isAdmin && !isPremium) {
       return NextResponse.json(
-        { error: "Admin access required" },
+        { error: "Admin or premium access required" },
         { status: 403 }
       );
     }

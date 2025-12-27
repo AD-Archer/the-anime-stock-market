@@ -56,6 +56,7 @@ import {
   mapDirectionalBet,
   characterSuggestionService,
   directionalBetService,
+  premiumAdditionService,
 } from "./database";
 import { awardService } from "./database/awardService";
 import { dailyRewardService } from "./database/dailyRewardService";
@@ -74,6 +75,7 @@ import { createDailyRewardActions } from "./store/daily-rewards";
 import { createSuggestionActions } from "./store/suggestions";
 import type { StoreState } from "./store/types";
 import type { User, Transaction, PriceHistory } from "./types";
+import { DEFAULT_PREMIUM_META } from "./premium";
 import { generateDisplaySlug } from "./usernames";
 
 export const useStore = create<StoreState>((set, get) => {
@@ -97,7 +99,11 @@ export const useStore = create<StoreState>((set, get) => {
     describeCommentLocation: commentActions.describeCommentLocation,
     deleteComment: commentActions.deleteComment,
   });
-  const messageActions = createMessageActions({ setState: set, getState: get });
+  const messageActions = createMessageActions({
+    setState: set,
+    getState: get,
+    sendNotification: notificationActions.sendNotification,
+  });
   const appealActions = createAppealActions({ setState: set, getState: get });
   const supportActions = createSupportActions({ setState: set, getState: get });
   const suggestionActions = createSuggestionActions({
@@ -136,6 +142,7 @@ export const useStore = create<StoreState>((set, get) => {
     awards: [],
     friends: [],
     dailyRewards: [],
+    premiumAdditions: [],
     messages: [],
     conversations: [],
     lastMarketDriftAt: null,
@@ -207,6 +214,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           awardsData,
           friendsData,
           dailyRewardsData,
+          premiumAdditionsData,
         ] = await Promise.all([
           userService.getAll(),
           stockService.getAll(),
@@ -225,6 +233,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           awardService.getAll(),
           (await import("./database")).friendService.getAll(),
           dailyRewardService.getAll().catch(() => []),
+          user
+            ? premiumAdditionService.listByUser(user.id, 25)
+            : Promise.resolve([]),
         ]);
 
         useStore.setState({
@@ -282,6 +293,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             dailyRewardsData.length > 0
               ? dailyRewardsData
               : initialDailyRewards,
+          premiumAdditions: premiumAdditionsData ?? [],
         });
 
         // Client-side debug logging to help diagnose missing stocks
@@ -342,6 +354,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 isPortfolioPublic: false,
                 hideTransactions: false,
                 anonymousTransactions: false,
+                emailNotificationsEnabled: false,
+                directMessageEmailNotifications: false,
+                premiumMeta: { ...DEFAULT_PREMIUM_META },
                 pendingDeletionAt: null,
               });
               matchedUser = created;

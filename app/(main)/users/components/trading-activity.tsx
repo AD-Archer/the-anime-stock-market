@@ -235,7 +235,16 @@ export function TradingActivity({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-muted-foreground">
                       <div>
                         <p>
-                          {tx.shares} shares @ ${tx.pricePerShare.toFixed(2)}
+                          {tx.shares} shares of{" "}
+                          <Link
+                            href={`/character/${
+                              tx.stock.characterSlug || tx.stock.id
+                            }`}
+                            className="hover:underline text-foreground"
+                          >
+                            {tx.stock.characterName}
+                          </Link>{" "}
+                          @ ${tx.pricePerShare.toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right sm:text-left">

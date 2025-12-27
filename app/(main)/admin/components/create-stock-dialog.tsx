@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { generateCharacterSlug } from "@/lib/utils";
+import type { MediaType } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -49,6 +57,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
     currentPrice: "",
     totalShares: "1500",
     imageUrl: "",
+    mediaType: "anime",
   });
 
   // Prevent page unload during import
@@ -249,6 +258,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
         currentPrice: price,
         totalShares: shares,
         availableShares: shares,
+        mediaType: formData.mediaType as MediaType,
         imageUrl: formData.imageUrl || "/placeholder.svg?height=400&width=400",
         createdBy: currentUser.id,
         anilistCharacterId: 0,
@@ -267,6 +277,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
         currentPrice: "",
         totalShares: "1500",
         imageUrl: "",
+        mediaType: "anime",
       });
 
       setManualError(null); // Clear any previous errors
@@ -549,7 +560,7 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
                       }
                       placeholder="e.g., Luffy"
                       required
-                    />
+                      />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="anime">Anime *</Label>
@@ -562,6 +573,28 @@ export function CreateStockDialog({ onClose }: CreateStockDialogProps) {
                       placeholder="e.g., One Piece"
                       required
                     />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mediaType">Media Type</Label>
+                    <Select
+                      value={formData.mediaType}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          mediaType: value as MediaType,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="anime">Anime</SelectItem>
+                        <SelectItem value="manga">Manga</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="space-y-2">

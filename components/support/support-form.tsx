@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -20,6 +19,8 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
+import type { SupportTicketTag } from "@/lib/types";
+import { SUPPORT_TAG_LABELS, SUPPORT_TAGS } from "./support-tags";
 
 export function SupportForm() {
   const { currentUser, submitSupportTicket } = useStore();
@@ -32,6 +33,7 @@ export function SupportForm() {
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
+  const tagLabel = SUPPORT_TAG_LABELS[tag] ?? tag;
 
   const canSubmit =
     subject.trim().length > 0 &&
@@ -66,8 +68,11 @@ export function SupportForm() {
       <CardHeader>
         <CardTitle>Contact Support</CardTitle>
         <CardDescription>
-          Need help? Use this form to contact the admin team. For reporting a
-          message, choose <strong>Report</strong> and provide the message ID.
+          Need help? Use this form to contact the admin team. Choose{" "}
+          <strong>Premium upgrade request</strong> to send a premium inquiry or{" "}
+          <strong>Donation follow-up</strong> to share the name you used on your
+          gift. When reporting a message, select <strong>Report</strong> and
+          include the message ID.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -80,16 +85,20 @@ export function SupportForm() {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <Select onValueChange={(v) => setTag(v as any)}>
+              <Select
+                onValueChange={(value) =>
+                  setTag(value as SupportTicketTag)
+                }
+              >
                 <SelectTrigger className="w-full" suppressHydrationWarning>
-                  <SelectValue>{tag}</SelectValue>
+                  <SelectValue>{tagLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="feature">Feature Request</SelectItem>
-                  <SelectItem value="bug">Bug Report</SelectItem>
-                  <SelectItem value="question">Question</SelectItem>
-                  <SelectItem value="report">Report</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {SUPPORT_TAGS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {SUPPORT_TAG_LABELS[option]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -104,6 +113,20 @@ export function SupportForm() {
                 value={contactEmail}
                 onChange={(e: any) => setContactEmail(e.target.value)}
               />
+            </div>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              {tag === "donation" && (
+                <p>
+                  After donating, share the name you selected so admins can match
+                  the gift and unlock any promised perks.
+                </p>
+              )}
+              {tag === "premium" && (
+                <p>
+                  Tell us why you&apos;re looking for premium access and what
+                  you would like to do once it&apos;s active.
+                </p>
+              )}
             </div>
 
             <Textarea

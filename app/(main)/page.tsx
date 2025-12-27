@@ -308,6 +308,41 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Donation Flair */}
+      <section className="py-16 bg-gradient-to-r from-secondary/10 to-primary/10">
+        <div className="container mx-auto px-4">
+          <div className="rounded-3xl border border-border bg-card/80 p-8 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Keep the lights on
+                </p>
+                <h3 className="text-2xl md:text-3xl font-semibold text-foreground mt-3">
+                  Donate to support premium tools
+                </h3>
+                <p className="mt-3 text-sm text-muted-foreground max-w-2xl">
+                  Every contribution covers hosting, Appwrite costs, and the premium
+                  experience that unlocks character creation, the DM board, and priority
+                  features for power users.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/donate">
+                  <Button size="lg" className="text-lg px-6 py-3">
+                    Donate
+                  </Button>
+                </Link>
+                <Link href="/premium">
+                  <Button variant="ghost" size="lg" className="text-lg px-6 py-3">
+                    View Premium Perks
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {selectedStockId && (
         <BuyDialog
           stockId={selectedStockId}

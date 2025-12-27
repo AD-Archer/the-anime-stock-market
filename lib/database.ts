@@ -16,6 +16,7 @@ export { supportService } from "./database/supportService";
 export { characterSuggestionService } from "./database/characterSuggestionService";
 export { directionalBetService } from "./database/directionalBetService";
 export { metadataService } from "./database/metadataService";
+export { premiumAdditionService } from "./database/premiumAdditionService";
 
 // Re-export utilities and constants
 export {
@@ -52,5 +53,7 @@ export {
   mapFriend,
   mapSupportTicket,
   mapCharacterSuggestion,
+  mapPremiumAddition,
   CHARACTER_SUGGESTIONS_COLLECTION,
+  PREMIUM_ADDITIONS_COLLECTION,
 } from "./database/utils";

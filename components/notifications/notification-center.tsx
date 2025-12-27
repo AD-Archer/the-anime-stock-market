@@ -99,13 +99,35 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
     }
   }, [user?.id, buybackOffers, sendNotification, stocks, getUserNotifications]);
 
+  const retentionMs = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const isClearedWithinRetention = (notification: Notification) =>
+    !!notification.clearedAt &&
+    now - notification.clearedAt.getTime() <= retentionMs;
+
   const filteredNotifications = notifications.filter((notification) => {
+    const cleared = isClearedWithinRetention(notification);
+    if (filterType === "cleared") {
+      return cleared;
+    }
+    if (notification.clearedAt) {
+      return false;
+    }
     if (filterType === "all") return true;
     if (filterType === "unread") return !notification.read;
     return notification.type === filterType;
   });
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const emptyMessage =
+    filterType === "cleared"
+      ? "No cleared notifications in the last 3 days"
+      : filterType === "all"
+      ? "No notifications yet"
+      : filterType === "unread"
+      ? "No unread notifications"
+      : `No ${filterType.replace(/_/g, " ")} notifications`;
 
   const handleMarkRead = async (notificationId: string) => {
     await markNotificationRead(notificationId);
@@ -182,6 +204,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
             <SelectContent>
               <SelectItem value="all">All Notifications</SelectItem>
               <SelectItem value="unread">Unread Only</SelectItem>
+              <SelectItem value="cleared">Cleared Notifications</SelectItem>
               <SelectItem value="admin_message">Admin Messages</SelectItem>
               <SelectItem value="buyback_offer">Buyback Offers</SelectItem>
               <SelectItem value="liquidity_request">
@@ -196,6 +219,10 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               </SelectItem>
             </SelectContent>
           </Select>
+
+          <p className="text-xs text-muted-foreground mt-1">
+            Cleared notifications stay visible for 3 days in the Cleared filter.
+          </p>
 
           <div className="mt-3 flex gap-2">
             <Button
@@ -217,7 +244,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
               onClick={async () => {
                 if (currentUser) {
                   await clearNotifications(currentUser.id);
-                  setFilterType("unread");
+                  setFilterType("cleared");
                 }
               }}
             >
@@ -229,9 +256,7 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
 
       {filteredNotifications.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
-          {filterType === "all"
-            ? "No notifications yet"
-            : `No ${filterType} notifications`}
+          {emptyMessage}
         </p>
       ) : (
         <div className="space-y-1 max-h-96 overflow-y-auto">

@@ -4,10 +4,12 @@ import type {
   Conversation,
   DirectionalBet,
   MarketDataPoint,
+  MediaType,
   Message,
   Notification,
   Portfolio,
   PriceHistory,
+  PremiumComboMode,
   Report,
   Stock,
   Transaction,
@@ -20,6 +22,7 @@ import type {
   Friend,
   DailyReward,
   CharacterSuggestion,
+  PremiumAddition,
 } from "../types";
 
 export type AddCommentInput = {
@@ -28,6 +31,8 @@ export type AddCommentInput = {
   characterId?: string;
   parentId?: string;
   tags?: Comment["tags"];
+  premiumOnly?: boolean;
+  location?: string;
 };
 
 export interface StoreContextType {
@@ -51,6 +56,7 @@ export interface StoreContextType {
   awards: Award[];
   friends: Friend[];
   dailyRewards: DailyReward[];
+  premiumAdditions: PremiumAddition[];
   messages: Message[];
   conversations: Conversation[];
   lastMarketDriftAt: Date | null;
@@ -93,6 +99,7 @@ export interface StoreContextType {
     commentId: string,
     reaction: "like" | "dislike"
   ) => Promise<void>;
+  refreshComments: () => Promise<void>;
   reopenReport: (reportId: string) => Promise<void>;
   reopenAppeal: (appealId: string) => Promise<void>;
   updateContentPreferences: (preferences: {
@@ -102,9 +109,39 @@ export interface StoreContextType {
     hideTransactions?: boolean;
     anonymousTransactions?: boolean;
   }) => Promise<void>;
+  updateNotificationPreferences: (preferences: {
+    emailNotificationsEnabled?: boolean;
+    directMessageEmailNotifications?: boolean;
+  }) => Promise<void>;
   setUserAvatar: (avatarUrl: string | null) => Promise<void>;
   // persist theme preference for current user
   updateTheme: (theme: "light" | "dark" | "system") => Promise<boolean>;
+  setPremiumStatus: (userId: string, enabled: boolean) => Promise<void>;
+  setPremiumComboMode: (
+    userId: string,
+    comboMode: PremiumComboMode
+  ) => Promise<void>;
+  setPremiumAutoAdd: (userId: string, enabled: boolean) => Promise<void>;
+  updatePremiumMeta: (
+    userId: string,
+    patch: Partial<import("../types").PremiumMeta>
+  ) => Promise<void>;
+  incrementPremiumCharacterCount: (
+    userId: string,
+    mediaType: MediaType,
+    addedCount?: number,
+    duplicateCount?: number
+  ) => Promise<void>;
+  addPremiumAdditions: (
+    userId: string,
+    additions: Omit<PremiumAddition, "id" | "createdAt" | "userId">[]
+  ) => Promise<PremiumAddition[]>;
+  refreshPremiumAdditions: (userId?: string) => Promise<void>;
+  claimPremiumReward: () => Promise<{
+    success: boolean;
+    amount?: number;
+    message: string;
+  }>;
 
   makeUserAdmin: (userId: string) => void;
   removeUserAdmin: (userId: string) => void;
@@ -183,6 +220,7 @@ export interface StoreContextType {
   getSupportTickets: (filters?: {
     status?: string;
     searchQuery?: string;
+    tag?: import("../types").SupportTicketTag;
   }) => Promise<import("../types").SupportTicket[]>;
   submitSupportTicket: (input: {
     subject: string;
@@ -205,6 +243,7 @@ export interface StoreContextType {
     description?: string;
     anilistUrl?: string;
     anilistCharacterId?: number;
+    priority?: boolean;
   }) => Promise<CharacterSuggestion | null>;
   reviewCharacterSuggestion: (
     suggestionId: string,

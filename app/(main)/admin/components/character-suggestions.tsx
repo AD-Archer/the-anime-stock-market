@@ -326,6 +326,11 @@ export function CharacterSuggestions() {
                         {suggestion.autoImportStatus}
                       </Badge>
                     )}
+                  {suggestion.priority && (
+                    <Badge variant="destructive" className="text-xs">
+                      Priority
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription className="text-sm">
                   {suggestion.anime}

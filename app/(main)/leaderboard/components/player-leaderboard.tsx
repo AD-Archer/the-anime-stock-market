@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   TrendingUp,
   TrendingDown,
   Trophy,
@@ -294,6 +299,16 @@ export function PlayerLeaderboard() {
                       >
                         Admin
                       </Badge>
+                    )}
+                    {player.premiumMeta?.isPremium && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Crown className="h-4 w-4 text-purple-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Premium User</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

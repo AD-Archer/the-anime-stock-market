@@ -17,13 +17,14 @@ import {
   LineChart,
   CartesianGrid,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as ChartTooltip,
   XAxis,
   YAxis,
   Legend,
 } from "recharts";
 import { Search, X } from "lucide-react";
 import Image from "next/image";
+import { formatCurrencyCompact } from "@/lib/utils";
 
 interface ComparisonChartProps {
   initialStockId?: string;
@@ -240,8 +241,9 @@ export function ComparisonChart({
                   tick={{ fill: "currentColor" }}
                   fontSize={isMobile ? 10 : 12}
                   width={isMobile ? 40 : 60}
+                  tickFormatter={(value) => formatCurrencyCompact(value)}
                 />
-                <Tooltip
+                <ChartTooltip
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--border)",
@@ -249,6 +251,10 @@ export function ComparisonChart({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
+                  formatter={(value: any, name?: string) => [
+                    formatCurrencyCompact(Number(value)),
+                    name ?? "Value",
+                  ]}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }}

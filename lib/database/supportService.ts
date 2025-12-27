@@ -84,6 +84,7 @@ export const supportService = {
   async list(filters?: {
     status?: string;
     searchQuery?: string;
+    tag?: string;
   }): Promise<any[]> {
     try {
       const queries = [];
@@ -93,6 +94,9 @@ export const supportService = {
       if (filters?.searchQuery) {
         queries.push(Query.search("subject", filters.searchQuery));
         queries.push(Query.search("message", filters.searchQuery));
+      }
+      if (filters?.tag) {
+        queries.push(Query.equal("tag", filters.tag));
       }
       const dbId = ensureDatabaseIdAvailable();
       const res = await databases.listDocuments(

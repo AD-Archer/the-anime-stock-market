@@ -44,14 +44,14 @@ export function Header() {
             <Link href="/leaderboard">
               <Button variant="ghost">Top 100</Button>
             </Link>
-            <Link href="/anime">
-              <Button variant="ghost">Anime</Button>
-            </Link>
-            {currentUser?.isAdmin && (
-              <Link href="/admin">
-                <Button variant="ghost">Admin</Button>
+          <Link href="/anime">
+            <Button variant="ghost">Anime</Button>
+          </Link>
+          {/* {currentUser?.isAdmin && (
+            <Link href="/admin">
+              <Button variant="ghost">Admin</Button>
               </Link>
-            )}
+            )} */}
             <ThemeToggle />
             <UserMenu />
           </nav>

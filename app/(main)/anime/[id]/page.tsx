@@ -23,6 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,6 +42,7 @@ import {
   Flag,
   ThumbsUp,
   ThumbsDown,
+  Crown,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -48,14 +54,14 @@ import { TruncatedText } from "@/components/ui/truncated-text";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { getUserProfileHref } from "@/lib/user-profile";
-import { generateAnimeSlug } from "@/lib/utils";
+import { generateAnimeSlug, formatCurrencyCompact } from "@/lib/utils";
 import { SellDialog } from "@/components/sell-dialog";
 import {
   Line,
   LineChart,
   CartesianGrid,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as ChartTooltip,
   XAxis,
   YAxis,
   Legend,
@@ -249,6 +255,9 @@ function CommentThread({
               >
                 {user?.username || "Unknown"}
               </Link>
+              {user?.premiumMeta?.isPremium && (
+                <Crown className="h-4 w-4 text-purple-500" />
+              )}
               {user?.isAdmin && (
                 <Badge variant="secondary" className="text-xs">
                   Admin
@@ -851,13 +860,13 @@ export default function AnimeDetailPage({
                   Total Market Cap
                 </p>
                 <p className="text-xl font-bold text-foreground break-all md:text-2xl">
-                  ${totalMarketCap.toFixed(2)}
+                  {formatCurrencyCompact(totalMarketCap)}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Average Price</p>
                 <p className="text-xl font-bold text-foreground break-all md:text-2xl">
-                  ${averagePrice.toFixed(2)}
+                  {formatCurrencyCompact(averagePrice)}
                 </p>
               </div>
             </div>
@@ -933,8 +942,9 @@ export default function AnimeDetailPage({
                         tick={{ fill: "currentColor" }}
                         fontSize={isMobile ? 10 : 12}
                         width={isMobile ? 40 : 60}
+                        tickFormatter={(value) => formatCurrencyCompact(value)}
                       />
-                      <Tooltip
+                      <ChartTooltip
                         contentStyle={{
                           backgroundColor: "var(--card)",
                           border: "1px solid var(--border)",
@@ -942,6 +952,10 @@ export default function AnimeDetailPage({
                           fontSize: isMobile ? "12px" : "14px",
                         }}
                         labelStyle={{ color: "var(--foreground)" }}
+                        formatter={(value: any, name?: string) => [
+                          formatCurrencyCompact(Number(value)),
+                          name || "Value",
+                        ]}
                       />
                       <Legend
                         wrapperStyle={{ fontSize: isMobile ? "12px" : "14px" }}
@@ -1090,6 +1104,7 @@ export default function AnimeDetailPage({
                   <div className="space-y-3">
                     {characterTransactions.slice(0, 10).map((tx) => {
                       const user = users.find((u) => u.id === tx.userId);
+                      const stock = stocks.find((s) => s.id === tx.stockId);
                       return (
                         <div
                           key={tx.id}
@@ -1118,6 +1133,16 @@ export default function AnimeDetailPage({
                                 <p className="font-medium text-foreground truncate">
                                   {user.username}
                                 </p>
+                                {user.premiumMeta?.isPremium && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Crown className="h-4 w-4 text-purple-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Premium User</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                                 <Badge
                                   variant={
                                     tx.type === "buy" ? "default" : "secondary"
@@ -1141,8 +1166,20 @@ export default function AnimeDetailPage({
                               </p>
                             )}
                             <p className="text-sm text-muted-foreground">
-                              {tx.shares} shares @ $
-                              {tx.pricePerShare.toFixed(2)}
+                              {tx.shares} shares of{" "}
+                              {stock ? (
+                                <Link
+                                  href={`/character/${
+                                    stock.characterSlug || stock.id
+                                  }`}
+                                  className="hover:underline text-foreground"
+                                >
+                                  {stock.characterName}
+                                </Link>
+                              ) : (
+                                "Unknown Stock"
+                              )}{" "}
+                              @ ${tx.pricePerShare.toFixed(2)}
                             </p>
                           </div>
                           <div className="text-right">
