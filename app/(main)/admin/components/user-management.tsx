@@ -357,18 +357,18 @@ export function UserManagement() {
         return (
           <Card key={user.id}>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:justify-between">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
                     {user.isAdmin ? (
-                      <Crown className="h-6 w-6 text-primary" />
+                      <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                     ) : (
-                      <UserIcon className="h-6 w-6 text-primary" />
+                      <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                     )}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-foreground">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="text-base sm:text-lg text-foreground line-clamp-1">
                         <Link
                           href={getUserProfileHref(user, user.id)}
                           className="hover:underline"
@@ -376,16 +376,20 @@ export function UserManagement() {
                           {user.username}
                         </Link>
                       </CardTitle>
-                      {user.isAdmin && <Badge>Admin</Badge>}
+                      {user.isAdmin && <Badge className="text-xs">Admin</Badge>}
                       {isUserBanned(user) && (
-                        <Badge variant="destructive">Banned</Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          Banned
+                        </Badge>
                       )}
                       {user.pendingDeletionAt && (
-                        <Badge variant="outline">Deletion Scheduled</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Deletion Scheduled
+                        </Badge>
                       )}
                     </div>
 
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                       {user.email}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -396,15 +400,16 @@ export function UserManagement() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-1 sm:flex-col">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() =>
                       setActionDialog({ type: "money", userId: user.id })
                     }
+                    className="flex-1 sm:flex-none h-8 sm:h-9"
                   >
-                    <DollarSign className="h-4 w-4" />
+                    <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     variant="outline"
@@ -412,17 +417,19 @@ export function UserManagement() {
                     onClick={() =>
                       setActionDialog({ type: "stocks", userId: user.id })
                     }
+                    className="flex-1 sm:flex-none h-8 sm:h-9"
                   >
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleAdminToggle(user.id, user.isAdmin)}
                     disabled={user.id === currentUser?.id}
+                    className="flex-1 sm:flex-none h-8 sm:h-9"
                   >
                     <ShieldCheck
-                      className={`h-4 w-4 ${
+                      className={`h-3 w-3 sm:h-4 sm:w-4 ${
                         user.isAdmin ? "text-primary" : "text-muted-foreground"
                       }`}
                     />
@@ -432,9 +439,10 @@ export function UserManagement() {
                     size="sm"
                     onClick={() => handleBanToggle(user.id)}
                     disabled={user.id === currentUser?.id}
+                    className="flex-1 sm:flex-none h-8 sm:h-9"
                   >
                     <Ban
-                      className={`h-4 w-4 ${
+                      className={`h-3 w-3 sm:h-4 sm:w-4 ${
                         isUserBanned(user) ? "text-chart-4" : "text-destructive"
                       }`}
                     />
@@ -446,35 +454,36 @@ export function UserManagement() {
                     disabled={
                       user.id === currentUser?.id || !!user.pendingDeletionAt
                     }
+                    className="flex-1 sm:flex-none h-8 sm:h-9"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm md:grid-cols-4 md:gap-4">
                 <div>
                   <p className="text-muted-foreground">Balance</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     ${user.balance.toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Portfolio Value</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     ${portfolioValue.toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Assets</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     ${totalAssets.toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Holdings</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     {portfolio.length} stocks
                   </p>
                 </div>

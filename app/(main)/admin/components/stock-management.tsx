@@ -165,17 +165,18 @@ export function StockManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
         <Input
           placeholder="Search stocks by name, slug, or anime..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="max-w-md"
+          className="min-w-0 sm:max-w-md flex-1 sm:flex-none"
         />
         <Button
           variant="ghost"
           onClick={() => setQuery("")}
           title="Clear search"
+          className="whitespace-nowrap"
         >
           Clear
         </Button>
@@ -195,12 +196,12 @@ export function StockManagement() {
         return (
           <Card key={stock.id}>
             <CardHeader>
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                 <Link
                   href={`/character/${stock.characterSlug}`}
-                  className="flex gap-4 hover:opacity-80 transition-opacity"
+                  className="flex gap-3 sm:gap-4 hover:opacity-80 transition-opacity flex-1 min-w-0"
                 >
-                  <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-muted">
+                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                     <Image
                       src={stock.imageUrl || "/placeholder.svg"}
                       alt={stock.characterName}
@@ -208,59 +209,63 @@ export function StockManagement() {
                       className="object-cover"
                     />
                   </div>
-                  <div>
-                    <CardTitle className="text-foreground">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-base sm:text-lg text-foreground line-clamp-2">
                       {stock.characterName}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                       {stock.anime}
                     </p>
                     <TruncatedText
                       text={stock.description || ""}
-                      maxLength={isMobile ? 80 : 240}
-                      className="mt-1 text-sm text-muted-foreground"
+                      maxLength={isMobile ? 60 : 120}
+                      className="mt-1 text-xs sm:text-sm text-muted-foreground"
                     />
                   </div>
                 </Link>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 sm:flex-col">
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="sm"
                     onClick={() => {
                       setEditingStock(stock.id);
                       setNewPrice(stock.currentPrice.toString());
                     }}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setSharesStock(stock.id)}
+                    className="flex-1 sm:flex-none text-xs sm:text-sm"
                   >
-                    Create Shares
+                    Shares
                   </Button>
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="sm"
                     onClick={() => setDeleteConfirm(stock.id)}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm md:grid-cols-4 md:gap-4">
                 <div>
                   <p className="text-muted-foreground">Current Price</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     ${stock.currentPrice.toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Price Change</p>
                   <p
-                    className={`font-mono text-lg font-bold ${
+                    className={`font-mono text-sm sm:text-lg font-bold ${
                       priceChange >= 0 ? "text-chart-4" : "text-destructive"
                     }`}
                   >
@@ -270,13 +275,13 @@ export function StockManagement() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Available Shares</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     {stock.availableShares.toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Shares</p>
-                  <p className="font-mono text-lg font-bold text-foreground">
+                  <p className="font-mono text-sm sm:text-lg font-bold text-foreground">
                     {stock.totalShares.toLocaleString()}
                   </p>
                 </div>

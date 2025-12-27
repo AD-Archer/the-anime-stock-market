@@ -6,6 +6,13 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StockManagement } from "@/app/(main)/admin/components/stock-management";
 import { UserManagement } from "@/app/(main)/admin/components/user-management";
 import { CreateStockDialog } from "@/app/(main)/admin/components/create-stock-dialog";
@@ -19,12 +26,29 @@ import { AdminActionLogPanel } from "@/app/(main)/admin/components/admin-action-
 import { CharacterSuggestions } from "@/app/(main)/admin/components/character-suggestions";
 import dynamic from "next/dynamic";
 const KillSwitchPanel = dynamic(
-  () => import("@/app/(main)/admin/components/kill-switch").then((m) => m.KillSwitchPanel),
+  () =>
+    import("@/app/(main)/admin/components/kill-switch").then(
+      (m) => m.KillSwitchPanel
+    ),
   { ssr: false }
 );
 
 // Danger extra can be client-side rendered directly
 import { DangerZoneExtra } from "@/app/(main)/admin/components/danger-zone-extra";
+
+const TAB_OPTIONS = [
+  { value: "stocks", label: "Stocks" },
+  { value: "users", label: "Users" },
+  { value: "buybacks", label: "Buybacks" },
+  { value: "market", label: "Market" },
+  { value: "reports", label: "Reports" },
+  { value: "support", label: "Support" },
+  { value: "suggestions", label: "Suggestions" },
+  { value: "notifications", label: "Notifications" },
+  { value: "appeals", label: "Appeals" },
+  { value: "logs", label: "Logs" },
+  { value: "danger", label: "Danger" },
+];
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -71,30 +95,46 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold text-foreground">Admin Panel</h2>
+        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Admin Panel
+          </h2>
           <Button onClick={() => setShowCreateStock(true)}>
             Create New Stock
           </Button>
         </div>
 
+        {/* Mobile Dropdown */}
+        <div className="mb-6 md:hidden">
+          <Select
+            value={tab}
+            onValueChange={(value) => router.push(`/admin?tab=${value}`)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TAB_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop Tabs */}
         <Tabs
           defaultValue={tab}
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
-          className="w-full"
+          className="w-full hidden md:block"
         >
-          <TabsList className="grid w-full max-w-5xl grid-cols-11 md:grid-cols-6 lg:grid-cols-11">
-            <TabsTrigger value="stocks">Stocks</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="buybacks">Buybacks</TabsTrigger>
-            <TabsTrigger value="market">Market</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="support">Support</TabsTrigger>
-            <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="appeals">Appeals</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-            <TabsTrigger value="danger">Danger</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-11">
+            {TAB_OPTIONS.map((option) => (
+              <TabsTrigger key={option.value} value={option.value}>
+                {option.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
           <TabsContent value="stocks" className="mt-6">
             <StockManagement />
@@ -144,6 +184,34 @@ export default function AdminPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Mobile Content View */}
+        <div className="md:hidden mt-6">
+          {tab === "stocks" && <StockManagement />}
+          {tab === "users" && <UserManagement />}
+          {tab === "buybacks" && <BuybackManagement />}
+          {tab === "market" && <MarketManagement />}
+          {tab === "reports" && <ReportManagement />}
+          {tab === "support" && <SupportManagement />}
+          {tab === "suggestions" && <CharacterSuggestions />}
+          {tab === "notifications" && <NotificationManagement />}
+          {tab === "appeals" && <AppealManagement />}
+          {tab === "logs" && <AdminActionLogPanel />}
+          {tab === "danger" && (
+            <div className="max-w-2xl space-y-6">
+              {typeof window !== "undefined" && (
+                <>
+                  {/* @ts-ignore */}
+                  <KillSwitchPanel />
+                  {/* @ts-ignore */}
+                  <div className="pt-6">
+                    <DangerZoneExtra />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </main>
 
       {showCreateStock && (

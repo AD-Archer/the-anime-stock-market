@@ -760,7 +760,7 @@ export function createMarketActions({
       console.error("Failed to persist price history:", error);
     }
 
-    logAdminAction("stock_grant", newStock.createdBy, {
+    logAdminAction("stock_creation", newStock.createdBy, {
       stockId: newStock.id,
       characterName: newStock.characterName,
       anime: newStock.anime,
@@ -1281,8 +1281,7 @@ export function createMarketActions({
   const getUserPortfolio = (userId: string): Portfolio[] => {
     const aggregated = new Map<string, Portfolio>();
     getState()
-      .portfolios
-      .filter((p) => p.userId === userId)
+      .portfolios.filter((p) => p.userId === userId)
       .forEach((portfolio) => {
         const existing = aggregated.get(portfolio.stockId);
         if (!existing) {
@@ -1332,9 +1331,9 @@ export function createMarketActions({
     await applyDailyMarketDrift({ force: true });
   };
 
-  const applyDailyMarketDrift = async (
-    options?: { force?: boolean }
-  ): Promise<void> => {
+  const applyDailyMarketDrift = async (options?: {
+    force?: boolean;
+  }): Promise<void> => {
     const { stocks, priceHistory, lastMarketDriftAt, marketDriftEnabled } =
       getState();
     if (stocks.length === 0) return;
