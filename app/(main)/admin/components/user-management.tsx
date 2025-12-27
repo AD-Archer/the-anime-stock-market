@@ -38,11 +38,13 @@ import {
   Crown,
   Coins,
 } from "lucide-react";
+import { StockSelector } from "@/components/stock-selector";
 
 export function UserManagement() {
   const {
     users,
     stocks,
+    transactions,
     currentUser,
     banUser,
     unbanUser,
@@ -55,6 +57,7 @@ export function UserManagement() {
     giveUserStocks,
     removeUserStocks,
     sendNotification,
+    getStockPriceHistory,
   } = useStore();
   const { toast } = useToast();
 
@@ -364,23 +367,23 @@ export function UserManagement() {
                     )}
                   </div>
                   <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-foreground">
-                          <Link
-                            href={getUserProfileHref(user, user.id)}
-                            className="hover:underline"
-                          >
-                            {user.username}
-                          </Link>
-                        </CardTitle>
-                        {user.isAdmin && <Badge>Admin</Badge>}
-                        {isUserBanned(user) && (
-                          <Badge variant="destructive">Banned</Badge>
-                        )}
-                        {user.pendingDeletionAt && (
-                          <Badge variant="outline">Deletion Scheduled</Badge>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-foreground">
+                        <Link
+                          href={getUserProfileHref(user, user.id)}
+                          className="hover:underline"
+                        >
+                          {user.username}
+                        </Link>
+                      </CardTitle>
+                      {user.isAdmin && <Badge>Admin</Badge>}
+                      {isUserBanned(user) && (
+                        <Badge variant="destructive">Banned</Badge>
+                      )}
+                      {user.pendingDeletionAt && (
+                        <Badge variant="outline">Deletion Scheduled</Badge>
+                      )}
+                    </div>
 
                     <p className="text-sm text-muted-foreground">
                       {user.email}
@@ -440,7 +443,9 @@ export function UserManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => setDeleteConfirm(user.id)}
-                    disabled={user.id === currentUser?.id || !!user.pendingDeletionAt}
+                    disabled={
+                      user.id === currentUser?.id || !!user.pendingDeletionAt
+                    }
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -539,19 +544,16 @@ export function UserManagement() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="stock">Stock</Label>
-                <Select value={stockId} onValueChange={setStockId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a stock" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stocks.map((stock) => (
-                      <SelectItem key={stock.id} value={stock.id}>
-                        {stock.characterName} - ${stock.currentPrice.toFixed(2)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StockSelector
+                  stocks={stocks}
+                  selectedStockId={stockId}
+                  onSelect={setStockId}
+                  getStockPriceHistory={getStockPriceHistory}
+                  transactions={transactions}
+                  label="Stock"
+                  helperText="Search characters or anime to pick the stock to gift."
+                  className="max-h-[280px]"
+                />
               </div>
               <div>
                 <Label htmlFor="shares">Number of Shares</Label>
@@ -561,6 +563,7 @@ export function UserManagement() {
                   value={stockShares}
                   onChange={(e) => setStockShares(e.target.value)}
                   placeholder="Enter number of shares"
+                  className="bg-card/80 border border-border text-foreground"
                 />
               </div>
             </div>

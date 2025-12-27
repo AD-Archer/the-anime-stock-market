@@ -1,10 +1,16 @@
 "use client";
 
 import { use, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { Comment, ContentTag } from "@/lib/types";
-import { generateAnimeSlug, generateCharacterSlug } from "@/lib/utils";
+import {
+  generateAnimeSlug,
+  generateCharacterSlug,
+  generateOptionChain,
+} from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +20,8 @@ import { SellDialog } from "@/components/sell-dialog";
 import CharacterInfo from "./components/CharacterInfo";
 import PriceCharts from "./components/PriceCharts";
 import ActivityDiscussion from "./components/ActivityDiscussion";
+import { OptionChainPanel } from "@/components/options/OptionChainPanel";
+import { OptionStatsCard } from "@/components/options/OptionStatsCard";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -23,6 +31,8 @@ export default function CharacterPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     stocks,
     getStockPriceHistory,
@@ -43,6 +53,25 @@ export default function CharacterPage({
   const [showBuyDialog, setShowBuyDialog] = useState(false);
   const [showSellDialog, setShowSellDialog] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Get initial tab from URL or default to "stocks"
+  const activeTab =
+    searchParams.get("tab") === "options" ? "options" : "stocks";
+
+  const handleSetActiveTab = (value: string) => {
+    const pathname =
+      typeof window !== "undefined" ? window.location.pathname : "";
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+    if (value === "stocks") {
+      newSearchParams.delete("tab");
+    } else {
+      newSearchParams.set("tab", value);
+    }
+    const newUrl = newSearchParams.toString()
+      ? `?${newSearchParams.toString()}`
+      : pathname;
+    router.replace(newUrl, { scroll: false });
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -199,77 +228,133 @@ export default function CharacterPage({
           </Button>
         </Link>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Price History & Activity */}
-          <div className="space-y-6 lg:col-span-3">
-            {/* Mobile: Discussion Section First */}
-            {isMobile && (
-              <ActivityDiscussion
-                isMobile={isMobile}
-                rootComments={rootComments}
-                comment={comment}
-                setComment={setComment}
-                commentTag={commentTag}
-                setCommentTag={setCommentTag}
-                onAddComment={handleAddComment}
-                onAddReply={handleAddReply}
-                onEditComment={handleEditComment}
-                onDeleteComment={handleDeleteComment}
-                onReportComment={handleReportComment}
-                onToggleReaction={toggleCommentReaction}
-                users={users}
-                characterTransactions={characterTransactions}
+        <Tabs
+          value={activeTab}
+          onValueChange={handleSetActiveTab}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="stocks">Stocks</TabsTrigger>
+            <TabsTrigger value="options">Options</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="stocks">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Price History & Activity */}
+              <div className="space-y-6 lg:col-span-3">
+                {/* Mobile: Discussion Section First */}
+                {isMobile && (
+                  <ActivityDiscussion
+                    isMobile={isMobile}
+                    rootComments={rootComments}
+                    comment={comment}
+                    setComment={setComment}
+                    commentTag={commentTag}
+                    setCommentTag={setCommentTag}
+                    onAddComment={handleAddComment}
+                    onAddReply={handleAddReply}
+                    onEditComment={handleEditComment}
+                    onDeleteComment={handleDeleteComment}
+                    onReportComment={handleReportComment}
+                    onToggleReaction={toggleCommentReaction}
+                    users={users}
+                    characterTransactions={characterTransactions}
+                    currentUser={currentUser}
+                    commentMap={commentMap}
+                  />
+                )}
+              </div>
+
+              {/* Character Info */}
+              <CharacterInfo
+                stock={stock}
+                animeSlug={animeSlug}
                 currentUser={currentUser}
-                commentMap={commentMap}
+                userShares={userShares}
+                priceChangePct={priceChangePct}
+                onBuy={() => setShowBuyDialog(true)}
+                onSell={() => setShowSellDialog(true)}
               />
-            )}
-          </div>
 
-          {/* Character Info */}
-          <CharacterInfo
-            stock={stock}
-            animeSlug={animeSlug}
-            currentUser={currentUser}
-            userShares={userShares}
-            priceChangePct={priceChangePct}
-            onBuy={() => setShowBuyDialog(true)}
-            onSell={() => setShowSellDialog(true)}
-          />
+              {/* Charts Section */}
+              <div className="space-y-6 lg:col-span-2">
+                <PriceCharts
+                  chartData={chartData}
+                  isMobile={isMobile}
+                  timeRange={timeRange}
+                  setTimeRange={setTimeRange}
+                  stock={stock}
+                  initialStockId={stockId}
+                />
 
-          {/* Charts Section */}
-          <div className="space-y-6 lg:col-span-2">
-            <PriceCharts
-              chartData={chartData}
-              isMobile={isMobile}
-              timeRange={timeRange}
-              setTimeRange={setTimeRange}
-              stock={stock}
-              initialStockId={stockId}
-            />
+                {/* Desktop: Activity & Comments Section */}
+                {!isMobile && (
+                  <ActivityDiscussion
+                    isMobile={isMobile}
+                    rootComments={rootComments}
+                    comment={comment}
+                    setComment={setComment}
+                    commentTag={commentTag}
+                    setCommentTag={setCommentTag}
+                    onAddComment={handleAddComment}
+                    onAddReply={handleAddReply}
+                    onEditComment={handleEditComment}
+                    onDeleteComment={handleDeleteComment}
+                    onReportComment={handleReportComment}
+                    onToggleReaction={toggleCommentReaction}
+                    users={users}
+                    characterTransactions={characterTransactions}
+                    currentUser={currentUser}
+                    commentMap={commentMap}
+                  />
+                )}
+              </div>
+            </div>
+          </TabsContent>
 
-            {/* Desktop: Activity & Comments Section */}
-            {!isMobile && (
-              <ActivityDiscussion
-                isMobile={isMobile}
-                rootComments={rootComments}
-                comment={comment}
-                setComment={setComment}
-                commentTag={commentTag}
-                setCommentTag={setCommentTag}
-                onAddComment={handleAddComment}
-                onAddReply={handleAddReply}
-                onEditComment={handleEditComment}
-                onDeleteComment={handleDeleteComment}
-                onReportComment={handleReportComment}
-                onToggleReaction={toggleCommentReaction}
-                users={users}
-                characterTransactions={characterTransactions}
-                currentUser={currentUser}
-                commentMap={commentMap}
-              />
-            )}
-          </div>
-        </div>
+          <TabsContent value="options">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="space-y-6 lg:col-span-3">
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <div className="space-y-4 lg:col-span-1">
+                    <OptionStatsCard
+                      stock={stock}
+                      expiryDays={30}
+                      subtitle={`Trade ${stock.characterName} options on ${stock.anime}.`}
+                      className="h-full"
+                    />
+                  </div>
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="rounded-2xl border border-border bg-card p-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-foreground">
+                          Option highlights
+                        </h3>
+                        <span className="text-xs uppercase text-muted-foreground">
+                          IV &amp; Greeks
+                        </span>
+                      </div>
+                      <div className="mt-6">
+                        <OptionChainPanel
+                          options={generateOptionChain(stock, 30)}
+                          maxEntries={3}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => router.push(`/options?stock=${stockId}`)}
+                        className="w-full sm:w-auto"
+                      >
+                        View Options Chain
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {showBuyDialog && (

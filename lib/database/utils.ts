@@ -19,6 +19,7 @@ import type {
   DailyReward,
   SupportTicket,
   CharacterSuggestion,
+  DirectionalBet,
 } from "../types";
 
 // Prefer non-public variable name, fallback to NEXT_PUBLIC_* for backwards compatibility
@@ -78,6 +79,7 @@ export const SUPPORTS_COLLECTION = "support_tickets";
 export const CHARACTER_SUGGESTIONS_COLLECTION = "character_suggestions";
 export const METADATA_COLLECTION = "metadata";
 export const TRANSACTION_ACTIVITY_COLLECTION = "transaction_activity";
+export const DIRECTIONAL_BETS_COLLECTION = "directional_bets";
 // Daily rewards collection - will gracefully fail if not created
 export const DAILY_REWARDS_COLLECTION =
   process.env.NEXT_PUBLIC_DAILY_REWARDS_COLLECTION || "daily_rewards";
@@ -260,6 +262,22 @@ export const mapBuybackOffer = (doc: AppwriteDocument): BuybackOffer => ({
   acceptedBy: toOptionalString(docValue(doc, "acceptedBy")),
   acceptedByUsers: toArrayOr<string>(docValue(doc, "acceptedByUsers"), []),
   acceptedShares: toOptionalNumber(docValue(doc, "acceptedShares")),
+});
+
+export const mapDirectionalBet = (doc: AppwriteDocument): DirectionalBet => ({
+  id: toStringOr(docValue(doc, "id"), doc.$id),
+  userId: toStringOr(docValue(doc, "userId")),
+  stockId: toStringOr(docValue(doc, "stockId")),
+  type: (docValue(doc, "type") as DirectionalBet["type"]) ?? "call",
+  amount: toNumberOr(docValue(doc, "amount")),
+  entryPrice: toNumberOr(docValue(doc, "entryPrice")),
+  createdAt: toDate(docValue(doc, "createdAt") ?? doc.$createdAt),
+  expiresAt: toDate(docValue(doc, "expiresAt") ?? doc.$createdAt),
+  status:
+    (docValue(doc, "status") as DirectionalBet["status"]) ?? "open",
+  result: toOptionalString(docValue(doc, "result")) as
+    | DirectionalBet["result"]
+    | undefined,
 });
 
 export const mapNotification = (doc: AppwriteDocument): Notification => ({

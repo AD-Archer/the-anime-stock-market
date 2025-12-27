@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import type {
   BuybackOffer,
+  DirectionalBet,
   MarketDataPoint,
   Notification,
   Portfolio,
@@ -17,6 +18,7 @@ import {
   userService,
   priceHistoryService,
   buybackOfferService,
+  directionalBetService,
 } from "../database";
 import { toast } from "@/hooks/use-toast";
 import type { StoreState } from "./types";
@@ -616,6 +618,79 @@ export function createMarketActions({
     return true;
   };
 
+  const placeDirectionalBet = async (
+    stockId: string,
+    type: DirectionalBet["type"],
+    amount: number,
+    expiryDays = 30
+  ): Promise<boolean> => {
+    const currentUser = getState().currentUser;
+    if (!currentUser) return false;
+    if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
+      return false;
+
+    const stock = getState().stocks.find((s) => s.id === stockId);
+    if (!stock) return false;
+
+    const betAmount = Number(amount);
+    if (Number.isNaN(betAmount) || betAmount <= 0) return false;
+    if (betAmount > currentUser.balance) return false;
+
+    const now = new Date();
+    const days = Math.max(1, expiryDays);
+    const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    const newBet: DirectionalBet = {
+      id: generateShortId(),
+      userId: currentUser.id,
+      stockId,
+      type,
+      amount: betAmount,
+      entryPrice: stock.currentPrice,
+      createdAt: now,
+      expiresAt,
+      status: "open",
+    };
+
+    const prevState = {
+      users: getState().users,
+      currentUser,
+      directionalBets: getState().directionalBets,
+    };
+
+    const newBalance = currentUser.balance - betAmount;
+
+    setState((state) => ({
+      users: state.users.map((user) =>
+        user.id === currentUser.id ? { ...user, balance: newBalance } : user
+      ),
+      currentUser: { ...currentUser, balance: newBalance },
+      directionalBets: [...state.directionalBets, newBet],
+    }));
+
+    try {
+      await Promise.all([
+        userService.update(currentUser.id, { balance: newBalance }),
+        directionalBetService.create(newBet),
+      ]);
+      return true;
+    } catch (error) {
+      console.error("Failed to place directional bet:", error);
+      setState({
+        users: prevState.users,
+        currentUser: prevState.currentUser,
+        directionalBets: prevState.directionalBets,
+      });
+      toast({
+        title: "Bet Failed",
+        description:
+          "Unable to place your call/put bet right now. Your balance has been restored.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const createStock = async (stock: Omit<Stock, "id" | "createdAt">) => {
     const { stocks, priceHistory, logAdminAction, users, sendNotification } =
       getState();
@@ -1204,7 +1279,33 @@ export function createMarketActions({
   };
 
   const getUserPortfolio = (userId: string): Portfolio[] => {
-    return getState().portfolios.filter((p) => p.userId === userId);
+    const aggregated = new Map<string, Portfolio>();
+    getState()
+      .portfolios
+      .filter((p) => p.userId === userId)
+      .forEach((portfolio) => {
+        const existing = aggregated.get(portfolio.stockId);
+        if (!existing) {
+          aggregated.set(portfolio.stockId, { ...portfolio });
+          return;
+        }
+
+        const combinedShares = existing.shares + portfolio.shares;
+        const combinedAverage =
+          combinedShares === 0
+            ? 0
+            : (existing.averageBuyPrice * existing.shares +
+                portfolio.averageBuyPrice * portfolio.shares) /
+              combinedShares;
+
+        aggregated.set(portfolio.stockId, {
+          ...existing,
+          shares: combinedShares,
+          averageBuyPrice: combinedAverage,
+        });
+      });
+
+    return Array.from(aggregated.values());
   };
 
   const getStockPriceHistory = (stockId: string): PriceHistory[] => {
@@ -1596,6 +1697,7 @@ export function createMarketActions({
   return {
     buyStock,
     sellStock,
+    placeDirectionalBet,
     createStock,
     updateStockPrice,
     deleteStock,

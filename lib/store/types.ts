@@ -2,6 +2,7 @@ import type {
   BuybackOffer,
   Comment,
   Conversation,
+  DirectionalBet,
   MarketDataPoint,
   Message,
   Notification,
@@ -42,6 +43,7 @@ export interface StoreContextType {
   portfolios: Portfolio[];
   comments: Comment[];
   buybackOffers: BuybackOffer[];
+  directionalBets: DirectionalBet[];
   notifications: Notification[];
   reports: Report[];
   appeals: Appeal[];
@@ -60,6 +62,12 @@ export interface StoreContextType {
 
   buyStock: (stockId: string, shares: number) => Promise<boolean>;
   sellStock: (stockId: string, shares: number) => Promise<boolean>;
+  placeDirectionalBet: (
+    stockId: string,
+    type: DirectionalBet["type"],
+    amount: number,
+    expiryDays?: number
+  ) => Promise<boolean>;
   createStock: (stock: Omit<Stock, "id" | "createdAt">) => Promise<void>;
   updateStockPrice: (stockId: string, newPrice: number) => void;
   deleteStock: (stockId: string) => Promise<void>;

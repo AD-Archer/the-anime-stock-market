@@ -153,6 +153,19 @@ export interface BuybackOffer {
   acceptedShares?: number; // cumulative shares accepted so far
 }
 
+export interface DirectionalBet {
+  id: string;
+  userId: string;
+  stockId: string;
+  type: "call" | "put";
+  amount: number;
+  entryPrice: number;
+  createdAt: Date;
+  expiresAt: Date;
+  status: "open" | "settled" | "cancelled";
+  result?: "win" | "lose";
+}
+
 export interface Notification {
   id: string;
   userId: string;

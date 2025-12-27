@@ -14,6 +14,7 @@ export { awardService } from "./database/awardService";
 export { friendService } from "./database/friendService";
 export { supportService } from "./database/supportService";
 export { characterSuggestionService } from "./database/characterSuggestionService";
+export { directionalBetService } from "./database/directionalBetService";
 export { metadataService } from "./database/metadataService";
 
 // Re-export utilities and constants
@@ -33,6 +34,7 @@ export {
   ADMIN_ACTION_LOGS_COLLECTION,
   AWARDS_COLLECTION,
   FRIENDS_COLLECTION,
+  DIRECTIONAL_BETS_COLLECTION,
   mapUser,
   mapStock,
   mapTransaction,
@@ -40,6 +42,7 @@ export {
   mapPortfolio,
   mapComment,
   mapBuybackOffer,
+  mapDirectionalBet,
   mapNotification,
   mapReport,
   mapMessage,

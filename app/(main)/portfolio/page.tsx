@@ -205,7 +205,7 @@ export default function PortfolioPage() {
                   if (!stock) return null;
                   return (
                     <PortfolioCard
-                      key={p.stockId}
+                      key={p.id}
                       portfolio={p}
                       stock={stock}
                     />

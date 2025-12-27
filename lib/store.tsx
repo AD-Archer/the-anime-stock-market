@@ -19,6 +19,7 @@ import {
   initialFriends,
   initialDailyRewards,
   initialCharacterSuggestions,
+  initialDirectionalBets,
 } from "./data";
 import { databases } from "./appwrite/appwrite";
 import {
@@ -43,6 +44,7 @@ import {
   TRANSACTIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
+  DIRECTIONAL_BETS_COLLECTION,
   mapUser,
   mapComment,
   mapFriend,
@@ -51,7 +53,9 @@ import {
   mapPriceHistory,
   mapTransaction,
   mapStock,
+  mapDirectionalBet,
   characterSuggestionService,
+  directionalBetService,
 } from "./database";
 import { awardService } from "./database/awardService";
 import { dailyRewardService } from "./database/dailyRewardService";
@@ -122,6 +126,7 @@ export const useStore = create<StoreState>((set, get) => {
     portfolios: [],
     comments: [],
     buybackOffers: [],
+    directionalBets: initialDirectionalBets,
     notifications: [],
     reports: [],
     appeals: [],
@@ -189,6 +194,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stocksData,
           transactionsData,
           buybackOffersData,
+          directionalBetsData,
           commentsData,
           reportsData,
           notificationsData,
@@ -206,6 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stockService.getAll(),
           transactionService.getAll(),
           buybackOfferService.getAll(),
+          directionalBetService.getAll(),
           commentService.getAll(),
           reportService.getAll(),
           notificationService.getAll(),
@@ -231,6 +238,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             buybackOffersData.length > 0
               ? buybackOffersData
               : initialBuybackOffers,
+          directionalBets:
+            directionalBetsData.length > 0
+              ? directionalBetsData
+              : initialDirectionalBets,
           comments: commentsData.length > 0 ? commentsData : initialComments,
           reports: (reportsData.length > 0 ? reportsData : initialReports).sort(
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -443,6 +454,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           portfolios: initialPortfolios,
           comments: initialComments,
           buybackOffers: initialBuybackOffers,
+          directionalBets: initialDirectionalBets,
           notifications: initialNotifications,
           reports: [...initialReports].sort(
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -921,6 +933,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch {}
     };
   }, [isLoading, mergePriceHistory]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const updateDirectionalBets = useStore.setState;
+
+    const directionalBetsUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${DIRECTIONAL_BETS_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+        const incomingBet = mapDirectionalBet(document);
+
+        if (event.includes("create")) {
+          updateDirectionalBets((state) => {
+            const exists = state.directionalBets.some(
+              (bet) => bet.id === incomingBet.id
+            );
+            if (exists) {
+              return {
+                directionalBets: state.directionalBets.map((bet) =>
+                  bet.id === incomingBet.id ? incomingBet : bet
+                ),
+              };
+            }
+            return {
+              directionalBets: [...state.directionalBets, incomingBet],
+            };
+          });
+        } else if (event.includes("update")) {
+          updateDirectionalBets((state) => ({
+            directionalBets: state.directionalBets.map((bet) =>
+              bet.id === incomingBet.id ? incomingBet : bet
+            ),
+          }));
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          updateDirectionalBets((state) => ({
+            directionalBets: state.directionalBets.filter(
+              (bet) => bet.id !== deletedId
+            ),
+          }));
+        }
+      }
+    );
+
+    return () => {
+      try {
+        directionalBetsUnsub();
+      } catch {}
+    };
+  }, [isLoading]);
 
   return <>{children}</>;
 }

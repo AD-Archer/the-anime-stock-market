@@ -12,6 +12,7 @@ import type {
   Friend,
   DailyReward,
   CharacterSuggestion,
+  DirectionalBet,
 } from "./types";
 
 // Initial users with $100 starting balance
@@ -197,6 +198,8 @@ export const initialTransactions: Transaction[] = [
     timestamp: new Date("2025-12-18T17:00:00"),
   },
 ];
+
+export const initialDirectionalBets: DirectionalBet[] = [];
 
 // Price history for tracking stock prices over time
 export const initialPriceHistory: PriceHistory[] = [

@@ -29,14 +29,17 @@ export function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-4">
-            <Link href="/market">
-              <Button variant="ghost">Market</Button>
+        <nav className="hidden md:flex items-center gap-4">
+          <Link href="/market">
+            <Button variant="ghost">Market</Button>
+          </Link>
+          <Link href="/options">
+            <Button variant="ghost">Options Trading</Button>
+          </Link>
+          {user && (
+            <Link href="/portfolio">
+              <Button variant="ghost">Portfolio</Button>
             </Link>
-            {user && (
-              <Link href="/portfolio">
-                <Button variant="ghost">Portfolio</Button>
-              </Link>
             )}
             <Link href="/leaderboard">
               <Button variant="ghost">Top 100</Button>
@@ -82,6 +85,14 @@ export function Header() {
               <Link href="/market" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
                   Market
+                </Button>
+              </Link>
+              <Link
+                href="/options"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Button variant="ghost" className="w-full justify-start">
+                  Options Trading
                 </Button>
               </Link>
               {user && (

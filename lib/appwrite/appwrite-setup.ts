@@ -207,6 +207,21 @@ const collections: CollectionPlan[] = [
     ],
   },
   {
+    id: "directional_bets",
+    name: "Directional Bets",
+    attributes: [
+      { kind: "string", key: "userId", size: 64, required: true },
+      { kind: "string", key: "stockId", size: 64, required: true },
+      { kind: "string", key: "type", size: 16, required: true },
+      { kind: "float", key: "amount", required: true, default: 0 },
+      { kind: "float", key: "entryPrice", required: true, default: 0 },
+      { kind: "string", key: "status", size: 16, required: true },
+      { kind: "string", key: "result", size: 16, required: false },
+      { kind: "string", key: "createdAt", size: 64, required: true },
+      { kind: "string", key: "expiresAt", size: 64, required: true },
+    ],
+  },
+  {
     id: "notifications",
     name: "Notifications",
     attributes: [
@@ -548,6 +563,12 @@ async function setup() {
       await ensureIndex(databases, collection.id, "message", "fulltext", [
         "message",
       ]);
+    }
+    if (collection.id === "directional_bets") {
+      await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
+      await ensureIndex(databases, collection.id, "stockId", "key", ["stockId"]);
+      await ensureIndex(databases, collection.id, "status", "key", ["status"]);
+      await ensureIndex(databases, collection.id, "type", "key", ["type"]);
     }
     if (collection.id === "character_suggestions") {
       await ensureIndex(databases, collection.id, "status", "key", ["status"]);

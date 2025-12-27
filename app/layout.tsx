@@ -47,6 +47,15 @@ const themeScript = `(function() {
 export const metadata: Metadata = {
   title: "The Anime Stock Market",
   description: "Trade your favorite anime characters",
+  keywords: [
+    "anime stock app",
+    "anime stock exchange",
+    "anime stocks",
+    "trade anime characters",
+    "anime investment",
+    "anime market",
+    "anime trading",
+  ],
   icons: {
     icon: defaultOg,
     apple: "/icons/apple-icon.png",

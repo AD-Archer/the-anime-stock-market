@@ -14,7 +14,7 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { SellDialog } from "../../../../components/sell-dialog";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatCompactNumber, formatCurrencySmart } from "@/lib/utils";
 
 interface PortfolioCardProps {
   portfolio: Portfolio;
@@ -60,27 +60,27 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shares:</span>
-              <span className="font-mono font-medium text-foreground">
-                {portfolio.shares.toLocaleString()}
-              </span>
+                <span className="font-mono font-medium text-foreground">
+                  {formatCompactNumber(portfolio.shares)}
+                </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Avg. Buy Price:</span>
-              <span className="font-mono font-medium text-foreground">
-                {formatCurrencyCompact(portfolio.averageBuyPrice)}
-              </span>
+                <span className="font-mono font-medium text-foreground">
+                  {formatCurrencySmart(portfolio.averageBuyPrice)}
+                </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current Price:</span>
-              <span className="font-mono font-medium text-foreground">
-                {formatCurrencyCompact(stock.currentPrice)}
-              </span>
+                <span className="font-mono font-medium text-foreground">
+                  {formatCurrencySmart(stock.currentPrice)}
+                </span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Market Value:</span>
                 <span className="font-mono font-semibold text-foreground">
-                  {formatCurrencyCompact(currentValue)}
+                  {formatCurrencySmart(currentValue)}
                 </span>
               </div>
             </div>
@@ -104,7 +104,7 @@ export function PortfolioCard({ portfolio, stock }: PortfolioCardProps) {
                   }`}
                 >
                   {isPositive && "+"}
-                  {formatCurrencyCompact(profitLoss)}
+                  {formatCurrencySmart(profitLoss)}
                 </span>
               </div>
             </div>
