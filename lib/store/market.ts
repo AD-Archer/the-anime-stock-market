@@ -1819,6 +1819,23 @@ export function createMarketActions({
     }
   };
 
+  const refreshPriceHistory = async () => {
+    try {
+      const freshPriceHistory = await priceHistoryService.getAll();
+      if (freshPriceHistory && freshPriceHistory.length > 0) {
+        setState({
+          priceHistory: freshPriceHistory,
+        });
+        console.log(
+          "[refreshPriceHistory] Updated from database:",
+          freshPriceHistory.length
+        );
+      }
+    } catch (error) {
+      console.warn("[refreshPriceHistory] Failed to refresh:", error);
+    }
+  };
+
   return {
     buyStock,
     sellStock,
@@ -1841,5 +1858,6 @@ export function createMarketActions({
     cancelBuybackOffer,
     removeBuybackOffer,
     refreshStocks,
+    refreshPriceHistory,
   };
 }

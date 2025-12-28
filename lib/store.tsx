@@ -44,6 +44,7 @@ import {
   TRANSACTIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
+  METADATA_COLLECTION,
   DIRECTIONAL_BETS_COLLECTION,
   mapUser,
   mapComment,
@@ -295,6 +296,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : initialDailyRewards,
           premiumAdditions: premiumAdditionsData ?? [],
         });
+
+        // Hydrate last market drift timestamp from metadata if available so clients are in sync with server-run drifts
+        try {
+          const lastDriftValue = await (
+            await import("./database")
+          ).metadataService.get("market_last_drift");
+          if (lastDriftValue && typeof lastDriftValue === "number") {
+            const parsed = new Date(lastDriftValue);
+            if (!Number.isNaN(parsed.getTime())) {
+              useStore.setState({ lastMarketDriftAt: parsed });
+              try {
+                localStorage.setItem(
+                  "market:lastDriftAt",
+                  parsed.toISOString()
+                );
+              } catch {}
+            }
+          }
+        } catch (metaErr) {
+          console.warn(
+            "Failed to hydrate lastMarketDriftAt from metadata:",
+            metaErr
+          );
+        }
 
         // Client-side debug logging to help diagnose missing stocks
         if (typeof window !== "undefined") {
@@ -939,12 +964,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Keep track of metadata updates (e.g., last market drift timestamp)
+    const metadataUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${METADATA_COLLECTION}.documents`,
+      (response) => {
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
+          const key = document.key ?? document["key"];
+          if (!key) return;
+
+          if (key === "market_last_drift") {
+            if (event.includes("delete")) {
+              useStore.setState({ lastMarketDriftAt: null });
+            } else {
+              const value = document.value;
+              if (typeof value === "number") {
+                const parsed = new Date(value);
+                if (!Number.isNaN(parsed.getTime())) {
+                  useStore.setState({ lastMarketDriftAt: parsed });
+                  try {
+                    localStorage.setItem(
+                      "market:lastDriftAt",
+                      parsed.toISOString()
+                    );
+                  } catch {}
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(
+            "[realtime][metadata] failed to process metadata event",
+            err
+          );
+        }
+      }
+    );
+
     return () => {
       try {
         stockUnsub();
       } catch {}
       try {
         priceUnsub();
+      } catch {}
+      try {
+        metadataUnsub();
       } catch {}
     };
   }, [isLoading, mergePriceHistory]);

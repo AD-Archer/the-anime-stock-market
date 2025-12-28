@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, RefreshCw } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { formatCurrencyCompact } from "@/lib/utils";
 
 const CustomTooltip = ({ active, payload, label, config }: any) => {
@@ -83,7 +84,8 @@ type StockFilter = "most_active" | "most_expensive" | "market_cap";
 interface MarketChartProps {}
 
 export function MarketChart({}: MarketChartProps = {}) {
-  const { stocks, transactions, getStockPriceHistory } = useStore();
+  const { stocks, transactions, getStockPriceHistory, refreshPriceHistory } =
+    useStore();
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
@@ -91,6 +93,18 @@ export function MarketChart({}: MarketChartProps = {}) {
   const [hiddenCharacters, setHiddenCharacters] = useState<Set<string>>(
     new Set()
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshPriceHistory();
+    } catch (error) {
+      console.error("Failed to refresh price history:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -400,6 +414,18 @@ export function MarketChart({}: MarketChartProps = {}) {
                     <SelectItem value="year">Last Year</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="gap-2"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </Button>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">

@@ -1,0 +1,32 @@
+{
+    "projectId": "6949aea600261e0eed1d",
+    "projectName": "animestockexchange",
+    "functions": [
+        {
+            "$id": "market-drift-function",
+            "execute": [
+                "any"
+            ],
+            "name": "Market Drift",
+            "enabled": true,
+            "logging": true,
+            "runtime": "node-16.0",
+            "scopes": [
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
+            ],
+            "events": [],
+            "schedule": "0 3 * * 0",
+            "timeout": 900,
+            "entrypoint": "src/index.js",
+            "commands": "npm install",
+            "specification": "s-1vcpu-512mb",
+            "path": "."
+           
+        }
+    ]
+}

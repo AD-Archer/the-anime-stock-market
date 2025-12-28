@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { TrendingUp, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +13,7 @@ import { formatCurrency } from "@/lib/utils";
 
 export function Header() {
   const { currentUser } = useStore();
+  const isLoading = useStore((s) => s.isLoading);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
 
@@ -29,25 +31,25 @@ export function Header() {
           </div>
 
           {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-4">
-          <Link href="/market">
-            <Button variant="ghost">Market</Button>
-          </Link>
-          <Link href="/options">
-            <Button variant="ghost">Options Trading</Button>
-          </Link>
-          {user && (
-            <Link href="/portfolio">
-              <Button variant="ghost">Portfolio</Button>
+          <nav className="hidden md:flex items-center gap-4">
+            <Link href="/market">
+              <Button variant="ghost">Market</Button>
             </Link>
+            <Link href="/options">
+              <Button variant="ghost">Options Trading</Button>
+            </Link>
+            {user && (
+              <Link href="/portfolio">
+                <Button variant="ghost">Portfolio</Button>
+              </Link>
             )}
             <Link href="/leaderboard">
               <Button variant="ghost">Top 100</Button>
             </Link>
-          <Link href="/anime">
-            <Button variant="ghost">Anime</Button>
-          </Link>
-          {/* {currentUser?.isAdmin && (
+            <Link href="/anime">
+              <Button variant="ghost">Anime</Button>
+            </Link>
+            {/* {currentUser?.isAdmin && (
             <Link href="/admin">
               <Button variant="ghost">Admin</Button>
               </Link>
@@ -60,9 +62,13 @@ export function Header() {
           <div className="md:hidden flex items-center gap-2">
             <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1">
               <span className="text-sm text-muted-foreground">Balance:</span>
-              <span className="font-mono font-semibold text-foreground">
-                {formatCurrency(currentUser?.balance || 0)}
-              </span>
+              {!isLoading ? (
+                <span className="font-mono font-semibold text-foreground">
+                  {formatCurrency(currentUser?.balance || 0)}
+                </span>
+              ) : (
+                <Skeleton className="h-5 w-20" />
+              )}
             </div>
             <Button
               variant="ghost"
@@ -87,10 +93,7 @@ export function Header() {
                   Market
                 </Button>
               </Link>
-              <Link
-                href="/options"
-                onClick={() => setIsMenuOpen(false)}
-              >
+              <Link href="/options" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
                   Options Trading
                 </Button>

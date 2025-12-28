@@ -3,8 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { Heart, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -24,7 +26,7 @@ import { PREMIUM_TIERS } from "@/lib/premium";
 import { useStore } from "@/lib/store";
 
 export default function DonatePage() {
-  const { submitSupportTicket } = useStore();
+  const { submitSupportTicket, currentUser } = useStore();
   const [isKoFiDialogOpen, setIsKoFiDialogOpen] = useState(false);
   const [isDonationDialogOpen, setIsDonationDialogOpen] = useState(false);
   const [donationName, setDonationName] = useState("");
@@ -38,7 +40,10 @@ export default function DonatePage() {
 
     setDonationStatus("submitting");
     try {
-      const baseMessage = `Donated with the name "${donationName.trim()}". Please ping the admin to confirm the gift.`;
+      const accountDetails = currentUser
+        ? `Account username: ${currentUser.username}\nAccount email: ${currentUser.email}\n`
+        : "";
+      const baseMessage = `${accountDetails}Donated with the name "${donationName.trim()}". Please ping the admin to confirm the gift.`;
       const message = donationNotes.trim()
         ? `${baseMessage}\n\nNotes: ${donationNotes.trim()}`
         : baseMessage;
@@ -77,42 +82,87 @@ export default function DonatePage() {
             Your donations cover hosting costs and help us build premium
             features for the community.
           </p>
+          <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground space-y-3">
+            <p className="font-semibold text-foreground flex items-center gap-2">
+              <Info className="h-4 w-4 text-primary" />
+              Match your Anime Stock Market account
+            </p>
+            {currentUser ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Use the same email on Ko-fi and include your username in the
+                  message so we can upgrade your tier.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="donate-username">Username</Label>
+                    <Input
+                      id="donate-username"
+                      value={currentUser.username}
+                      readOnly
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="donate-email">Email</Label>
+                    <Input
+                      id="donate-email"
+                      value={currentUser.email}
+                      readOnly
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Suggested Ko-fi message:{" "}
+                  <span className="font-mono">{`username:${currentUser.username}`}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Used a different name or email? Please open a support ticket
+                  so we can reconcile it.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Sign in to see your username and email. Make sure your Ko-fi
+                email matches your account and include your username in the
+                message.
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-3 md:flex-row">
             <Dialog open={isKoFiDialogOpen} onOpenChange={setIsKoFiDialogOpen}>
               <DialogTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="default"
                   size="lg"
-                  className="flex-1 flex items-center justify-center hover:bg-transparent h-16"
+                  className="flex-1 h-16 flex items-center justify-center gap-2"
+                  aria-label="Support on Ko-fi"
                 >
-                  <Image
-                    src="https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_beige.png"
-                    alt="Ko-fi"
-                    width={140}
-                    height={40}
-                    className="h-8 w-auto"
-                    priority
-                  />
+                  <Heart className="h-5 w-5 text-pink-600" />
+                  Support on Ko-fi
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Support the Anime Stock Market</DialogTitle>
                 </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Use the same email as your account and add{" "}
+                  <span className="font-mono">
+                    {currentUser
+                      ? `username:${currentUser.username}`
+                      : "username:yourname"}
+                  </span>{" "}
+                  to the Ko-fi message so we can upgrade your tier.
+                </p>
                 <div className="mt-4">
                   <iframe
                     id="kofiframe"
                     src="https://ko-fi.com/ad_archer/?hidefeed=true&widget=true&embed=true&preview=true"
-                    style={{
-                      border: "none",
-                      width: "100%",
-                      padding: "4px",
-                      background: "#f9f9f9",
-                    }}
-                    height="600"
                     title="ad_archer"
                     loading="lazy"
-                    className="w-full rounded-lg"
+                    height="600"
+                    className="w-full rounded-lg bg-card border"
+                    style={{ border: "none" }}
                   />
                 </div>
               </DialogContent>
@@ -148,13 +198,13 @@ export default function DonatePage() {
                 <DialogHeader>
                   <DialogTitle>Donation follow-up</DialogTitle>
                   <p className="text-sm text-muted-foreground">
-                    Share the name you used when donating and we will notify the
-                    admin for you.
+                    Share the Ko-fi name you used when donating so we can
+                    reconcile it manually.
                   </p>
                 </DialogHeader>
                 <div className="space-y-4">
                   <Input
-                    placeholder="Name used for the donation"
+                    placeholder="Ko-fi display name"
                     value={donationName}
                     onChange={(event) => setDonationName(event.target.value)}
                     autoFocus
@@ -198,7 +248,7 @@ export default function DonatePage() {
             </Dialog>
             <Link href="/support">
               <Button variant="ghost" size="sm">
-                Need custom support?
+                Used a different name or email?
               </Button>
             </Link>
           </div>

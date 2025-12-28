@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
-import { getAdminDatabases, Query } from "@/lib/appwrite/appwrite-admin";
-import { DATABASE_ID, USERS_COLLECTION } from "@/lib/database";
+import { getAdminDatabases, Query, ID } from "@/lib/appwrite/appwrite-admin";
+import {
+  DATABASE_ID,
+  USERS_COLLECTION,
+  NOTIFICATIONS_COLLECTION,
+} from "@/lib/database";
 import { sendSystemEmail } from "@/lib/email/mailer";
 import type {
   NotificationEmailEvent,
   PremiumStatusChangedEvent,
+  MarketDriftCompletedEvent,
   SystemEventRequest,
 } from "@/lib/system-events";
 
@@ -205,6 +210,58 @@ async function handleNotificationEmail(event: NotificationEmailEvent) {
   });
 }
 
+async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
+  try {
+    const { metadata } = event;
+    const stocksProcessed = metadata?.stocksProcessed || 0;
+    const totalStocks = metadata?.totalStocks || 0;
+    const duration = metadata?.duration || 0;
+
+    // Create a system-wide notification for all admin users
+    const databases = getAdminDatabases();
+    const adminUsers = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION,
+      [Query.equal("role", "admin")]
+    );
+
+    // Create notification for each admin user
+    await Promise.all(
+      adminUsers.documents.map(async (admin) => {
+        try {
+          await databases.createDocument(
+            DATABASE_ID,
+            NOTIFICATIONS_COLLECTION,
+            ID.unique(),
+            {
+              userId: admin.$id,
+              type: "system",
+              title: "Market Drift Completed",
+              message: `Market drift completed successfully. Updated ${stocksProcessed}/${totalStocks} stocks in ${duration}ms.`,
+              read: false,
+              createdAt: new Date().toISOString(),
+              metadata: {
+                stocksProcessed,
+                totalStocks,
+                duration,
+                timestamp: metadata?.timestamp,
+              },
+            }
+          );
+        } catch (e) {
+          console.warn("Failed to create notification for admin", admin.$id, e);
+        }
+      })
+    );
+
+    console.log(
+      `Market drift notification sent to ${adminUsers.documents.length} admin users`
+    );
+  } catch (error) {
+    console.error("Error handling market drift completed event", error);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SystemEventRequest | null;
@@ -234,6 +291,9 @@ export async function POST(req: Request) {
         break;
       case "notification_email":
         await handleNotificationEmail(body as NotificationEmailEvent);
+        break;
+      case "market_drift_completed":
+        await handleMarketDriftCompleted(body as MarketDriftCompletedEvent);
         break;
       default:
         return NextResponse.json(

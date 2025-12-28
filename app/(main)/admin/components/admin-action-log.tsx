@@ -151,6 +151,57 @@ function formatMetadataForDisplay(
     }
   }
 
+  // Premium tier updates
+  if (action === "premium_tier_update") {
+    if (metadata.source) {
+      displayLines.push({
+        label: "Source",
+        value: String(metadata.source),
+      });
+    }
+    if (metadata.tierLabel) {
+      displayLines.push({
+        label: "Tier",
+        value: String(metadata.tierLabel),
+      });
+    } else if (metadata.tierLevel !== undefined) {
+      displayLines.push({
+        label: "Tier",
+        value: `Tier ${metadata.tierLevel}`,
+      });
+    }
+    if (metadata.donationAmount) {
+      displayLines.push({
+        label: "Monthly Total",
+        value: `$${Number(metadata.donationAmount).toFixed(2)}`,
+      });
+    }
+    if (metadata.entryAmount) {
+      displayLines.push({
+        label: "Entry Amount",
+        value: `$${Number(metadata.entryAmount).toFixed(2)}`,
+      });
+    }
+    if (metadata.entryDate) {
+      displayLines.push({
+        label: "Entry Date",
+        value: new Date(metadata.entryDate as string).toLocaleString(),
+      });
+    }
+    if (metadata.kofiType) {
+      displayLines.push({
+        label: "Ko-fi Type",
+        value: String(metadata.kofiType),
+      });
+    }
+    if (metadata.isSubscription !== undefined) {
+      displayLines.push({
+        label: "Subscription",
+        value: metadata.isSubscription ? "Yes" : "No",
+      });
+    }
+  }
+
   // Ban/Unban actions
   if (action === "ban" || action === "unban") {
     if (metadata.duration) {
@@ -242,8 +293,11 @@ export function AdminActionLogPanel() {
     [adminActionLogs]
   );
 
-  const resolveUser = (userId: string) =>
-    users.find((user) => user.id === userId)?.username || "Unknown";
+  const resolveUser = (userId: string) => {
+    if (userId === "kofi") return "Ko-fi";
+    if (userId === "system") return "System";
+    return users.find((user) => user.id === userId)?.username || "Unknown";
+  };
 
   const normalizedQuery = query.trim().toLowerCase();
 

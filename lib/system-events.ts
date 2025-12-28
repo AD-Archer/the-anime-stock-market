@@ -7,7 +7,8 @@ export type SystemEventType =
   | "account_deleted"
   | "support_ticket_created"
   | "premium_status_changed"
-  | "notification_email";
+  | "notification_email"
+  | "market_drift_completed";
 
 export type PasswordChangedEvent = {
   type: "password_changed";
@@ -70,6 +71,17 @@ export type NotificationEmailEvent = {
   };
 };
 
+export type MarketDriftCompletedEvent = {
+  type: "market_drift_completed";
+  userId?: string; // Optional - system-wide event
+  metadata: {
+    stocksProcessed: number;
+    totalStocks: number;
+    duration: number;
+    timestamp: string;
+  };
+};
+
 export type SystemEventRequest =
   | PasswordChangedEvent
   | UserBannedEvent
@@ -77,4 +89,5 @@ export type SystemEventRequest =
   | AccountDeletedEvent
   | SupportTicketCreatedEvent
   | PremiumStatusChangedEvent
-  | NotificationEmailEvent;
+  | NotificationEmailEvent
+  | MarketDriftCompletedEvent;

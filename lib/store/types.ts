@@ -100,6 +100,7 @@ export interface StoreContextType {
     reaction: "like" | "dislike"
   ) => Promise<void>;
   refreshComments: () => Promise<void>;
+  refreshPriceHistory: () => Promise<void>;
   reopenReport: (reportId: string) => Promise<void>;
   reopenAppeal: (appealId: string) => Promise<void>;
   updateContentPreferences: (preferences: {

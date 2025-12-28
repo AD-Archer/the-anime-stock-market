@@ -56,4 +56,5 @@ export {
   mapPremiumAddition,
   CHARACTER_SUGGESTIONS_COLLECTION,
   PREMIUM_ADDITIONS_COLLECTION,
+  METADATA_COLLECTION,
 } from "./database/utils";

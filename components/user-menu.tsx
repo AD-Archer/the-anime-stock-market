@@ -43,13 +43,27 @@ export function UserMenu() {
     getDailyRewardInfo,
     messages,
   } = useStore();
+  const isLoading = useStore((s) => s.isLoading);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Show neutral skeleton while the store hydrates so we don't flash "Sign In"
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-5 w-20 rounded-md">
+          <div className="h-5 w-20 rounded-md bg-muted animate-pulse" />
+        </div>
+        <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+      </div>
+    );
+  }
+
   const userNotifications = currentUser
     ? notifications.filter((n) => n.userId === currentUser.id)
     : [];
   const unreadUserNotificationsCount = userNotifications.filter(
     (n) => !n.read
   ).length;
-  const [showNotifications, setShowNotifications] = useState(false);
   const rewardInfo = getDailyRewardInfo();
 
   // Check for unread messages

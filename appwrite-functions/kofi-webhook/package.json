@@ -1,0 +1,9 @@
+{
+  "name": "kofi-webhook",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "node-appwrite": "^21.1.0",
+    "node-fetch": "^2.7.0"
+  }
+}

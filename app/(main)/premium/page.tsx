@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { generateCharacterSlug } from "@/lib/utils";
 import { SearchMarket } from "@/components/search-market";
+import { PageShellLoading } from "@/components/loading/page-shell";
 
 type AniListImportItem = {
   added?: boolean;
@@ -66,6 +67,8 @@ export default function PremiumPage() {
     dailyRewards,
     premiumAdditions,
   } = useStore();
+  const isLoading = useStore((s) => s.isLoading);
+
   const router = useRouter();
   const { toast } = useToast();
   const [createForm, setCreateForm] = useState({
@@ -153,6 +156,14 @@ export default function PremiumPage() {
     }
   }, [currentUser?.premiumMeta, currentUser?.id]);
 
+  if (isLoading) {
+    return (
+      <main className="container mx-auto px-4 py-10">
+        <PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />
+      </main>
+    );
+  }
+
   if (!currentUser) {
     return (
       <main className="container mx-auto px-4 py-10">
@@ -235,11 +246,13 @@ export default function PremiumPage() {
       const result = data.result ?? {};
       const addedCount = Number(result.added ?? result.totalAdded ?? 0);
       const duplicateCount = Number(result.updated ?? result.totalUpdated ?? 0);
-      const resultItems = (Array.isArray(result.results)
-        ? result.results
-        : Array.isArray(result.details)
-        ? result.details
-        : []) as AniListImportItem[];
+      const resultItems = (
+        Array.isArray(result.results)
+          ? result.results
+          : Array.isArray(result.details)
+          ? result.details
+          : []
+      ) as AniListImportItem[];
       const inferredMediaType: MediaType =
         parsed.type === "manga" ? "manga" : "anime";
 
@@ -252,9 +265,8 @@ export default function PremiumPage() {
       } => Boolean(stock.id && stock.characterName && stock.anime);
 
       const addedEntries = resultItems
-        .filter(
-          (item): item is AniListImportItem =>
-            Boolean(item?.added && (item.stock || item.id))
+        .filter((item): item is AniListImportItem =>
+          Boolean(item?.added && (item.stock || item.id))
         )
         .map((item) => (item.stock ?? item) as Partial<Stock>)
         .filter(isValidImportStock)
@@ -262,8 +274,7 @@ export default function PremiumPage() {
           stockId: stock.id,
           characterName: stock.characterName,
           characterSlug:
-            stock.characterSlug ??
-            generateCharacterSlug(stock.characterName),
+            stock.characterSlug ?? generateCharacterSlug(stock.characterName),
           anime: stock.anime,
           imageUrl: stock.imageUrl || "/placeholder.svg",
           mediaType: stock.mediaType ?? inferredMediaType,
@@ -326,9 +337,7 @@ export default function PremiumPage() {
       }
 
       const duplicateSuffix =
-        duplicateCount > 0
-          ? ` ${duplicateCount} duplicate(s) skipped.`
-          : "";
+        duplicateCount > 0 ? ` ${duplicateCount} duplicate(s) skipped.` : "";
       toast({
         title: "Character added!",
         description: `${addedCount} character(s) added successfully.${duplicateSuffix}`,
@@ -678,7 +687,9 @@ export default function PremiumPage() {
                         ? "Claiming…"
                         : canClaimTierReward
                         ? `Claim $${tier.reward.toFixed(2)}`
-                        : `Next claim in ~${Math.ceil(hoursUntilNextTierClaim)}h`}
+                        : `Next claim in ~${Math.ceil(
+                            hoursUntilNextTierClaim
+                          )}h`}
                     </Button>
                     <p className="text-xs text-muted-foreground">
                       {lastTierRewardClaim
@@ -919,7 +930,9 @@ export default function PremiumPage() {
                     {recentPremiumAdditions.map((addition) => (
                       <Link
                         key={addition.id}
-                        href={`/character/${addition.characterSlug || addition.stockId}`}
+                        href={`/character/${
+                          addition.characterSlug || addition.stockId
+                        }`}
                         className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent transition-colors"
                       >
                         <Image
@@ -948,7 +961,6 @@ export default function PremiumPage() {
                   </Link>
                 </div>
               </div>
-
             </CardContent>
           </Card>
 

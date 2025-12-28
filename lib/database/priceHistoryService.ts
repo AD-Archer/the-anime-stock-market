@@ -52,6 +52,24 @@ export const priceHistoryService = {
     }
   },
 
+  async getByStockId(stockId: string): Promise<PriceHistory[]> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(
+        dbId,
+        PRICE_HISTORY_COLLECTION,
+        [Query.equal("stockId", stockId), Query.orderDesc("timestamp")]
+      );
+      return response.documents.map(mapPriceHistory);
+    } catch (error) {
+      console.warn(
+        "Failed to fetch price history for stock from database:",
+        error
+      );
+      return [];
+    }
+  },
+
   async create(priceHistory: Creatable<PriceHistory>): Promise<PriceHistory> {
     try {
       const documentId = priceHistory.id ?? ID.unique();

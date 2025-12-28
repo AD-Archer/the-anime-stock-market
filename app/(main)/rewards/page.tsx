@@ -22,6 +22,7 @@ import {
   Award,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PageShellLoading } from "@/components/loading/page-shell";
 import { AwardsSection } from "../users/components/awards-section";
 
 const STREAK_MILESTONES = [
@@ -43,6 +44,7 @@ export default function RewardsPage() {
   const { toast } = useToast();
   const [claiming, setClaiming] = useState(false);
   const [claimedOptimistic, setClaimedOptimistic] = useState(false);
+  const isLoading = useStore((state) => state.isLoading);
 
   const rewardInfo = getDailyRewardInfo();
   const userDailyReward = dailyRewards.find(
@@ -72,6 +74,14 @@ export default function RewardsPage() {
       setClaiming(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <PageShellLoading titleWidth="w-48" subtitleWidth="w-72" />
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (
