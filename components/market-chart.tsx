@@ -84,8 +84,13 @@ type StockFilter = "most_active" | "most_expensive" | "market_cap";
 interface MarketChartProps {}
 
 export function MarketChart({}: MarketChartProps = {}) {
-  const { stocks, transactions, getStockPriceHistory, refreshPriceHistory } =
-    useStore();
+  const {
+    stocks,
+    transactions,
+    getStockPriceHistory,
+    refreshPriceHistory,
+    schedulePriceHistoryLoad,
+  } = useStore();
   const [showByCharacter, setShowByCharacter] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("biweekly");
@@ -98,7 +103,7 @@ export function MarketChart({}: MarketChartProps = {}) {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshPriceHistory();
+      await refreshPriceHistory(topStocks.map((stock) => stock.id));
     } catch (error) {
       console.error("Failed to refresh price history:", error);
     } finally {
@@ -168,6 +173,14 @@ export function MarketChart({}: MarketChartProps = {}) {
 
     return result;
   }, [stocks, filter, stockActivity]);
+
+  useEffect(() => {
+    if (!topStocks.length) return;
+    schedulePriceHistoryLoad(topStocks.map((stock) => stock.id), {
+      minEntries: 30,
+      limit: 200,
+    });
+  }, [topStocks, schedulePriceHistoryLoad]);
 
   const chartConfig = useMemo<ChartConfig>(() => {
     const entries = topStocks.map((stock, index) => [

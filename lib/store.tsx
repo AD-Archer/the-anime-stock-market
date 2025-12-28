@@ -207,7 +207,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           reportsData,
           notificationsData,
           portfoliosData,
-          priceHistoryData,
           appealsData,
           supportTicketsData,
           characterSuggestionsData,
@@ -226,7 +225,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           reportService.getAll(),
           notificationService.getAll(),
           portfolioService.getAll(),
-          priceHistoryService.getAll(),
           appealService.getAll(),
           supportService.list(),
           characterSuggestionService.list(),
@@ -267,9 +265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ? transactionsData
               : initialTransactions,
           priceHistory:
-            priceHistoryData.length > 0
-              ? priceHistoryData
-              : stocksData.length > 0
+            stocksData.length > 0
               ? stocksData.map((s) => ({
                   id: `ph-init-${s.id}`,
                   stockId: s.id,
@@ -594,8 +590,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const refreshPriceHistoryForStock = useCallback(
     async (stockId: string) => {
       try {
-        const latest = await priceHistoryService.getAll();
-        mergePriceHistory(latest.filter((ph) => ph.stockId === stockId));
+        const latest = await priceHistoryService.getLatestByStockId(
+          stockId,
+          2
+        );
+        mergePriceHistory(latest);
       } catch (error) {
         console.warn("Failed to refresh price history:", error);
       }
@@ -901,6 +900,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               };
             }
             return state;
+          });
+          useStore.getState().schedulePriceHistoryLoad([incoming.id], {
+            minEntries: 2,
+            limit: 20,
           });
         } else if (event.includes("update")) {
           const incoming = mapStock(document);

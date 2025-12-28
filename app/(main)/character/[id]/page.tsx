@@ -46,6 +46,7 @@ export default function CharacterPage({
     reportComment,
     toggleCommentReaction,
     getUserPortfolio,
+    schedulePriceHistoryLoad,
   } = useStore();
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [comment, setComment] = useState("");
@@ -111,6 +112,14 @@ export default function CharacterPage({
       )?.shares ?? 0
     : 0;
   const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
+
+  useEffect(() => {
+    if (!stockId) return;
+    schedulePriceHistoryLoad([stockId], {
+      minEntries: 30,
+      limit: 200,
+    });
+  }, [stockId, schedulePriceHistoryLoad]);
 
   // Process comments into threaded structure
   const commentMap = new Map<string, Comment & { replies: Comment[] }>();

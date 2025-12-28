@@ -40,6 +40,36 @@ export const transactionService = {
     }
   },
 
+  async getRecent(limit = 200): Promise<Transaction[]> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 500));
+      const transactions: Transaction[] = [];
+      let offset = 0;
+      const pageSize = 100;
+
+      while (transactions.length < safeLimit) {
+        const response = await databases.listDocuments(
+          dbId,
+          TRANSACTIONS_COLLECTION,
+          [
+            Query.orderDesc("timestamp"),
+            Query.limit(Math.min(pageSize, safeLimit - transactions.length)),
+            Query.offset(offset),
+          ]
+        );
+        transactions.push(...response.documents.map(mapTransaction));
+        if (response.documents.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      return transactions.slice(0, safeLimit);
+    } catch (error) {
+      console.warn("Failed to fetch recent transactions:", error);
+      return [];
+    }
+  },
+
   async getById(id: string): Promise<Transaction | null> {
     try {
       const dbId = ensureDatabaseIdAvailable();

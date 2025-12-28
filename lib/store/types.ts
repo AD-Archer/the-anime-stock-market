@@ -89,6 +89,22 @@ export interface StoreContextType {
   getUserPortfolio: (userId: string) => Portfolio[];
   getStockPriceHistory: (stockId: string) => PriceHistory[];
   getMarketData: () => MarketDataPoint[];
+  ensurePriceHistoryForStocks: (
+    stockIds: string[],
+    options?: {
+      limit?: number;
+      minEntries?: number;
+      force?: boolean;
+    }
+  ) => Promise<void>;
+  schedulePriceHistoryLoad: (
+    stockIds: string[],
+    options?: {
+      limit?: number;
+      minEntries?: number;
+      force?: boolean;
+    }
+  ) => void;
   addComment: (input: AddCommentInput) => Promise<void>;
   editComment: (commentId: string, content: string) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
@@ -100,7 +116,7 @@ export interface StoreContextType {
     reaction: "like" | "dislike"
   ) => Promise<void>;
   refreshComments: () => Promise<void>;
-  refreshPriceHistory: () => Promise<void>;
+  refreshPriceHistory: (stockIds?: string[]) => Promise<void>;
   reopenReport: (reportId: string) => Promise<void>;
   reopenAppeal: (appealId: string) => Promise<void>;
   updateContentPreferences: (preferences: {

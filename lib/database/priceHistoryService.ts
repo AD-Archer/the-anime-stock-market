@@ -52,18 +52,60 @@ export const priceHistoryService = {
     }
   },
 
-  async getByStockId(stockId: string): Promise<PriceHistory[]> {
+  async getByStockId(stockId: string, limit = 200): Promise<PriceHistory[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 500));
+      const entries: PriceHistory[] = [];
+      const pageSize = 100;
+      let offset = 0;
+
+      while (entries.length < safeLimit) {
+        const response = await databases.listDocuments(
+          dbId,
+          PRICE_HISTORY_COLLECTION,
+          [
+            Query.equal("stockId", stockId),
+            Query.orderDesc("timestamp"),
+            Query.limit(Math.min(pageSize, safeLimit - entries.length)),
+            Query.offset(offset),
+          ]
+        );
+        entries.push(...response.documents.map(mapPriceHistory));
+        if (response.documents.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      return entries;
+    } catch (error) {
+      console.warn(
+        "Failed to fetch price history for stock from database:",
+        error
+      );
+      return [];
+    }
+  },
+
+  async getLatestByStockId(
+    stockId: string,
+    limit = 2
+  ): Promise<PriceHistory[]> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 100));
       const response = await databases.listDocuments(
         dbId,
         PRICE_HISTORY_COLLECTION,
-        [Query.equal("stockId", stockId), Query.orderDesc("timestamp")]
+        [
+          Query.equal("stockId", stockId),
+          Query.orderDesc("timestamp"),
+          Query.limit(safeLimit),
+        ]
       );
       return response.documents.map(mapPriceHistory);
     } catch (error) {
       console.warn(
-        "Failed to fetch price history for stock from database:",
+        "Failed to fetch latest price history for stock from database:",
         error
       );
       return [];

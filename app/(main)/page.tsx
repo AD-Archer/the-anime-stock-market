@@ -36,6 +36,7 @@ export default function LandingPage() {
   const [userCount, setUserCount] = useState<number>(0);
   const [totalVolume, setTotalVolume] = useState<number>(0);
   const [isMetadataLoading, setIsMetadataLoading] = useState(true);
+  const [animeCount, setAnimeCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -48,6 +49,8 @@ export default function LandingPage() {
         setStockCount(count);
         setUserCount(usersTotal);
         setTotalVolume(volumeTotal);
+        // Calculate unique anime count from stocks
+        setAnimeCount(new Set(stocks.map((s) => s.anime)).size);
       } catch (error) {
         console.error("Failed to fetch metadata counts:", error);
         // Fallbacks if metadata fails
@@ -56,6 +59,7 @@ export default function LandingPage() {
         setTotalVolume(
           transactions.reduce((sum, t) => sum + Math.abs(t.totalAmount || 0), 0)
         );
+        setAnimeCount(new Set(stocks.map((s) => s.anime)).size);
       } finally {
         setIsStockCountLoading(false);
         setIsMetadataLoading(false);
@@ -63,7 +67,7 @@ export default function LandingPage() {
     };
 
     fetchMetadata();
-  }, [stocks.length, users.length, transactions.length, transactions]);
+  }, [stocks.length, users.length, transactions.length, transactions, stocks]);
 
   // Only show stats when data is loaded
   const transactionVolume = transactions.reduce(
@@ -254,7 +258,17 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section className="py-24 bg-primary text-primary-foreground">
         <div className="container mx-auto px-4">
-          <div className="grid gap-8 md:grid-cols-3 text-center">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 text-center">
+            <div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {isLoading
+                  ? "..."
+                  : animeCount > 0
+                  ? `${animeCount.toLocaleString()}+`
+                  : "..."}
+              </div>
+              <div className="text-lg opacity-90">Anime</div>
+            </div>
             <div>
               <div className="text-4xl md:text-5xl font-bold mb-2">
                 {isLoading
@@ -285,6 +299,13 @@ export default function LandingPage() {
               </div>
               <div className="text-lg opacity-90">Total Volume</div>
             </div>
+          </div>
+          <div className="mt-8 text-center">
+            <p className="text-lg opacity-80 max-w-2xl mx-auto">
+              Members can suggest new anime and characters to be added to the
+              market. Premium users are allowed to create and add new characters
+              directly, all sourced from the AniList API.
+            </p>
           </div>
         </div>
       </section>
@@ -321,9 +342,9 @@ export default function LandingPage() {
                   Donate to support premium tools
                 </h3>
                 <p className="mt-3 text-sm text-muted-foreground max-w-2xl">
-                  Every contribution covers hosting, Appwrite costs, and the premium
-                  experience that unlocks character creation, the DM board, and priority
-                  features for power users.
+                  Every contribution covers hosting, Appwrite costs, and the
+                  premium experience that unlocks character creation, the DM
+                  board, and priority features for power users.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -333,7 +354,11 @@ export default function LandingPage() {
                   </Button>
                 </Link>
                 <Link href="/premium">
-                  <Button variant="ghost" size="lg" className="text-lg px-6 py-3">
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="text-lg px-6 py-3"
+                  >
                     View Premium Perks
                   </Button>
                 </Link>

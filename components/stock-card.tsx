@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {
@@ -34,30 +34,35 @@ export function StockCard({
   showDescription = false,
   compact = true,
 }: StockCardProps) {
-  const priceHistory = useStore((state) => state.priceHistory);
-  const stockHistory = useMemo(
-    () =>
-      priceHistory
-        .filter((ph) => ph.stockId === stock.id)
-        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()),
-    [priceHistory, stock.id]
+  const schedulePriceHistoryLoad = useStore(
+    (state) => state.schedulePriceHistoryLoad
   );
+  const priceHistory = useStore((state) => state.priceHistory);
+  const stockHistory = useMemo(() => {
+    return priceHistory
+      .filter((ph) => ph.stockId === stock.id)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [priceHistory, stock.id]);
+
+  useEffect(() => {
+    schedulePriceHistoryLoad([stock.id], { minEntries: 2, limit: 2 });
+  }, [stock.id, schedulePriceHistoryLoad]);
 
   // Calculate price change
-  const startPrice =
-    stockHistory[0]?.price ??
-    (stock.currentPrice > 0 ? stock.currentPrice : undefined);
   const latestPrice =
-    stockHistory[stockHistory.length - 1]?.price ??
-    (stock.currentPrice > 0 ? stock.currentPrice : undefined);
+    stock.currentPrice > 0 ? stock.currentPrice : stockHistory.at(-1)?.price;
+  const previousPrice =
+    stockHistory.length >= 2
+      ? stockHistory[stockHistory.length - 2]?.price
+      : stockHistory.at(-1)?.price ?? latestPrice;
 
   const priceChange =
-    startPrice !== undefined && latestPrice !== undefined
-      ? latestPrice - startPrice
+    latestPrice !== undefined && previousPrice !== undefined
+      ? latestPrice - previousPrice
       : 0;
   const priceChangePercent =
-    startPrice && startPrice !== 0
-      ? (priceChange / startPrice) * 100
+    previousPrice && previousPrice !== 0
+      ? (priceChange / previousPrice) * 100
       : 0;
 
   const isPositive = priceChange > 0;

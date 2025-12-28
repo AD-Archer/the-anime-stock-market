@@ -9,6 +9,8 @@
     "next:dev": "next dev",
     "lint": "eslint .",
     "next:start": "next start",
+    "appwritepush:kofi": "cd /Users/adarc/Projects/the-anime-stock-market/appwrite-functions/kofi-webhook && appwrite push functions",
+    "appwritepush:drift": "cd /Users/adarc/Projects/the-anime-stock-market/appwrite-functions/market-drift && appwrite push functions",
     "typecheck": "tsc --noEmit",
     "appwrite:setup": "infisical run tsx lib/appwrite/appwrite-setup.ts",
     "seed": "tsx lib/seed.ts",

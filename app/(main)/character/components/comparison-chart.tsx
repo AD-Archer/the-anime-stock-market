@@ -43,7 +43,8 @@ export function ComparisonChart({
   initialStockId,
   timeRange = "all",
 }: ComparisonChartProps) {
-  const { stocks, getStockPriceHistory } = useStore();
+  const { stocks, getStockPriceHistory, schedulePriceHistoryLoad } =
+    useStore();
   const [selectedStockIds, setSelectedStockIds] = useState<string[]>(
     initialStockId ? [initialStockId] : []
   );
@@ -60,6 +61,14 @@ export function ComparisonChart({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (!selectedStockIds.length) return;
+    schedulePriceHistoryLoad(selectedStockIds, {
+      minEntries: 30,
+      limit: 200,
+    });
+  }, [selectedStockIds, schedulePriceHistoryLoad]);
 
   // Filter stocks based on search
   const filteredStocks = stocks.filter(

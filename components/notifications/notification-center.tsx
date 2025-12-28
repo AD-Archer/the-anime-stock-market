@@ -431,7 +431,12 @@ export function NotificationCenter({ modal = false }: { modal?: boolean }) {
         }}
       >
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="relative">
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative"
+            aria-label="Notifications"
+          >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
               <Badge

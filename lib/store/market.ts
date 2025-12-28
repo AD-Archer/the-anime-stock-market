@@ -88,6 +88,151 @@ export function createMarketActions({
     type: import("../types").Award["type"]
   ) => Promise<void>;
 }) {
+  type PriceHistoryLoadOptions = {
+    limit?: number;
+    minEntries?: number;
+    force?: boolean;
+  };
+
+  const DEFAULT_IDLE_DELAY_MS = 1200;
+  const DEFAULT_BATCH_SIZE = 4;
+  const priceHistoryQueue = new Map<string, PriceHistoryLoadOptions>();
+  let idleHandle: number | null = null;
+  let isFlushingQueue = false;
+
+  const priceHistoryInFlight = new Set<string>();
+
+  const mergePriceHistoryEntries = (incoming: PriceHistory[]) => {
+    if (!incoming.length) return;
+    setState((state) => {
+      const merged = new Map<string, PriceHistory>();
+      state.priceHistory.forEach((ph) => merged.set(ph.id, ph));
+      incoming.forEach((ph) => merged.set(ph.id, ph));
+      return {
+        priceHistory: Array.from(merged.values()).sort(
+          (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+        ),
+      };
+    });
+  };
+
+  const mergeLoadOptions = (
+    prev: PriceHistoryLoadOptions | undefined,
+    next: PriceHistoryLoadOptions | undefined
+  ): PriceHistoryLoadOptions => {
+    if (!prev) return next ?? {};
+    if (!next) return prev;
+    return {
+      limit: Math.max(prev.limit ?? 0, next.limit ?? 0) || undefined,
+      minEntries:
+        Math.max(prev.minEntries ?? 0, next.minEntries ?? 0) || undefined,
+      force: Boolean(prev.force || next.force),
+    };
+  };
+
+  const flushPriceHistoryQueue = async () => {
+    if (isFlushingQueue) return;
+    const batch = Array.from(priceHistoryQueue.entries()).slice(
+      0,
+      DEFAULT_BATCH_SIZE
+    );
+    if (!batch.length) return;
+    isFlushingQueue = true;
+    idleHandle = null;
+    try {
+      for (const [stockId, options] of batch) {
+        priceHistoryQueue.delete(stockId);
+        await ensurePriceHistoryForStocks([stockId], options);
+      }
+    } finally {
+      isFlushingQueue = false;
+      if (priceHistoryQueue.size > 0) {
+        schedulePriceHistoryFlush();
+      }
+    }
+  };
+
+  const schedulePriceHistoryFlush = () => {
+    if (idleHandle !== null) return;
+    if (typeof window === "undefined") {
+      flushPriceHistoryQueue().catch(() => {});
+      return;
+    }
+    const requestIdle = (window as any)
+      .requestIdleCallback as
+      | ((cb: () => void, options?: { timeout?: number }) => number)
+      | undefined;
+    if (typeof requestIdle === "function") {
+      idleHandle = requestIdle(
+        () => {
+          flushPriceHistoryQueue().catch(() => {});
+        },
+        { timeout: DEFAULT_IDLE_DELAY_MS }
+      );
+    } else {
+      idleHandle = window.setTimeout(() => {
+        flushPriceHistoryQueue().catch(() => {});
+      }, DEFAULT_IDLE_DELAY_MS);
+    }
+  };
+
+  const ensurePriceHistoryForStocks = async (
+    stockIds: string[],
+    options?: PriceHistoryLoadOptions
+  ) => {
+    const uniqueIds = Array.from(
+      new Set(stockIds.filter((id): id is string => Boolean(id)))
+    );
+    if (!uniqueIds.length) return;
+
+    const { limit = 200, minEntries = 2, force = false } = options ?? {};
+    const counts = new Map<string, number>();
+    if (!force) {
+      getState().priceHistory.forEach((ph) => {
+        counts.set(ph.stockId, (counts.get(ph.stockId) || 0) + 1);
+      });
+    }
+
+    const targets = uniqueIds.filter((id) => {
+      if (force) return !priceHistoryInFlight.has(id);
+      const count = counts.get(id) || 0;
+      return count < minEntries && !priceHistoryInFlight.has(id);
+    });
+
+    if (!targets.length) return;
+
+    await Promise.all(
+      targets.map(async (stockId) => {
+        priceHistoryInFlight.add(stockId);
+        try {
+          const history = await priceHistoryService.getByStockId(
+            stockId,
+            limit
+          );
+          mergePriceHistoryEntries(history);
+        } catch (error) {
+          console.warn("Failed to load price history:", error);
+        } finally {
+          priceHistoryInFlight.delete(stockId);
+        }
+      })
+    );
+  };
+
+  const schedulePriceHistoryLoad = (
+    stockIds: string[],
+    options?: PriceHistoryLoadOptions
+  ) => {
+    const uniqueIds = Array.from(
+      new Set(stockIds.filter((id): id is string => Boolean(id)))
+    );
+    if (!uniqueIds.length) return;
+    uniqueIds.forEach((stockId) => {
+      const prev = priceHistoryQueue.get(stockId);
+      priceHistoryQueue.set(stockId, mergeLoadOptions(prev, options));
+    });
+    schedulePriceHistoryFlush();
+  };
   const notifyLiquidityRequest = (stock: Stock, requestedShares: number) => {
     const currentUser = getState().currentUser;
     if (!currentUser) return;
@@ -146,6 +291,14 @@ export function createMarketActions({
         }
       );
     });
+  };
+
+  const getLastKnownPrice = (stockId: string): number | null => {
+    const history = getState().priceHistory
+      .filter((ph) => ph.stockId === stockId)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const last = history.at(-1)?.price;
+    return last && last > 0 ? last : null;
   };
 
   const checkAwards = async (userId: string) => {
@@ -274,7 +427,14 @@ export function createMarketActions({
       return false;
     }
 
-    const newPrice = applyPriceImpact(stock, shares);
+    const fallbackPrice = getLastKnownPrice(stockId) ?? 1;
+    const basePrice =
+      stock.currentPrice > 0 ? stock.currentPrice : fallbackPrice;
+    const pricedStock =
+      basePrice === stock.currentPrice
+        ? stock
+        : { ...stock, currentPrice: basePrice };
+    const newPrice = applyPriceImpact(pricedStock, shares);
     const executionPrice = newPrice;
     const totalCost = executionPrice * shares;
     if (currentUser.balance < totalCost) return false;
@@ -482,7 +642,14 @@ export function createMarketActions({
       priceHistory,
     };
 
-    const newPrice = applyPriceImpact(stock, -shares);
+    const fallbackPrice = getLastKnownPrice(stockId) ?? 1;
+    const basePrice =
+      stock.currentPrice > 0 ? stock.currentPrice : fallbackPrice;
+    const pricedStock =
+      basePrice === stock.currentPrice
+        ? stock
+        : { ...stock, currentPrice: basePrice };
+    const newPrice = applyPriceImpact(pricedStock, -shares);
     const executionPrice = newPrice;
     const totalRevenue = executionPrice * shares;
 
@@ -962,6 +1129,13 @@ export function createMarketActions({
     const newTotalShares = stock.totalShares + additionalSharesNeeded;
     const newAvailableShares = stock.availableShares + additionalSharesNeeded;
 
+    const priceHistoryEntry: PriceHistory = {
+      id: uuidv4(),
+      stockId,
+      price: newPrice,
+      timestamp: new Date(),
+    };
+
     setState((state) => ({
       stocks: state.stocks.map((s) =>
         s.id === stockId
@@ -974,15 +1148,7 @@ export function createMarketActions({
           : s
       ),
       portfolios: updatedPortfolios,
-      priceHistory: [
-        ...state.priceHistory,
-        {
-          id: uuidv4(),
-          stockId,
-          price: newPrice,
-          timestamp: new Date(),
-        },
-      ],
+      priceHistory: [...state.priceHistory, priceHistoryEntry],
     }));
 
     // Persist portfolio changes to database
@@ -1006,6 +1172,10 @@ export function createMarketActions({
       .catch((error) => {
         console.error("Failed to update stock in database:", error);
       });
+
+    priceHistoryService.create(priceHistoryEntry).catch((error) => {
+      console.error("Failed to persist price history entry:", error);
+    });
 
     logAdminAction("stock_grant", stock.createdBy, {
       action: "price_normalization",
@@ -1154,6 +1324,14 @@ export function createMarketActions({
     const newPrice = stock.currentPrice / (1 + shareDilutionFactor);
     const totalNewShares = stock.totalShares + newShareCount;
 
+    const adjustedPrice = Number(newPrice.toFixed(2));
+    const priceHistoryEntry: PriceHistory = {
+      id: uuidv4(),
+      stockId,
+      price: adjustedPrice,
+      timestamp: new Date(),
+    };
+
     setState((state) => ({
       stocks: state.stocks.map((s) =>
         s.id === stockId
@@ -1161,20 +1339,26 @@ export function createMarketActions({
               ...s,
               totalShares: totalNewShares,
               availableShares: s.availableShares + newShareCount,
-              currentPrice: Number(newPrice.toFixed(2)),
+              currentPrice: adjustedPrice,
             }
           : s
       ),
-      priceHistory: [
-        ...state.priceHistory,
-        {
-          id: uuidv4(),
-          stockId,
-          price: Number(newPrice.toFixed(2)),
-          timestamp: new Date(),
-        },
-      ],
+      priceHistory: [...state.priceHistory, priceHistoryEntry],
     }));
+
+    stockService
+      .update(stockId, {
+        totalShares: totalNewShares,
+        availableShares: stock.availableShares + newShareCount,
+        currentPrice: adjustedPrice,
+      })
+      .catch((error) => {
+        console.error("Failed to update stock in database:", error);
+      });
+
+    priceHistoryService.create(priceHistoryEntry).catch((error) => {
+      console.error("Failed to persist price history entry:", error);
+    });
 
     logAdminAction("stock_grant", stock.createdBy, {
       action: "shares_created",
@@ -1182,7 +1366,7 @@ export function createMarketActions({
       newShareCount,
       totalNewShares,
       oldPrice: stock.currentPrice,
-      newPrice: Number(newPrice.toFixed(2)),
+      newPrice: adjustedPrice,
       dilutionFactor: Number((shareDilutionFactor * 100).toFixed(2)),
     });
 
@@ -1283,11 +1467,22 @@ export function createMarketActions({
         }
       : null;
 
+    const priceHistoryEntries = dilutePrices
+      ? updatedStocks.map((stock) => ({
+          id: uuidv4(),
+          stockId: stock.id,
+          price: stock.currentPrice,
+          timestamp: new Date(),
+        }))
+      : [];
+
     setState((state) => ({
       stocks: updatedStocks,
-      priceHistory: massDilutionEntry
-        ? [...state.priceHistory, massDilutionEntry]
-        : state.priceHistory,
+      priceHistory: [
+        ...state.priceHistory,
+        ...priceHistoryEntries,
+        ...(massDilutionEntry ? [massDilutionEntry] : []),
+      ],
     }));
 
     onProgress?.({
@@ -1402,6 +1597,36 @@ export function createMarketActions({
       total: stocks.length,
       message: "Mass dilution completed!",
     });
+
+    try {
+      const batchSize = 25;
+      const pause = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      for (let i = 0; i < updatedStocks.length; i += batchSize) {
+        const stockBatch = updatedStocks.slice(i, i + batchSize);
+        const historyBatch = priceHistoryEntries.slice(i, i + batchSize);
+
+        await Promise.all([
+          ...stockBatch.map((stock) =>
+            stockService.update(stock.id, {
+              totalShares: stock.totalShares,
+              availableShares: stock.availableShares,
+              ...(dilutePrices ? { currentPrice: stock.currentPrice } : {}),
+            })
+          ),
+          ...(dilutePrices
+            ? historyBatch.map((entry) => priceHistoryService.create(entry))
+            : []),
+        ]);
+
+        if (i + batchSize < updatedStocks.length) {
+          await pause(200);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to persist mass dilution updates:", error);
+    }
   };
 
   const getUserPortfolio = (userId: string): Portfolio[] => {
@@ -1551,10 +1776,10 @@ export function createMarketActions({
       ...stock,
       currentPrice: stock.currentPrice * multiplier,
     }));
-    const newPriceHistory = stocks.map((stock) => ({
-      id: `ph-${Date.now()}-${stock.id}`,
+    const newPriceHistory = updatedStocks.map((stock) => ({
+      id: uuidv4(),
       stockId: stock.id,
-      price: stock.currentPrice * multiplier,
+      price: stock.currentPrice,
       timestamp: new Date(),
     }));
     setState({
@@ -1566,6 +1791,34 @@ export function createMarketActions({
       percentage,
       multiplier,
     });
+
+    void (async () => {
+      try {
+        const batchSize = 25;
+        const pause = (ms: number) =>
+          new Promise((resolve) => setTimeout(resolve, ms));
+
+        for (let i = 0; i < updatedStocks.length; i += batchSize) {
+          const stockBatch = updatedStocks.slice(i, i + batchSize);
+          const historyBatch = newPriceHistory.slice(i, i + batchSize);
+
+          await Promise.all([
+            ...stockBatch.map((stock) =>
+              stockService.update(stock.id, {
+                currentPrice: stock.currentPrice,
+              })
+            ),
+            ...historyBatch.map((entry) => priceHistoryService.create(entry)),
+          ]);
+
+          if (i + batchSize < updatedStocks.length) {
+            await pause(200);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to persist market inflation updates:", error);
+      }
+    })();
   };
 
   const createBuybackOffer = (
@@ -1819,18 +2072,25 @@ export function createMarketActions({
     }
   };
 
-  const refreshPriceHistory = async () => {
+  const refreshPriceHistory = async (stockIds?: string[]) => {
     try {
-      const freshPriceHistory = await priceHistoryService.getAll();
-      if (freshPriceHistory && freshPriceHistory.length > 0) {
-        setState({
-          priceHistory: freshPriceHistory,
-        });
-        console.log(
-          "[refreshPriceHistory] Updated from database:",
-          freshPriceHistory.length
-        );
-      }
+      const ids =
+        stockIds && stockIds.length > 0
+          ? stockIds
+          : [...getState().stocks]
+              .sort(
+                (a, b) =>
+                  b.currentPrice * b.totalShares -
+                  a.currentPrice * a.totalShares
+              )
+              .slice(0, 10)
+              .map((stock) => stock.id);
+      await ensurePriceHistoryForStocks(ids, {
+        force: true,
+        limit: 200,
+        minEntries: 0,
+      });
+      console.log("[refreshPriceHistory] Updated from database:", ids.length);
     } catch (error) {
       console.warn("[refreshPriceHistory] Failed to refresh:", error);
     }
@@ -1848,6 +2108,8 @@ export function createMarketActions({
     getUserPortfolio,
     getStockPriceHistory,
     getMarketData,
+    ensurePriceHistoryForStocks,
+    schedulePriceHistoryLoad,
     applyDailyMarketDrift,
     setMarketDriftEnabled,
     triggerMarketDriftNow,

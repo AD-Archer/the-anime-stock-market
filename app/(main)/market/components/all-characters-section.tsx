@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, Users } from "lucide-react";
@@ -37,7 +37,8 @@ export function AllCharactersSection({
   stocks,
   onBuy,
 }: AllCharactersSectionProps) {
-  const { getStockPriceHistory, transactions } = useStore();
+  const { getStockPriceHistory, transactions, schedulePriceHistoryLoad } =
+    useStore();
   const priceHistoryVersion = useStore(
     (state) => state.priceHistory.length
   );
@@ -61,12 +62,13 @@ export function AllCharactersSection({
     const withChange = stocks.map((stock) => {
       const history = getStockPriceHistory(stock.id);
       let priceChange = 0;
-      if (history.length > 1) {
-        const startPrice = history[0].price || 0;
-        const latestPrice = history[history.length - 1].price || 0;
-        if (startPrice > 0) {
-          priceChange = ((latestPrice - startPrice) / startPrice) * 100;
-        }
+      const latestPrice = stock.currentPrice || history.at(-1)?.price || 0;
+      const previousPrice =
+        history.length >= 2
+          ? history[history.length - 2].price
+          : history[0]?.price;
+      if (previousPrice && previousPrice > 0) {
+        priceChange = ((latestPrice - previousPrice) / previousPrice) * 100;
       }
       return { ...stock, priceChange };
     });
@@ -137,6 +139,14 @@ export function AllCharactersSection({
     priceHistoryVersion,
     stockTransactionCounts,
   ]);
+
+  useEffect(() => {
+    if (!filteredStocks.length) return;
+    schedulePriceHistoryLoad(
+      filteredStocks.map((stock) => stock.id),
+      { minEntries: 2, limit: 2 }
+    );
+  }, [filteredStocks, schedulePriceHistoryLoad]);
 
   const handleCharacterClick = (stock: Stock & { priceChange?: number }) => {
     router.push(`/character/${stock.characterSlug || stock.id}`);

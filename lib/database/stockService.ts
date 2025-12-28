@@ -73,6 +73,21 @@ export const stockService = {
     }
   },
 
+  async getTickerStocks(limit = 12): Promise<Stock[]> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 100));
+      const response = await databases.listDocuments(dbId, STOCKS_COLLECTION, [
+        Query.orderDesc("currentPrice"),
+        Query.limit(safeLimit),
+      ]);
+      return response.documents.map(mapStock);
+    } catch (error) {
+      console.warn("Failed to fetch ticker stocks from database:", error);
+      return [];
+    }
+  },
+
   async getById(id: string): Promise<Stock | null> {
     try {
       const dbId = ensureDatabaseIdAvailable();
@@ -98,7 +113,9 @@ export const stockService = {
 
       return mapStock(response);
     } catch (error) {
-      console.warn("Failed to fetch stock from database:", error);
+      if ((error as any)?.code !== 404) {
+        console.warn("Failed to fetch stock from database:", error);
+      }
       return null;
     }
   },

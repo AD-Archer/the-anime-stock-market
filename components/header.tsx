@@ -74,6 +74,7 @@ export function Header() {
               variant="ghost"
               size="sm"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             >
               {isMenuOpen ? (
                 <X className="h-5 w-5" />
