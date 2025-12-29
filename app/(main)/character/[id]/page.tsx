@@ -92,10 +92,18 @@ export default function CharacterPage({
     stocks.find(
       (s) => generateCharacterSlug(s.characterSlug) === normalizedId
     ) ||
+    stocks.find(
+      (s) => generateCharacterSlug(s.characterName) === normalizedId
+    ) ||
     stocks.find((s) => s.id === id);
-  const stockId = stock?.id ?? id;
-  const characterIdentifiers = stockId === id ? [stockId] : [stockId, id];
-  const priceHistory = getStockPriceHistory(stockId);
+  const resolvedStockId = stock?.id;
+  const characterIdentifiers = Array.from(
+    new Set([stock?.id, id].filter(Boolean) as string[])
+  );
+  const commentCharacterId = resolvedStockId ?? id;
+  const priceHistory = resolvedStockId
+    ? getStockPriceHistory(resolvedStockId)
+    : [];
   const characterTransactions = transactions
     .filter((t) => characterIdentifiers.includes(t.stockId))
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -114,12 +122,12 @@ export default function CharacterPage({
   const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
 
   useEffect(() => {
-    if (!stockId) return;
-    schedulePriceHistoryLoad([stockId], {
+    if (!resolvedStockId) return;
+    schedulePriceHistoryLoad([resolvedStockId], {
       minEntries: 30,
       limit: 200,
     });
-  }, [stockId, schedulePriceHistoryLoad]);
+  }, [resolvedStockId, schedulePriceHistoryLoad]);
 
   // Process comments into threaded structure
   const commentMap = new Map<string, Comment & { replies: Comment[] }>();
@@ -153,30 +161,61 @@ export default function CharacterPage({
 
   // Filter price history by time range
   const now = new Date();
-  const filteredPriceHistory = priceHistory.filter((ph) => {
-    if (timeRange === "all") return true;
-    const daysAgo = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
-    const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-    return ph.timestamp >= cutoffDate;
-  });
+  const filteredPriceHistory = priceHistory
+    .filter((ph) => {
+      if (timeRange === "all") return true;
+      const daysAgo = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
+      const cutoffDate = new Date(
+        now.getTime() - daysAgo * 24 * 60 * 60 * 1000
+      );
+      return ph.timestamp >= cutoffDate;
+    })
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  const chartData = filteredPriceHistory.map((ph) => ({
-    date: ph.timestamp.toLocaleDateString("en-US", {
+  const hasIntraDayChanges = (() => {
+    const seen = new Set<string>();
+    for (const ph of filteredPriceHistory) {
+      const dayKey = ph.timestamp.toISOString().split("T")[0];
+      if (seen.has(dayKey)) return true;
+      seen.add(dayKey);
+    }
+    return false;
+  })();
+
+  const formatHistoryLabel = (timestamp: Date) => {
+    if (hasIntraDayChanges) {
+      return timestamp.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+    return timestamp.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
-    }),
+    });
+  };
+
+  const chartData = filteredPriceHistory.map((ph) => ({
+    date: formatHistoryLabel(ph.timestamp),
     price: ph.price,
     marketCap: ph.price * stock.totalShares,
     volume: stock.totalShares - stock.availableShares,
   }));
 
   // Compute price change based on the currently selected time range (filteredPriceHistory)
+  const nonInitHistory = filteredPriceHistory.filter(
+    (ph) => ph.price > 0 && !ph.id.startsWith("ph-init-")
+  );
+  const changeHistory =
+    nonInitHistory.length >= 2 ? nonInitHistory : filteredPriceHistory;
+  const latestEntry = changeHistory.at(-1);
+  const previousEntry =
+    changeHistory.length > 1 ? changeHistory.at(-2) : null;
   const priceChangePct =
-    filteredPriceHistory.length > 1 && filteredPriceHistory[0].price !== 0
-      ? ((filteredPriceHistory[filteredPriceHistory.length - 1].price -
-          filteredPriceHistory[0].price) /
-          filteredPriceHistory[0].price) *
-        100
+    latestEntry && previousEntry && previousEntry.price > 0
+      ? ((latestEntry.price - previousEntry.price) / previousEntry.price) * 100
       : 0;
 
   const handleAddComment = async () => {
@@ -185,7 +224,7 @@ export default function CharacterPage({
       await addComment({
         animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
         content: comment,
-        characterId: stockId,
+        characterId: commentCharacterId,
         tags,
       });
       setComment("");
@@ -202,7 +241,7 @@ export default function CharacterPage({
       await addComment({
         animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
         content,
-        characterId: stockId,
+        characterId: commentCharacterId,
         parentId,
         tags,
       });
@@ -293,7 +332,7 @@ export default function CharacterPage({
                   timeRange={timeRange}
                   setTimeRange={setTimeRange}
                   stock={stock}
-                  initialStockId={stockId}
+                  initialStockId={resolvedStockId}
                 />
 
                 {/* Desktop: Activity & Comments Section */}
@@ -352,7 +391,10 @@ export default function CharacterPage({
                     </div>
                     <div className="flex justify-end">
                       <Button
-                        onClick={() => router.push(`/options?stock=${stockId}`)}
+                        onClick={() =>
+                          resolvedStockId &&
+                          router.push(`/options?stock=${resolvedStockId}`)
+                        }
                         className="w-full sm:w-auto"
                       >
                         View Options Chain
@@ -366,12 +408,15 @@ export default function CharacterPage({
         </Tabs>
       </div>
 
-      {showBuyDialog && (
-        <BuyDialog stockId={stockId} onClose={() => setShowBuyDialog(false)} />
+      {showBuyDialog && resolvedStockId && (
+        <BuyDialog
+          stockId={resolvedStockId}
+          onClose={() => setShowBuyDialog(false)}
+        />
       )}
-      {showSellDialog && (
+      {showSellDialog && resolvedStockId && (
         <SellDialog
-          stockId={stockId}
+          stockId={resolvedStockId}
           maxShares={userShares}
           onClose={() => setShowSellDialog(false)}
         />

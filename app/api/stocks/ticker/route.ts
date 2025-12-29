@@ -52,7 +52,8 @@ export async function GET(req: Request) {
     );
 
     const items = stocks.map((stock, index) => {
-      const history = histories[index] ?? [];
+      const history =
+        histories[index]?.filter((entry) => entry.price > 0) ?? [];
       const prevPrice =
         history.length >= 2 ? history[1].price : stock.currentPrice;
       const change =

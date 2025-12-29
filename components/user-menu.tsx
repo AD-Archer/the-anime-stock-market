@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import { getUserProfileHref } from "@/lib/user-profile";
+import { getTierForMeta } from "@/lib/premium";
 import { Badge } from "@/components/ui/badge";
 import {
   User,
@@ -65,6 +66,20 @@ export function UserMenu() {
     (n) => !n.read
   ).length;
   const rewardInfo = getDailyRewardInfo();
+
+  // Calculate premium reward claimability
+  const meta = currentUser?.premiumMeta;
+  const isPremium = Boolean(meta?.isPremium);
+  const tier = isPremium ? getTierForMeta(meta) : undefined;
+  let canClaimPremiumReward = Boolean(tier && isPremium);
+  if (tier && meta?.lastPremiumRewardClaim) {
+    const hoursSince =
+      (new Date().getTime() - meta.lastPremiumRewardClaim.getTime()) /
+      (1000 * 60 * 60);
+    if (hoursSince < 24) {
+      canClaimPremiumReward = false;
+    }
+  }
 
   // Check for unread messages
   const unreadMessagesCount = currentUser
@@ -147,9 +162,19 @@ export function UserMenu() {
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <a href="/premium" className="flex items-center">
-              <Star className="mr-2 h-4 w-4 text-purple-600" />
-              <span className="font-semibold text-purple-600">Premium</span>
+            <a href="/premium" className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Star className="mr-2 h-4 w-4 text-purple-600" />
+                <span className="font-semibold text-purple-600">Premium</span>
+              </div>
+              {canClaimPremiumReward && (
+                <Badge
+                  variant="default"
+                  className="ml-2 bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Claimable
+                </Badge>
+              )}
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

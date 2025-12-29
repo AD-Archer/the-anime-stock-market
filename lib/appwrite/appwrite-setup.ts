@@ -659,6 +659,14 @@ async function setup() {
     if (collection.id === "metadata") {
       await ensureIndex(databases, collection.id, "key", "key", ["key"]);
     }
+    if (collection.id === "price_history") {
+      await ensureIndex(databases, collection.id, "stockId", "key", [
+        "stockId",
+      ]);
+      await ensureIndex(databases, collection.id, "timestamp", "key", [
+        "timestamp",
+      ]);
+    }
   }
 
   console.log(

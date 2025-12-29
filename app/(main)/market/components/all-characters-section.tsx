@@ -62,11 +62,21 @@ export function AllCharactersSection({
     const withChange = stocks.map((stock) => {
       const history = getStockPriceHistory(stock.id);
       let priceChange = 0;
-      const latestPrice = stock.currentPrice || history.at(-1)?.price || 0;
+      const nonInit = history.filter(
+        (ph) => ph.price > 0 && !ph.id.startsWith("ph-init-")
+      );
+      const candidate =
+        nonInit.length >= 2
+          ? nonInit
+          : history.filter((ph) => ph.price > 0);
+      const effectiveHistory =
+        candidate.length >= 2 ? candidate : history;
+      const latestPrice =
+        stock.currentPrice || effectiveHistory.at(-1)?.price || 0;
       const previousPrice =
-        history.length >= 2
-          ? history[history.length - 2].price
-          : history[0]?.price;
+        effectiveHistory.length >= 2
+          ? effectiveHistory[effectiveHistory.length - 2].price
+          : effectiveHistory.at(-1)?.price;
       if (previousPrice && previousPrice > 0) {
         priceChange = ((latestPrice - previousPrice) / previousPrice) * 100;
       }
@@ -144,7 +154,7 @@ export function AllCharactersSection({
     if (!filteredStocks.length) return;
     schedulePriceHistoryLoad(
       filteredStocks.map((stock) => stock.id),
-      { minEntries: 2, limit: 2 }
+      { minEntries: 2, limit: 6 }
     );
   }, [filteredStocks, schedulePriceHistoryLoad]);
 

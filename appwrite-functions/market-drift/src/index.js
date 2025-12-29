@@ -116,7 +116,7 @@ module.exports = async (req, res, context) => {
           )
         );
 
-        // Log price history (create a new document in price history collection) with retry
+        // Log price history (create a new document in price_history) so drift changes are persisted.
         try {
           await retryWithBackoff(() =>
             databases.createDocument(

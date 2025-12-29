@@ -45,16 +45,27 @@ export function StockCard({
   }, [priceHistory, stock.id]);
 
   useEffect(() => {
-    schedulePriceHistoryLoad([stock.id], { minEntries: 2, limit: 2 });
+    schedulePriceHistoryLoad([stock.id], { minEntries: 2, limit: 6 });
   }, [stock.id, schedulePriceHistoryLoad]);
 
   // Calculate price change
+  const meaningfulHistory = useMemo(() => {
+    const nonInit = stockHistory.filter(
+      (ph) => ph.price > 0 && !ph.id.startsWith("ph-init-")
+    );
+    if (nonInit.length >= 2) return nonInit;
+    const nonZero = stockHistory.filter((ph) => ph.price > 0);
+    return nonZero.length >= 2 ? nonZero : stockHistory;
+  }, [stockHistory]);
+
   const latestPrice =
-    stock.currentPrice > 0 ? stock.currentPrice : stockHistory.at(-1)?.price;
+    stock.currentPrice > 0
+      ? stock.currentPrice
+      : meaningfulHistory.at(-1)?.price;
   const previousPrice =
-    stockHistory.length >= 2
-      ? stockHistory[stockHistory.length - 2]?.price
-      : stockHistory.at(-1)?.price ?? latestPrice;
+    meaningfulHistory.length >= 2
+      ? meaningfulHistory[meaningfulHistory.length - 2]?.price
+      : meaningfulHistory.at(-1)?.price ?? latestPrice;
 
   const priceChange =
     latestPrice !== undefined && previousPrice !== undefined

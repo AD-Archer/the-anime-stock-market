@@ -53,11 +53,7 @@ export const stockService = {
       // Server-side logging to aid debugging when frontend shows no stocks
       if (typeof window === "undefined") {
         try {
-          console.log(
-            `[stockService.getAll] Retrieved ${response.documents.length} stock documents from Appwrite (db=${dbId}, collection=${STOCKS_COLLECTION})`
-          );
           const sample = response.documents.slice(0, 5).map((d: any) => d.$id);
-          console.log("[stockService.getAll] Sample IDs:", sample);
         } catch (err) {
           console.warn(
             "[stockService.getAll] Failed to log response summary:",
@@ -95,14 +91,7 @@ export const stockService = {
 
       if (typeof window === "undefined") {
         try {
-          console.log(
-            `[stockService.getById] Fetched stock id=${id} from db=${dbId}`
-          );
-          console.log("[stockService.getById] Raw doc sample:", {
-            $id: (response as any).$id,
-            characterName: (response as any).characterName,
-            anilistCharacterId: (response as any).anilistCharacterId,
-          });
+          // Logging removed for production
         } catch (err) {
           console.warn(
             "[stockService.getById] Failed to log response summary:",
@@ -127,8 +116,7 @@ export const stockService = {
       const dbId = ensureDatabaseIdAvailable();
       // Assign a sequential character number if not provided
       const characterNumber =
-        data.characterNumber ??
-        (await metadataService.nextCharacterNumber());
+        data.characterNumber ?? (await metadataService.nextCharacterNumber());
 
       const response = await databases.createDocument(
         dbId,
@@ -233,7 +221,6 @@ export const stockService = {
       const actualCount =
         count !== undefined ? count : (await this.getAll()).length;
       await metadataService.setStockCount(actualCount);
-      console.log(`Initialized stock count metadata: ${actualCount}`);
     } catch (error) {
       console.error("Failed to initialize stock count:", error);
       throw error;

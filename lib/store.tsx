@@ -78,6 +78,10 @@ import type { StoreState } from "./store/types";
 import type { User, Transaction, PriceHistory } from "./types";
 import { DEFAULT_PREMIUM_META } from "./premium";
 import { generateDisplaySlug } from "./usernames";
+import { debugPriceHistory } from "./debug/price-history";
+
+const DEBUG_PRICE_HISTORY =
+  process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
 
 export const useStore = create<StoreState>((set, get) => {
   const notificationActions = createNotificationActions({
@@ -264,6 +268,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             transactionsData.length > 0
               ? transactionsData
               : initialTransactions,
+          // Synthetic boot history (ph-init-*) so UI can render before DB history loads.
           priceHistory:
             stocksData.length > 0
               ? stocksData.map((s) => ({
@@ -577,6 +582,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       });
 
+      if (DEBUG_PRICE_HISTORY) {
+        const changes: Array<{
+          stockId: string;
+          prev: number;
+          next: number;
+          historyId: string;
+          timestamp: string;
+        }> = [];
+        state.stocks.forEach((stock) => {
+          const latest = latestByStock.get(stock.id);
+          if (latest && latest.price !== stock.currentPrice) {
+            changes.push({
+              stockId: stock.id,
+              prev: stock.currentPrice,
+              next: latest.price,
+              historyId: latest.id,
+              timestamp: latest.timestamp.toISOString(),
+            });
+          }
+        });
+        if (changes.length > 0) {
+          console.info("[price_history.merge]", {
+            count: changes.length,
+            sample: changes.slice(0, 5),
+          });
+          debugPriceHistory("merge", {
+            count: changes.length,
+            sample: changes.slice(0, 5),
+            totalHistory: mergedList.length,
+          });
+        }
+      }
+
       return {
         priceHistory: mergedList,
         stocks: state.stocks.map((s) => {
@@ -594,6 +632,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stockId,
           2
         );
+        if (DEBUG_PRICE_HISTORY) {
+          console.info("[price_history.refresh]", {
+            stockId,
+            returned: latest.length,
+            prices: latest.map((entry) => entry.price),
+          });
+        }
         mergePriceHistory(latest);
       } catch (error) {
         console.warn("Failed to refresh price history:", error);

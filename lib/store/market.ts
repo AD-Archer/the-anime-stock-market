@@ -70,6 +70,9 @@ const applyPriceImpact = (stock: Stock, sharesDelta: number): number => {
   return Math.max(0.01, Number(newPrice.toFixed(2)));
 };
 
+const DEBUG_PRICE_HISTORY =
+  process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
+
 export function createMarketActions({
   setState,
   getState,
@@ -293,12 +296,73 @@ export function createMarketActions({
     });
   };
 
-  const getLastKnownPrice = (stockId: string): number | null => {
+  const getLastKnownEntry = (stockId: string): PriceHistory | null => {
     const history = getState().priceHistory
       .filter((ph) => ph.stockId === stockId)
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    const last = history.at(-1)?.price;
+    return history.at(-1) ?? null;
+  };
+
+  const getLastKnownPrice = (stockId: string): number | null => {
+    const last = getLastKnownEntry(stockId)?.price;
     return last && last > 0 ? last : null;
+  };
+
+  // Price history entries are persisted for every real price change.
+  // Note: "ph-init-*" entries are synthetic client boot data and should not
+  // block persisting a real "previous" price when the first trade happens.
+  const buildPriceHistoryEntries = (
+    stockId: string,
+    previousPrice: number,
+    nextPrice: number
+  ): PriceHistory[] => {
+    const now = new Date();
+    const entries: PriceHistory[] = [];
+    const lastEntry = getLastKnownEntry(stockId);
+    const lastKnown = lastEntry?.price ?? null;
+    const hasPersistedHistory = lastEntry
+      ? !lastEntry.id.startsWith("ph-init-")
+      : false;
+
+    if (
+      previousPrice > 0 &&
+      (!hasPersistedHistory ||
+        !lastKnown ||
+        Math.abs(lastKnown - previousPrice) > 0.0001)
+    ) {
+      entries.push({
+        id: uuidv4(),
+        stockId,
+        price: previousPrice,
+        timestamp: new Date(now.getTime() - 1),
+      });
+    }
+
+    if (nextPrice > 0 && Math.abs(nextPrice - previousPrice) > 0.0001) {
+      entries.push({
+        id: uuidv4(),
+        stockId,
+        price: nextPrice,
+        timestamp: now,
+      });
+    }
+
+    if (DEBUG_PRICE_HISTORY) {
+      console.info("[price_history.build]", {
+        stockId,
+        previousPrice,
+        nextPrice,
+        lastKnown,
+        hasPersistedHistory,
+        entries: entries.map((entry) => ({
+          id: entry.id,
+          price: entry.price,
+          timestamp: entry.timestamp.toISOString(),
+        })),
+      });
+    }
+
+    return entries;
   };
 
   const checkAwards = async (userId: string) => {
@@ -435,6 +499,11 @@ export function createMarketActions({
         ? stock
         : { ...stock, currentPrice: basePrice };
     const newPrice = applyPriceImpact(pricedStock, shares);
+    const historyEntries = buildPriceHistoryEntries(
+      stockId,
+      pricedStock.currentPrice,
+      newPrice
+    );
     const executionPrice = newPrice;
     const totalCost = executionPrice * shares;
     if (currentUser.balance < totalCost) return false;
@@ -457,17 +526,11 @@ export function createMarketActions({
         : s
     );
     setState({ stocks: updatedStocks });
-    setState((state) => ({
-      priceHistory: [
-        ...state.priceHistory,
-        {
-          id: uuidv4(),
-          stockId,
-          price: newPrice,
-          timestamp: new Date(),
-        },
-      ],
-    }));
+    if (historyEntries.length > 0) {
+      setState((state) => ({
+        priceHistory: [...state.priceHistory, ...historyEntries],
+      }));
+    }
 
     const newTransaction: Transaction = {
       id: generateShortId(),
@@ -514,13 +577,6 @@ export function createMarketActions({
     }
 
     try {
-      const priceHistoryEntry = {
-        id: uuidv4(),
-        stockId,
-        price: newPrice,
-        timestamp: new Date(),
-      };
-
       // For existing portfolio, query DB to get the actual document ID
       let portfolioPromise: Promise<any>;
       if (existingPortfolio) {
@@ -562,10 +618,9 @@ export function createMarketActions({
         }),
         portfolioPromise,
         transactionService.create(newTransaction),
-        priceHistoryService.create(priceHistoryEntry),
+        ...historyEntries.map((entry) => priceHistoryService.create(entry)),
       ]);
       setState((state) => ({
-        priceHistory: [...state.priceHistory, priceHistoryEntry],
         stocks: state.stocks.map((s) =>
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
         ),
@@ -650,6 +705,11 @@ export function createMarketActions({
         ? stock
         : { ...stock, currentPrice: basePrice };
     const newPrice = applyPriceImpact(pricedStock, -shares);
+    const historyEntries = buildPriceHistoryEntries(
+      stockId,
+      pricedStock.currentPrice,
+      newPrice
+    );
     const executionPrice = newPrice;
     const totalRevenue = executionPrice * shares;
 
@@ -674,6 +734,12 @@ export function createMarketActions({
         : s
     );
     setState({ stocks: updatedStocks });
+
+    if (historyEntries.length > 0) {
+      setState((state) => ({
+        priceHistory: [...state.priceHistory, ...historyEntries],
+      }));
+    }
 
     const newTransaction: Transaction = {
       id: generateShortId(),
@@ -726,13 +792,6 @@ export function createMarketActions({
           ? portfolioService.delete(dbPortfolio.id)
           : Promise.resolve();
 
-      const priceHistoryEntry = {
-        id: uuidv4(),
-        stockId,
-        price: newPrice,
-        timestamp: new Date(),
-      };
-
       await Promise.all([
         stockService.update(stockId, {
           availableShares: stock.availableShares + shares,
@@ -743,17 +802,10 @@ export function createMarketActions({
         }),
         portfolioPromise,
         transactionService.create(newTransaction),
-        priceHistoryService.create({
-          ...priceHistoryEntry,
-          price: newPrice,
-        }),
+        ...historyEntries.map((entry) => priceHistoryService.create(entry)),
       ]);
 
       setState((state) => ({
-        priceHistory: [
-          ...state.priceHistory,
-          { ...priceHistoryEntry, price: newPrice },
-        ],
         stocks: state.stocks.map((s) =>
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
         ),
@@ -1709,6 +1761,7 @@ export function createMarketActions({
       return { stockId: stock.id, updatedPrice };
     });
 
+    // Drift persists price history alongside stock updates to keep % change consistent.
     const priceHistoryEntries = stockUpdates.map((update) => ({
       id: uuidv4(),
       stockId: update.stockId,

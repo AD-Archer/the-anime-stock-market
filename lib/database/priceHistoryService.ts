@@ -8,9 +8,14 @@ import {
   normalizePayload,
   ensureDatabaseIdAvailable,
 } from "./utils";
+import { debugPriceHistory } from "../debug/price-history";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
+const DEBUG_PRICE_HISTORY =
+  process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
 
+// All server/client price changes should persist via this service to keep
+// history consistent across refreshes and % change calculations.
 export const priceHistoryService = {
   async getAll(): Promise<PriceHistory[]> {
     try {
@@ -61,20 +66,47 @@ export const priceHistoryService = {
       let offset = 0;
 
       while (entries.length < safeLimit) {
-        const response = await databases.listDocuments(
-          dbId,
-          PRICE_HISTORY_COLLECTION,
-          [
-            Query.equal("stockId", stockId),
-            Query.orderDesc("timestamp"),
-            Query.limit(Math.min(pageSize, safeLimit - entries.length)),
-            Query.offset(offset),
-          ]
-        );
+        let response;
+        try {
+          response = await databases.listDocuments(
+            dbId,
+            PRICE_HISTORY_COLLECTION,
+            [
+              Query.equal("stockId", stockId),
+              Query.orderDesc("timestamp"),
+              Query.limit(Math.min(pageSize, safeLimit - entries.length)),
+              Query.offset(offset),
+            ]
+          );
+        } catch (error) {
+          response = await databases.listDocuments(
+            dbId,
+            PRICE_HISTORY_COLLECTION,
+            [
+              Query.equal("stockId", stockId),
+              Query.orderDesc("$createdAt"),
+              Query.limit(Math.min(pageSize, safeLimit - entries.length)),
+              Query.offset(offset),
+            ]
+          );
+        }
         entries.push(...response.documents.map(mapPriceHistory));
         if (response.documents.length < pageSize) break;
         offset += pageSize;
       }
+
+      if (DEBUG_PRICE_HISTORY) {
+        console.info("[price_history.getByStockId]", {
+          stockId,
+          limit: safeLimit,
+          returned: entries.length,
+        });
+      }
+      debugPriceHistory("getByStockId", {
+        stockId,
+        limit: safeLimit,
+        returned: entries.length,
+      });
 
       return entries;
     } catch (error) {
@@ -93,16 +125,42 @@ export const priceHistoryService = {
     try {
       const dbId = ensureDatabaseIdAvailable();
       const safeLimit = Math.max(1, Math.min(limit, 100));
-      const response = await databases.listDocuments(
-        dbId,
-        PRICE_HISTORY_COLLECTION,
-        [
-          Query.equal("stockId", stockId),
-          Query.orderDesc("timestamp"),
-          Query.limit(safeLimit),
-        ]
-      );
-      return response.documents.map(mapPriceHistory);
+      let response;
+      try {
+        response = await databases.listDocuments(
+          dbId,
+          PRICE_HISTORY_COLLECTION,
+          [
+            Query.equal("stockId", stockId),
+            Query.orderDesc("timestamp"),
+            Query.limit(safeLimit),
+          ]
+        );
+      } catch (error) {
+        response = await databases.listDocuments(
+          dbId,
+          PRICE_HISTORY_COLLECTION,
+          [
+            Query.equal("stockId", stockId),
+            Query.orderDesc("$createdAt"),
+            Query.limit(safeLimit),
+          ]
+        );
+      }
+      const mapped = response.documents.map(mapPriceHistory);
+      if (DEBUG_PRICE_HISTORY) {
+        console.info("[price_history.getLatestByStockId]", {
+          stockId,
+          limit: safeLimit,
+          returned: mapped.length,
+        });
+      }
+      debugPriceHistory("getLatestByStockId", {
+        stockId,
+        limit: safeLimit,
+        returned: mapped.length,
+      });
+      return mapped;
     } catch (error) {
       console.warn(
         "Failed to fetch latest price history for stock from database:",
@@ -123,7 +181,22 @@ export const priceHistoryService = {
         documentId,
         normalizePayload(data)
       );
-      return mapPriceHistory(response);
+      const mapped = mapPriceHistory(response);
+      if (DEBUG_PRICE_HISTORY) {
+        console.info("[price_history.create]", {
+          id: mapped.id,
+          stockId: mapped.stockId,
+          price: mapped.price,
+          timestamp: mapped.timestamp.toISOString(),
+        });
+      }
+      debugPriceHistory("create", {
+        id: mapped.id,
+        stockId: mapped.stockId,
+        price: mapped.price,
+        timestamp: mapped.timestamp.toISOString(),
+      });
+      return mapped;
     } catch (error) {
       console.warn("Failed to create price history in database:", error);
       throw error;
