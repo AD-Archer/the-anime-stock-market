@@ -227,7 +227,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         stocks.length > 0
           ? stocks.reduce((count, s) => count + (s.id === stock.id ? 1 : 0), 0)
           : 0;
-      const changeFrequency =
+      const changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] =
         stockTransactions > 100
           ? "daily"
           : stockTransactions > 10
