@@ -190,8 +190,7 @@ export default function DonatePage() {
                   className="text-left whitespace-normal"
                 >
                   If you donated, click here and enter the name you selected to
-                  use when donating so we can ping the admin without leaving
-                  this page.
+                  use when donating so we can ping the admin.
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
@@ -286,6 +285,35 @@ export default function DonatePage() {
           <p className="text-xs text-muted-foreground">
             Each anime or manga character addition consumes 25 characters from
             your daily quota. Duplicate characters are not counted
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            <strong>Note:</strong> This is a small project by me — donating
+            helps keep the site up and running.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            For contact info, visit{" "}
+            <a
+              href="https://www.adarcher.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              adarcher.app
+            </a>{" "}
+            — see my portfolio at{" "}
+            <a
+              href="https://www.antonioarcher.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              antonioarcher.com
+            </a>
+            .
           </p>
         </CardContent>
       </Card>

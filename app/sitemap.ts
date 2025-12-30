@@ -238,7 +238,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       return {
         url: `${baseUrl}/character/${stock.id}`,
         lastModified: stock.createdAt,
-        changeFrequency: changeFrequency as const,
+        changeFrequency: changeFrequency,
         priority,
         images: [
           stock.imageUrl?.startsWith("http")
