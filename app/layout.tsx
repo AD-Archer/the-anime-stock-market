@@ -46,16 +46,23 @@ const themeScript = `(function() {
   })();`;
 
 export const metadata: Metadata = {
-  title: "The Anime Stock Market",
-  description: "Trade your favorite anime characters",
+  title: "The Anime Stock Market - Trade Your Favorite Anime Characters",
+  description:
+    "Buy and sell stocks of your favorite anime characters. Experience a unique virtual stock market where character popularity drives prices. Join thousands of traders today!",
   keywords: [
-    "anime stock app",
-    "anime stock exchange",
     "anime stocks",
-    "trade anime characters",
-    "anime investment",
-    "anime market",
     "anime trading",
+    "anime characters",
+    "stock market simulation",
+    "anime investment game",
+    "buy anime stocks",
+    "trade anime characters",
+    "virtual stock exchange",
+    "anime market",
+    "character stocks",
+    "anime rankings",
+    "stock trading game",
+    "anime community",
   ],
   icons: {
     icon: defaultOg,
@@ -63,23 +70,47 @@ export const metadata: Metadata = {
     shortcut: defaultOg,
   },
   openGraph: {
-    title: "Anime Stock Market",
-    description: "Trade your favorite anime characters in real-time",
+    title: "The Anime Stock Market - Trade Your Favorite Characters",
+    description:
+      "Buy, sell, and trade stocks of popular anime characters. Watch prices move with real community activity!",
     url: baseUrl,
     siteName: "Anime Stock Market",
+    locale: "en_US",
+    type: "website",
     images: [
       {
         url: defaultOg,
-        alt: "Anime Stock Market Open Graph",
+        width: 1200,
+        height: 630,
+        alt: "Anime Stock Market - Trade Anime Characters",
       },
     ],
-    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Anime Stock Market",
+    description: "Trade your favorite anime characters",
+    images: [defaultOg],
   },
   manifest: "/icons/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "AnimeStock",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
   },
 };
 
@@ -92,8 +123,35 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "The Anime Stock Market",
+    description:
+      "A virtual stock market where you can trade stocks of your favorite anime characters",
+    url: baseUrl,
+    applicationCategory: "Game",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    image: defaultOg,
+    creator: {
+      "@type": "Organization",
+      name: "Anime Stock Market",
+      url: baseUrl,
+    },
+  };
+
   return (
     <html lang="en" suppressHydrationWarning={true}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
+      </head>
       <body className={`font-sans antialiased min-h-screen flex flex-col`}>
         <script
           suppressHydrationWarning

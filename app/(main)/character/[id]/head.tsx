@@ -10,19 +10,40 @@ export default async function Head({ params }: { params: { id: string } }) {
   let description = "Character page on Anime Stock Market.";
   let image = defaultOg;
   let url = `${siteUrl}/character/${id}`;
+  let keywords: string[] = [
+    "anime stocks",
+    "character stocks",
+    "anime stock market",
+  ];
 
   try {
     const { stockService } = await import("@/lib/database/stockService");
     const stock = await stockService.getById(id);
     if (stock) {
-      title = `${stock.characterName} | ${stock.anime} — Anime Stock Market`;
+      const { characterName, anime, description: stockDesc, imageUrl } = stock;
+
+      // Create SEO-friendly keywords including anime name
+      const seoPhrases = [
+        `${characterName} stock`,
+        `${characterName} stocks`,
+        `${anime} stocks`,
+        `${anime} stock market`,
+        `${characterName} from ${anime}`,
+        "anime stock market",
+        "character stocks",
+      ];
+
+      title = `${characterName} (${anime}) Stock - Buy & Trade | Anime Stock Market`;
       description =
-        (stock.description && stock.description.slice(0, 160)) ||
-        `Character page for ${stock.characterName} from ${stock.anime}.`;
-      if (stock.imageUrl) {
-        image = stock.imageUrl.startsWith("http")
-          ? stock.imageUrl
-          : `${siteUrl}${stock.imageUrl}`;
+        (stockDesc && stockDesc.slice(0, 160)) ||
+        `Trade ${characterName} stocks from ${anime}. Buy, sell, and invest in ${characterName} on the Anime Stock Market. Real-time price updates and trading.`;
+
+      keywords = Array.from(new Set(seoPhrases));
+
+      if (imageUrl) {
+        image = imageUrl.startsWith("http")
+          ? imageUrl
+          : `${siteUrl}${imageUrl}`;
       }
     }
   } catch (err) {
@@ -33,12 +54,13 @@ export default async function Head({ params }: { params: { id: string } }) {
     <>
       <title>{title}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={keywords.join(", ")} />
 
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
       <meta property="og:url" content={url} />
-      <meta property="og:type" content="article" />
+      <meta property="og:type" content="website" />
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />

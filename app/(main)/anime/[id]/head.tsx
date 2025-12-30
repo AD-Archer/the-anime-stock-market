@@ -16,6 +16,7 @@ export default async function Head({ params }: { params: { id: string } }) {
     "anime stock market",
     "anime stocks",
     "character stocks",
+    "stock trading game",
   ];
 
   try {
@@ -29,29 +30,28 @@ export default async function Head({ params }: { params: { id: string } }) {
 
     if (animeName) {
       const topCharacters = animeCharacters
-        .slice(0, 3)
+        .slice(0, 5)
         .map((s) => s.characterName);
 
-      title = `${animeName} stocks — Anime Stock Market`;
-
+      // Comprehensive SEO keywords including all variations
       const seoPhrases = [
         `${animeName} stocks`,
-        "anime stock market",
-        "character stocks",
+        `${animeName} stock market`,
+        `${animeName} stock trading`,
+        `buy ${animeName} stocks`,
+        `trade ${animeName} characters`,
+        `${animeName} character stocks`,
+        ...topCharacters.map((char) => `${char} stock`),
+        ...topCharacters.map((char) => `${char} from ${animeName}`),
       ];
 
-      if (topCharacters[0]) {
-        seoPhrases.push(
-          `${topCharacters[0]} stock market`,
-          `${topCharacters[0]} stock exchange`
-        );
-      }
+      title = `${animeName} Stocks - Buy & Trade Characters | Anime Stock Market`;
 
       const topCharsStr = topCharacters.join(", ");
 
-      description = `${animeName} stocks and character markets — trade ${
+      description = `${animeName} stocks and character markets - Trade ${
         topCharsStr || "popular characters"
-      } and more on Anime Stock Market. Keywords: ${seoPhrases.join(", ")}`;
+      } and more on Anime Stock Market. Buy, sell, and invest in ${animeName} characters with real-time price updates.`;
 
       keywords = Array.from(
         new Set([...keywords, ...seoPhrases, ...topCharacters])

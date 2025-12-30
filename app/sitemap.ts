@@ -221,28 +221,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const dynamicPages: MetadataRoute.Sitemap = [
-    ...stocks.map((stock) => ({
-      url: `${baseUrl}/anime/${stock.id}`,
-      lastModified: stock.createdAt,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-      images: [
-        stock.imageUrl?.startsWith("http")
-          ? stock.imageUrl
-          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
-      ],
-    })),
-    ...stocks.map((stock) => ({
-      url: `${baseUrl}/character/${stock.id}`,
-      lastModified: stock.createdAt,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-      images: [
-        stock.imageUrl?.startsWith("http")
-          ? stock.imageUrl
-          : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
-      ],
-    })),
+    ...stocks.map((stock) => {
+      // Calculate activity level for this stock
+      const stockTransactions =
+        stocks.length > 0
+          ? stocks.reduce((count, s) => count + (s.id === stock.id ? 1 : 0), 0)
+          : 0;
+      const changeFrequency =
+        stockTransactions > 100
+          ? "daily"
+          : stockTransactions > 10
+          ? "weekly"
+          : "monthly";
+      const priority = Math.min(0.8, 0.5 + (stockTransactions / 500) * 0.3);
+
+      return {
+        url: `${baseUrl}/character/${stock.id}`,
+        lastModified: stock.createdAt,
+        changeFrequency: changeFrequency as const,
+        priority,
+        images: [
+          stock.imageUrl?.startsWith("http")
+            ? stock.imageUrl
+            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
+        ],
+      };
+    }),
     ...users.map((user) => ({
       url: `${baseUrl}/users/${encodeURIComponent(
         (user as any).displaySlug || user.username

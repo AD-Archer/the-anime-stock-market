@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { BuyDialog } from "@/app/(main)/character/components/buy-dialog";
+import { StockBrowser } from "./components/stock-browser";
 import { MarketOverview } from "@/components/market-overview";
-import { TopStocksSection } from "./components/top-stocks-section";
 import { MarketDiscussion } from "./components/market-discussion";
-import { AllCharactersSection } from "./components/all-characters-section";
 import { ContentTag } from "@/lib/types";
-import { StockCard } from "@/components/stock-card";
 import { useRouter } from "next/navigation";
 
 export default function TradingPage() {
@@ -24,22 +22,7 @@ export default function TradingPage() {
     toggleCommentReaction,
   } = useStore();
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
-
-  // Sort stocks by market cap (price * total shares) descending
-  const sortedStocks = [...stocks].sort(
-    (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-  );
-
-  // All stocks for top section to sort properly
-  const allStocks = sortedStocks;
-
-  const filteredStocks = sortedStocks.filter(
-    (stock) =>
-      stock.characterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const marketComments = getMarketComments();
 
@@ -88,55 +71,38 @@ export default function TradingPage() {
 
   return (
     <div className="bg-background">
-      {/* Header moved to app layout */}
-
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
+        {/* Market Chart */}
+        <div className="mb-12">
           <MarketOverview />
         </div>
 
-        {/* Search Results or Top Characters */}
-        {searchQuery ? (
-          <div className="mb-8">
-            <h3 className="mb-4 text-xl font-semibold text-foreground">
-              Search Results ({filteredStocks.length})
-            </h3>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {filteredStocks.map((stock) => (
-                <StockCard
-                  key={stock.id}
-                  stock={stock}
-                  onBuy={() => handleBuy(stock.id)}
-                />
-              ))}
-            </div>
+        {/* Stock Browser - Main Trading Interface */}
+        <div className="mb-12">
+          <h2 className="text-3xl font-bold text-foreground mb-6">
+            Browse & Trade
+          </h2>
+          <StockBrowser stocks={stocks} onBuy={handleBuy} />
+        </div>
 
-            {filteredStocks.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No stocks found matching your search.
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <TopStocksSection topStocks={allStocks} onBuy={handleBuy} />
-        )}
-
-        <MarketDiscussion
-          currentUser={currentUser}
-          marketComments={marketComments}
-          users={users}
-          onAddComment={handleAddComment}
-          onAddReply={handleAddReply}
-          onEditComment={handleEditComment}
-          onDeleteComment={handleDeleteComment}
-          onReportComment={handleReportComment}
-          onToggleReaction={toggleCommentReaction}
-        />
-
-        <AllCharactersSection stocks={stocks} onBuy={handleBuy} />
+        {/* Community Discussion */}
+        <div className="mb-12">
+          <h2 className="text-3xl font-bold text-foreground mb-6">
+            Market Discussion
+          </h2>
+          <MarketDiscussion
+            currentUser={currentUser}
+            marketComments={marketComments}
+            users={users}
+            onAddComment={handleAddComment}
+            onAddReply={handleAddReply}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
+            onReportComment={handleReportComment}
+            onToggleReaction={toggleCommentReaction}
+          />
+        </div>
       </main>
 
       {/* Buy Dialog */}
