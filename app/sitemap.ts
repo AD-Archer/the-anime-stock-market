@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next";
-import { generateAnimeSlug } from "@/lib/utils";
+import { generateAnimeSlug, generateCharacterSlug } from "@/lib/utils";
 
 const canUseAppwrite = () =>
   Boolean(
@@ -11,6 +11,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
   const defaultOg = `${baseUrl}/icons/images.jpg`;
+
+  // Normalize image URLs (handle absolute, protocol-relative `//`, and relative paths)
+  function resolveImageUrl(
+    url: string | undefined | null,
+    baseUrl: string,
+    fallback: string
+  ): string {
+    if (!url) return fallback;
+    const trimmed = url.trim();
+    try {
+      // protocol-relative (//cdn.example.com/..)
+      if (trimmed.startsWith("//")) {
+        const proto = new URL(baseUrl).protocol || "https:";
+        return `${proto}${trimmed}`;
+      }
+      // already absolute with http/https
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    } catch (e) {
+      // If URL parsing fails, fall back to safe defaults
+      if (trimmed.startsWith("//")) return `https:${trimmed}`;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    }
+
+    // relative path -> prefix with baseUrl
+    return `${baseUrl.replace(/\/$/, "")}${
+      trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+    }`;
+  }
 
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -116,11 +144,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         topAnimePages = top.map((a) => {
           const s = stockBySlug.get(a.slug);
-          const image = s?.animeImageUrl
-            ? s.animeImageUrl.startsWith("http")
-              ? s.animeImageUrl
-              : `${baseUrl}${s.animeImageUrl}`
-            : defaultOg;
+          const image = resolveImageUrl(s?.animeImageUrl, baseUrl, defaultOg);
           return {
             url: `${baseUrl}/anime/${a.slug}`,
             lastModified: s?.createdAt || new Date(),
@@ -195,9 +219,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             stats.lastModified = created;
           }
           if (!stats.image && s.animeImageUrl) {
-            stats.image = s.animeImageUrl.startsWith("http")
-              ? s.animeImageUrl
-              : `${baseUrl}${s.animeImageUrl}`;
+            stats.image = resolveImageUrl(s.animeImageUrl, baseUrl, defaultOg);
           }
         }
 
@@ -235,16 +257,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           : "monthly";
       const priority = Math.min(0.8, 0.5 + (stockTransactions / 500) * 0.3);
 
+      const characterSlug =
+        stock.characterSlug ?? generateCharacterSlug(stock.characterName);
       return {
-        url: `${baseUrl}/character/${stock.id}`,
+        url: `${baseUrl}/character/${encodeURIComponent(characterSlug)}`,
         lastModified: stock.createdAt,
         changeFrequency: changeFrequency,
         priority,
-        images: [
-          stock.imageUrl?.startsWith("http")
-            ? stock.imageUrl
-            : `${baseUrl}${stock.imageUrl || ""}` || defaultOg,
-        ],
+        images: [resolveImageUrl(stock.imageUrl, baseUrl, defaultOg)],
       };
     }),
     ...users.map((user) => ({
@@ -259,5 +279,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Include top anime pages first so search engines see the most active anime
-  return [...staticPages, ...topAnimePages, ...dynamicPages];
+  // Also include a page for every anime derived from stocks (avoid duplicates)
+  const topSlugs = new Set(
+    topAnimePages.map((p) => p.url.replace(`${baseUrl}/anime/`, ""))
+  );
+  const allAnimePages: MetadataRoute.Sitemap = [];
+  const seen = new Set<string>();
+  for (const s of stocks) {
+    if (!s.anime) continue;
+    const slug = generateAnimeSlug(s.anime);
+    if (seen.has(slug) || topSlugs.has(slug)) {
+      seen.add(slug);
+      continue;
+    }
+    seen.add(slug);
+    const image = s.animeImageUrl
+      ? resolveImageUrl(s.animeImageUrl, baseUrl, defaultOg)
+      : defaultOg;
+    const lastModified = s.createdAt || new Date();
+    allAnimePages.push({
+      url: `${baseUrl}/anime/${slug}`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.7,
+      images: [image],
+    });
+  }
+
+  return [...staticPages, ...topAnimePages, ...allAnimePages, ...dynamicPages];
 }
