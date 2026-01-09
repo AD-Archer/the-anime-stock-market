@@ -2,15 +2,10 @@
 
 import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Stock, Transaction } from "@/lib/types";
 import { UserHeader } from "../components/user-header";
@@ -156,8 +151,8 @@ export default function PublicProfilePage({
   }, [getUserAwards, profileUser]);
 
   const [activeTab, setActiveTab] = useState<
-    "portfolio" | "history" | "settings"
-  >("portfolio");
+    "settings" | "history" | "portfolio"
+  >(isOwnProfile ? "settings" : "portfolio");
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -281,18 +276,16 @@ export default function PublicProfilePage({
   if (!profileUser) {
     return (
       <div className="container mx-auto px-4 py-12">
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg text-muted-foreground">User not found.</p>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-xl p-16 text-center">
+          <p className="text-lg text-muted-foreground">User not found.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8 space-y-8">
+      <div className="container mx-auto px-4 py-6 space-y-6">
         <UserHeader
           profileUser={profileUser}
           isOwnProfile={!!isOwnProfile}
@@ -339,56 +332,76 @@ export default function PublicProfilePage({
             onTabChange={setActiveTab}
           />
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Portfolio Visibility</CardTitle>
-              <CardDescription>
+          <div className="bg-card border border-border rounded-xl">
+            <div className="p-4 sm:p-6 border-b border-border">
+              <h2 className="text-lg font-semibold">Portfolio</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 {profileUser.isPortfolioPublic
-                  ? "Current holdings (if public) and performance."
-                  : "This user has chosen to keep their holdings private."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+                  ? "Public holdings and performance"
+                  : "This user keeps their holdings private"}
+              </p>
+            </div>
+            <div className="p-4 sm:p-6">
               {profileUser.isPortfolioPublic ? (
                 portfolioWithDetails.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No holdings available.
-                  </p>
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      No holdings available
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-4">
-                    {portfolioWithDetails.map((holding) => (
-                      <div
-                        key={holding.stockId}
-                        className="rounded border p-3 flex items-center justify-between"
-                      >
-                        <div>
-                          <CardTitle className="text-base font-semibold">
-                            {holding.stock.characterName}
-                          </CardTitle>
-                          <p className="text-xs text-muted-foreground">
-                            {holding.stock.anime}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {holding.shares} shares
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Value</p>
-                          <p className="text-lg font-bold">
-                            ${holding.currentValue.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {portfolioWithDetails.map((holding) => {
+                      const isProfit = holding.profitLoss >= 0;
+                      return (
+                        <Link
+                          key={holding.stockId}
+                          href={`/character/${
+                            holding.stock.characterSlug || holding.stock.id
+                          }`}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/30 transition-all"
+                        >
+                          <div className="relative h-12 w-12 overflow-hidden rounded-lg flex-shrink-0">
+                            <Image
+                              src={holding.stock.imageUrl || "/placeholder.svg"}
+                              alt={holding.stock.characterName}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">
+                              {holding.stock.characterName}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {holding.shares} shares
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-semibold text-foreground">
+                              ${holding.currentValue.toFixed(2)}
+                            </p>
+                            <p
+                              className={`text-xs ${
+                                isProfit ? "text-green-500" : "text-red-500"
+                              }`}
+                            >
+                              {isProfit ? "+" : ""}
+                              {holding.profitLossPercent.toFixed(1)}%
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Portfolio is private.
-                </p>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Portfolio is private</p>
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         <CommentsSection comments={userComments} stocks={stocks} />
@@ -396,9 +409,9 @@ export default function PublicProfilePage({
         {isOwnProfile && <FriendsList />}
 
         {!isOwnProfile && profileUser.hideTransactions && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 w-fit">
             <Badge variant="secondary">Private</Badge>
-            This user hides their transaction history.
+            This user hides their transaction history
           </div>
         )}
       </div>

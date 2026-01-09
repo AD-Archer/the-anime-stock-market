@@ -13,6 +13,7 @@ export const awardRedeemValues: Record<AwardType, number> = {
   comment_master: 50,
   social_butterfly: 50,
   welcome_bonus: 200,
+  verified_account: 100,
   admin_ally: 150,
   friend_network_5: 100,
   friend_network_10: 200,
@@ -31,6 +32,14 @@ export const awardDefinitions: Record<AwardType, AwardDefinition> = {
     icon: "coins",
     rarity: "common",
     redeemableValue: awardRedeemValues.welcome_bonus,
+  },
+  verified_account: {
+    type: "verified_account",
+    name: "Verified Account",
+    description: "Verified your email address",
+    icon: "shield-check",
+    rarity: "common",
+    redeemableValue: awardRedeemValues.verified_account,
   },
   first_trade: {
     type: "first_trade",

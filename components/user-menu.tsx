@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatarUrl, getUserInitials } from "@/lib/avatar";
 import { getUserProfileHref } from "@/lib/user-profile";
 import { getTierForMeta } from "@/lib/premium";
+import { awardRedeemValues } from "@/lib/award-definitions";
 import { Badge } from "@/components/ui/badge";
 import {
   User,
@@ -43,6 +44,7 @@ export function UserMenu() {
     markAllNotificationsRead,
     getDailyRewardInfo,
     messages,
+    getUserAwards,
   } = useStore();
   const isLoading = useStore((s) => s.isLoading);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -66,6 +68,10 @@ export function UserMenu() {
     (n) => !n.read
   ).length;
   const rewardInfo = getDailyRewardInfo();
+  const userAwards = currentUser ? getUserAwards(currentUser.id) : [];
+  const claimableAwards = userAwards.filter(
+    (award) => !award.redeemed && (awardRedeemValues[award.type] ?? 0) > 0
+  );
 
   // Calculate premium reward claimability
   const meta = currentUser?.premiumMeta;
@@ -81,6 +87,11 @@ export function UserMenu() {
     }
   }
 
+  const hasDailyReward = Boolean(rewardInfo?.canClaim);
+  const hasClaimableAwards = claimableAwards.length > 0;
+  const hasAnyReward =
+    hasDailyReward || hasClaimableAwards || canClaimPremiumReward;
+
   // Check for unread messages
   const unreadMessagesCount = currentUser
     ? messages.filter(
@@ -89,6 +100,7 @@ export function UserMenu() {
           !msg.readBy.includes(currentUser.id)
       ).length
     : 0;
+  const hasUnreadMessages = unreadMessagesCount > 0;
 
   if (!user || !currentUser) {
     return (
@@ -133,6 +145,12 @@ export function UserMenu() {
                 {initials}
               </AvatarFallback>
             </Avatar>
+            {hasAnyReward && (
+              <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-yellow-500 ring-2 ring-background" />
+            )}
+            {hasUnreadMessages && (
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-600 ring-2 ring-background" />
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -151,7 +169,7 @@ export function UserMenu() {
                 <Gift className="mr-2 h-4 w-4 text-yellow-600" />
                 <span className="font-semibold text-yellow-600">Rewards</span>
               </div>
-              {rewardInfo?.canClaim && (
+              {(hasDailyReward || hasClaimableAwards) && (
                 <Badge
                   variant="default"
                   className="ml-2 bg-yellow-600 hover:bg-yellow-700"
@@ -189,27 +207,9 @@ export function UserMenu() {
           <DropdownMenuItem asChild>
             <a href="/messages" className="flex items-center justify-between">
               <div className="flex items-center">
-                <MessageCircle
-                  className={`mr-2 h-4 w-4 ${
-                    unreadMessagesCount > 0 ? "text-blue-600" : ""
-                  }`}
-                />
-                <span
-                  className={`${
-                    unreadMessagesCount > 0 ? "font-semibold text-blue-600" : ""
-                  }`}
-                >
-                  Messages
-                </span>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                <span>Messages</span>
               </div>
-              {unreadMessagesCount > 0 && (
-                <Badge
-                  variant="default"
-                  className="ml-2 bg-blue-600 hover:bg-blue-700"
-                >
-                  {unreadMessagesCount}
-                </Badge>
-              )}
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

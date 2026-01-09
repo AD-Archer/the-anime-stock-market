@@ -125,7 +125,7 @@ export default function SignInPage() {
           <p className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             <ShieldCheck className="mr-1 h-4 w-4" /> Secure Appwrite Auth
           </p>
-          <h1 className="texxl font-bold text-foreground leading-tight">
+          <h1 className="text-4xl font-bold text-foreground leading-tight">
             Welcome back to Anime Stock Exchange
           </h1>
           <p className="text-muted-foreground text-lg">
@@ -189,7 +189,15 @@ export default function SignInPage() {
               </div>
             </div>
             <div className="space-y-2">
-            
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/auth/reset"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input

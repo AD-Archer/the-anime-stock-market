@@ -10,7 +10,18 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trophy, Award, Star, Crown, Target, Users, TrendingUp, MessageSquare, Coins } from "lucide-react";
+import {
+  Trophy,
+  Award,
+  Star,
+  Crown,
+  Target,
+  Users,
+  TrendingUp,
+  MessageSquare,
+  Coins,
+  ShieldCheck,
+} from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Award as AwardType, AwardType as AwardTypeEnum } from "@/lib/types";
 import { awardDefinitions } from "@/lib/award-definitions";
@@ -36,6 +47,8 @@ const getIcon = (iconName: string) => {
       return TrendingUp;
     case "message-square":
       return MessageSquare;
+    case "shield-check":
+      return ShieldCheck;
     default:
       return Award;
   }

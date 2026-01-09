@@ -41,6 +41,7 @@ import {
   COMMENTS_COLLECTION,
   FRIENDS_COLLECTION,
   NOTIFICATIONS_COLLECTION,
+  MESSAGES_COLLECTION,
   TRANSACTIONS_COLLECTION,
   STOCKS_COLLECTION,
   PRICE_HISTORY_COLLECTION,
@@ -52,6 +53,7 @@ import {
   mapNotification,
   mapPortfolio,
   mapPriceHistory,
+  mapMessage,
   mapTransaction,
   mapStock,
   mapDirectionalBet,
@@ -413,6 +415,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 .unlockAward(matchedUser.id, "welcome_bonus");
             }
 
+            // Reward verified accounts once the email is confirmed.
+            const hasVerifiedAccountAward = awardsData.some(
+              (a) => a.userId === matchedUser.id && a.type === "verified_account"
+            );
+            if (user?.emailVerification && !hasVerifiedAccountAward) {
+              await useStore
+                .getState()
+                .unlockAward(matchedUser.id, "verified_account");
+            }
+
             // Ensure early adopter is unlocked for accounts created before 2026-03-01
             const earlyAdopterDate = new Date("2026-03-01");
             const hasEarlyAdopter = awardsData.some(
@@ -705,6 +717,167 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
 
     return () => unsubscribe();
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const messagesUnsub = databases.client.subscribe(
+      `databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION}.documents`,
+      (response) => {
+        const event = response.events[0];
+        const document = response.payload as any;
+
+        if (event.includes("create") || event.includes("update")) {
+          const incoming = mapMessage(document);
+          useStore.setState((state) => {
+            const currentUserId = state.currentUser?.id;
+            if (!currentUserId) return state;
+
+            const participantIds = incoming.conversationId
+              .split("-")
+              .filter((id) => id);
+            if (!participantIds.includes(currentUserId)) return state;
+
+            const hasMessage = state.messages.some(
+              (message) => message.id === incoming.id
+            );
+            const nextMessages = hasMessage
+              ? state.messages.map((message) =>
+                  message.id === incoming.id ? incoming : message
+                )
+              : [...state.messages, incoming];
+
+            let nextConversations = state.conversations;
+            const existingConversation = state.conversations.find(
+              (conv) => conv.id === incoming.conversationId
+            );
+            const isLatest =
+              !existingConversation ||
+              incoming.createdAt.getTime() >=
+                existingConversation.updatedAt.getTime() ||
+              (existingConversation.lastMessage.timestamp.getTime() ===
+                incoming.createdAt.getTime() &&
+                existingConversation.lastMessage.senderId ===
+                  incoming.senderId);
+
+            if (existingConversation) {
+              if (isLatest) {
+                nextConversations = state.conversations.map((conv) =>
+                  conv.id === incoming.conversationId
+                    ? {
+                        ...conv,
+                        lastMessage: {
+                          content: incoming.content,
+                          senderId: incoming.senderId,
+                          timestamp: incoming.createdAt,
+                        },
+                        updatedAt: incoming.createdAt,
+                      }
+                    : conv
+                );
+              }
+            } else {
+              nextConversations = [
+                ...state.conversations,
+                {
+                  id: incoming.conversationId,
+                  participants: participantIds,
+                  lastMessage: {
+                    content: incoming.content,
+                    senderId: incoming.senderId,
+                    timestamp: incoming.createdAt,
+                  },
+                  createdAt: incoming.createdAt,
+                  updatedAt: incoming.createdAt,
+                },
+              ];
+            }
+
+            if (nextConversations !== state.conversations) {
+              nextConversations = [...nextConversations].sort(
+                (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+              );
+            }
+
+            return {
+              messages: nextMessages,
+              conversations: nextConversations,
+            };
+          });
+        } else if (event.includes("delete")) {
+          const deletedId = document.$id;
+          useStore.setState((state) => {
+            const currentUserId = state.currentUser?.id;
+            if (!currentUserId) return state;
+
+            const messageToDelete = state.messages.find(
+              (message) => message.id === deletedId
+            );
+            if (!messageToDelete) {
+              return {
+                messages: state.messages.filter(
+                  (message) => message.id !== deletedId
+                ),
+              };
+            }
+
+            const nextMessages = state.messages.filter(
+              (message) => message.id !== deletedId
+            );
+            const conversationId = messageToDelete.conversationId;
+            const remaining = nextMessages.filter(
+              (message) => message.conversationId === conversationId
+            );
+
+            let nextConversations = state.conversations;
+            if (remaining.length === 0) {
+              nextConversations = state.conversations.filter(
+                (conv) => conv.id !== conversationId
+              );
+            } else {
+              const latest = remaining.reduce((latestMessage, message) =>
+                message.createdAt.getTime() >
+                latestMessage.createdAt.getTime()
+                  ? message
+                  : latestMessage
+              );
+
+              nextConversations = state.conversations.map((conv) =>
+                conv.id === conversationId
+                  ? {
+                      ...conv,
+                      lastMessage: {
+                        content: latest.content,
+                        senderId: latest.senderId,
+                        timestamp: latest.createdAt,
+                      },
+                      updatedAt: latest.createdAt,
+                    }
+                  : conv
+              );
+            }
+
+            if (nextConversations !== state.conversations) {
+              nextConversations = [...nextConversations].sort(
+                (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+              );
+            }
+
+            return {
+              messages: nextMessages,
+              conversations: nextConversations,
+            };
+          });
+        }
+      }
+    );
+
+    return () => {
+      try {
+        messagesUnsub();
+      } catch {}
+    };
   }, [isLoading]);
 
   useEffect(() => {

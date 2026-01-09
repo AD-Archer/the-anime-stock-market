@@ -116,6 +116,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#2858ac",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -152,7 +155,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
         />
       </head>
-      <body className={`font-sans antialiased min-h-screen flex flex-col`}>
+      <body
+        className={`font-sans antialiased min-h-screen w-full overflow-x-hidden flex flex-col`}
+      >
         <script
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: themeScript }}
@@ -165,7 +170,7 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <AuthProvider>
-              <div className="pt-10 md:pt-14">
+              <div className="min-h-screen w-full pt-14 md:pt-[4.5rem]">
                 <StackedProviders>
                   <SiteStickyTicker />
                   {children}

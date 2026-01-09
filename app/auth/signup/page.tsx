@@ -9,7 +9,91 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { account } from "@/lib/appwrite/appwrite";
-import { UserPlus, Mail, Lock, IdCard, Loader2 } from "lucide-react";
+import {
+  UserPlus,
+  Mail,
+  Lock,
+  IdCard,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+
+// Password strength indicator
+function PasswordStrengthMeter({ password }: { password: string }) {
+  const getStrength = (pwd: string) => {
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[^a-zA-Z0-9]/.test(pwd)) score++;
+    return score;
+  };
+
+  const strength = getStrength(password);
+  const labels = ["Very Weak", "Weak", "Fair", "Strong", "Very Strong"];
+  const colors = [
+    "bg-red-500",
+    "bg-orange-500",
+    "bg-yellow-500",
+    "bg-lime-500",
+    "bg-green-500",
+  ];
+
+  if (!password) return null;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              i < strength ? colors[strength - 1] : "bg-muted"
+            }`}
+          />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Password strength: {labels[strength - 1] || "Too short"}
+      </p>
+    </div>
+  );
+}
+
+// Password requirements component
+function PasswordRequirements({ password }: { password: string }) {
+  const requirements = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "Contains a number", met: /\d/.test(password) },
+    {
+      label: "Contains uppercase & lowercase",
+      met: /[a-z]/.test(password) && /[A-Z]/.test(password),
+    },
+  ];
+
+  if (!password) return null;
+
+  return (
+    <div className="space-y-1 mt-2">
+      {requirements.map((req, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          {req.met ? (
+            <CheckCircle className="h-3 w-3 text-green-500" />
+          ) : (
+            <XCircle className="h-3 w-3 text-muted-foreground" />
+          )}
+          <span
+            className={req.met ? "text-green-500" : "text-muted-foreground"}
+          >
+            {req.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -49,13 +133,30 @@ export default function SignUpPage() {
       );
       return;
     }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setLoading(true);
     try {
       await signUp(name.trim() || email.split("@")[0], email.trim(), password);
       router.push("/market");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sign up failed", err);
-      setError("Could not create account. Please try again.");
+      const message = err?.message || "";
+      if (message.includes("already") || message.includes("exists")) {
+        setError(
+          "An account with this email already exists. Please sign in instead."
+        );
+      } else if (message.includes("password") || message.includes("Password")) {
+        setError(
+          "Password must be at least 8 characters with numbers and letters."
+        );
+      } else if (message.includes("email") || message.includes("Email")) {
+        setError("Please enter a valid email address.");
+      } else {
+        setError("Could not create account. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -153,8 +254,11 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="pl-10"
+                  minLength={8}
                 />
               </div>
+              <PasswordStrengthMeter password={password} />
+              <PasswordRequirements password={password} />
             </div>
             {error && (
               <p className="text-sm text-destructive" role="alert">

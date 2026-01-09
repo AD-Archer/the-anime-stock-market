@@ -419,14 +419,14 @@ export default function MessagesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Conversations List */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
               Conversations
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 flex-1 min-h-0 max-h-[45vh] overflow-y-auto lg:max-h-none lg:overflow-visible">
             {isLoadingConversations ? (
               <div className="p-6 text-center text-muted-foreground">
                 <p>Loading conversations...</p>
@@ -534,7 +534,7 @@ export default function MessagesPage() {
         </Card>
 
         {/* Messages View */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 flex flex-col min-h-[60vh] lg:min-h-[32rem]">
           {selectedConversation && otherParticipant ? (
             <>
               <CardHeader className="flex flex-row items-center gap-4">
@@ -563,7 +563,7 @@ export default function MessagesPage() {
                   </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="flex flex-col h-96">
+              <CardContent className="flex flex-col flex-1 min-h-0">
                 <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4">
                   {conversationMessages.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
@@ -634,7 +634,7 @@ export default function MessagesPage() {
                                 </Link>
                               )}
                               <div
-                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                className={`max-w-[85%] sm:max-w-sm lg:max-w-md px-4 py-2 rounded-lg ${
                                   isFromMe
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted"
@@ -839,7 +839,7 @@ export default function MessagesPage() {
               </CardContent>
             </>
           ) : (
-            <div className="flex items-center justify-center h-96">
+            <div className="flex flex-1 items-center justify-center min-h-[50vh] p-6">
               <div className="text-center text-muted-foreground">
                 <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-medium mb-2">

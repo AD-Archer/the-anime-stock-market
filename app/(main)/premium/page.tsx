@@ -979,7 +979,7 @@ export default function PremiumPage() {
               <Link href="/donate">
                 <Button>Donate / Upgrade</Button>
               </Link>
-              <Link href="/messages">
+              <Link href="/support">
                 <Button variant="outline">Ask about premium</Button>
               </Link>
             </div>

@@ -24,6 +24,34 @@ type AuthUser = {
   id: string;
   email: string;
   name?: string | null;
+  emailVerification?: boolean;
+};
+
+export type SessionInfo = {
+  id: string;
+  provider: string;
+  providerUid: string;
+  ip: string;
+  osName: string;
+  osVersion: string;
+  clientType: string;
+  clientName: string;
+  deviceName: string;
+  deviceBrand: string;
+  deviceModel: string;
+  countryName: string;
+  current: boolean;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+export type IdentityInfo = {
+  id: string;
+  provider: string;
+  providerUid: string;
+  providerEmail: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type AuthContextValue = {
@@ -46,6 +74,24 @@ type AuthContextValue = {
   }) => Promise<void>;
   getLinkedProviders: () => Promise<string[]>;
   unlinkProvider: (providerId: string) => Promise<void>;
+  // New enhanced auth methods
+  linkGoogle: () => Promise<void>;
+  updateEmail: (newEmail: string, password: string) => Promise<void>;
+  sendEmailVerification: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  getSessions: () => Promise<SessionInfo[]>;
+  deleteSession: (sessionId: string) => Promise<void>;
+  deleteAllOtherSessions: () => Promise<void>;
+  getIdentities: () => Promise<IdentityInfo[]>;
+  getAccountDetails: () => Promise<{
+    email: string;
+    emailVerification: boolean;
+    name: string;
+    passwordUpdate: Date | null;
+    registration: Date;
+    status: boolean;
+    mfa: boolean;
+  } | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -55,6 +101,7 @@ function mapAccountUser(user: Models.User<Models.Preferences>): AuthUser {
     id: user.$id,
     email: user.email,
     name: user.name,
+    emailVerification: user.emailVerification,
   };
 }
 
@@ -405,13 +452,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUser();
       },
       signUp: async (name, email, password) => {
+        const newUserId = ID.unique();
         await account.create({
-          userId: ID.unique(),
+          userId: newUserId,
           email,
           password,
           name,
         });
         await account.createEmailPasswordSession(email, password);
+        // Mark that this user has a password (signed up with email/password)
+        try {
+          await userService.update(newUserId, { hasPassword: true });
+        } catch (err) {
+          // User doc may not exist yet, will be created in fetchUser -> ensureUserDocument
+          console.warn(
+            "Could not set hasPassword immediately, will be set in ensureUserDocument"
+          );
+        }
         await fetchUser();
       },
       signOut: async () => {
@@ -534,8 +591,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return false;
           }
 
-          // Check the user document in the database for hasPassword flag
+          const { ensureAppwriteInitialized } = await import(
+            "./appwrite/appwrite"
+          );
+          await ensureAppwriteInitialized();
+
+          // First check the database flag
           const userDoc = await userService.getById(user.id);
+          if (userDoc?.hasPassword === true) {
+            return true;
+          }
+
+          // If database says no password, double-check by looking at identities
+          // If user has NO OAuth identities, they must have signed up with email/password
+          try {
+            const identities = await account.listIdentities();
+            const hasOAuthIdentities = identities.identities.length > 0;
+
+            // If no OAuth identities exist, user must have a password
+            if (!hasOAuthIdentities) {
+              // Update the database flag for next time
+              await userService.update(user.id, { hasPassword: true });
+              return true;
+            }
+          } catch (identityError) {
+            console.warn("Failed to check identities:", identityError);
+          }
+
           return userDoc?.hasPassword ?? false;
         } catch (error) {
           console.warn("Failed to check password status:", error);
@@ -590,6 +672,198 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         await account.deleteIdentity(providerId);
         await fetchUser(); // Refresh user data
+      },
+      // Link Google account to existing account
+      linkGoogle: async () => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const origin = window.location.origin;
+        // When linking, we add ?link=true to distinguish from sign-in
+        const success = `${origin}/auth/oauth/callback?link=true`;
+        const failure = `${origin}/api/oauth/failure?action=link`;
+
+        await account.createOAuth2Token({
+          provider: OAuthProvider.Google,
+          success,
+          failure,
+          scopes: ["openid", "email", "profile"],
+        });
+      },
+      // Update user email (requires password for security)
+      updateEmail: async (newEmail: string, password: string) => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        await account.updateEmail({ email: newEmail, password });
+
+        // Update the email in our database as well
+        if (user?.id) {
+          await userService.update(user.id, { email: newEmail });
+        }
+
+        await fetchUser();
+      },
+      // Send email verification link
+      sendEmailVerification: async () => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const origin = window.location.origin;
+        const url = `${origin}/auth/verify/callback`;
+
+        try {
+          await account.createVerification({ url });
+        } catch (error: any) {
+          const rawMessage = error?.message || "";
+          console.error(
+            "sendEmailVerification failed:",
+            rawMessage,
+            "URL:",
+            url
+          );
+
+          if (
+            rawMessage.includes("URL") ||
+            rawMessage.includes("hostname") ||
+            rawMessage.includes("platform")
+          ) {
+            throw new Error(
+              `Email verification failed: The URL "${url}" is not whitelisted in Appwrite. Please add your domain to Auth > Security > Hostname in the Appwrite Console.`
+            );
+          }
+          throw error;
+        }
+      },
+      // Request password reset email
+      requestPasswordReset: async (email: string) => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const origin = window.location.origin;
+        const url = `${origin}/auth/reset/callback`;
+
+        try {
+          await account.createRecovery({ email, url });
+        } catch (error: any) {
+          const rawMessage = error?.message || "";
+          console.error(
+            "requestPasswordReset failed:",
+            rawMessage,
+            "URL:",
+            url
+          );
+
+          if (
+            rawMessage.includes("URL") ||
+            rawMessage.includes("hostname") ||
+            rawMessage.includes("platform")
+          ) {
+            throw new Error(
+              `Password reset failed: The URL "${url}" is not whitelisted in Appwrite. Please add your domain to Auth > Security > Hostname in the Appwrite Console.`
+            );
+          }
+          throw error;
+        }
+      },
+      // Get all active sessions
+      getSessions: async (): Promise<SessionInfo[]> => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const sessions = await account.listSessions();
+        return sessions.sessions.map((session) => ({
+          id: session.$id,
+          provider: session.provider,
+          providerUid: session.providerUid,
+          ip: session.ip,
+          osName: session.osName,
+          osVersion: session.osVersion,
+          clientType: session.clientType,
+          clientName: session.clientName,
+          deviceName: session.deviceName,
+          deviceBrand: session.deviceBrand,
+          deviceModel: session.deviceModel,
+          countryName: session.countryName,
+          current: session.current,
+          createdAt: new Date(session.$createdAt),
+          expiresAt: new Date(session.expire),
+        }));
+      },
+      // Delete a specific session
+      deleteSession: async (sessionId: string) => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        await account.deleteSession({ sessionId });
+      },
+      // Delete all sessions except current
+      deleteAllOtherSessions: async () => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const sessions = await account.listSessions();
+        const deletePromises = sessions.sessions
+          .filter((session) => !session.current)
+          .map((session) => account.deleteSession({ sessionId: session.$id }));
+
+        await Promise.all(deletePromises);
+      },
+      // Get all linked identities (OAuth providers)
+      getIdentities: async (): Promise<IdentityInfo[]> => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        const identities = await account.listIdentities();
+        return identities.identities.map((identity) => ({
+          id: identity.$id,
+          provider: identity.provider,
+          providerUid: identity.providerUid,
+          providerEmail: identity.providerEmail,
+          createdAt: new Date(identity.$createdAt),
+          updatedAt: new Date(identity.$updatedAt),
+        }));
+      },
+      // Get detailed account information
+      getAccountDetails: async () => {
+        const { ensureAppwriteInitialized } = await import(
+          "./appwrite/appwrite"
+        );
+        await ensureAppwriteInitialized();
+
+        try {
+          const accountData = await account.get();
+          return {
+            email: accountData.email,
+            emailVerification: accountData.emailVerification,
+            name: accountData.name,
+            passwordUpdate: accountData.passwordUpdate
+              ? new Date(accountData.passwordUpdate)
+              : null,
+            registration: new Date(accountData.registration),
+            status: accountData.status,
+            mfa: accountData.mfa,
+          };
+        } catch (error) {
+          console.warn("Failed to get account details:", error);
+          return null;
+        }
       },
     }),
     [user, loading, fetchUser]

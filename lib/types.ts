@@ -375,6 +375,7 @@ export type AwardType =
   | "comment_master"
   | "social_butterfly"
   | "welcome_bonus"
+  | "verified_account"
   | "admin_ally"
   | "friend_network_5"
   | "friend_network_10"
