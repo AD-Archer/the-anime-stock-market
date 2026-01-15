@@ -84,8 +84,8 @@ export default function PasswordResetRequestPage() {
               Reset Password
             </h2>
             <p className="text-sm text-muted-foreground">
-              Enter your email address and we'll send you a link to reset your
-              password.
+              Enter your email address and we&apos;ll send you a link to reset
+              your password.
             </p>
           </div>
 
@@ -172,7 +172,7 @@ export default function PasswordResetRequestPage() {
 
         {/* Additional help text */}
         <p className="text-center text-xs text-muted-foreground mt-4">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/auth/signup" className="text-primary hover:underline">
             Sign up
           </Link>

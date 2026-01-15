@@ -94,7 +94,7 @@ export default function AnimePage() {
         </div>
 
         {/* Anime Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-2 lg:grid-cols-3">
           {animeList.map((anime) => (
             <Link key={anime.id} href={`/anime/${anime.id}`}>
               <Card className="overflow-hidden transition-all hover:shadow-lg">

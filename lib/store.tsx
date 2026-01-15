@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { create } from "zustand";
 import { useAuth } from "./auth";
 import {
@@ -21,7 +21,7 @@ import {
   initialCharacterSuggestions,
   initialDirectionalBets,
 } from "./data";
-import { databases } from "./appwrite/appwrite";
+import { databases, ensureAppwriteInitialized } from "./appwrite/appwrite";
 import {
   buybackOfferService,
   commentService,
@@ -76,14 +76,14 @@ import { createAwardActions } from "./store/awards";
 import { createFriendActions } from "./store/friends";
 import { createDailyRewardActions } from "./store/daily-rewards";
 import { createSuggestionActions } from "./store/suggestions";
+import { getRuntimeDatabaseId } from "./database/utils";
 import type { StoreState } from "./store/types";
 import type { User, Transaction, PriceHistory } from "./types";
 import { DEFAULT_PREMIUM_META } from "./premium";
 import { generateDisplaySlug } from "./usernames";
 import { debugPriceHistory } from "./debug/price-history";
 
-const DEBUG_PRICE_HISTORY =
-  process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
+const DEBUG_PRICE_HISTORY = process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
 
 export const useStore = create<StoreState>((set, get) => {
   const notificationActions = createNotificationActions({
@@ -173,6 +173,28 @@ export const useStore = create<StoreState>((set, get) => {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const isLoading = useStore((state) => state.isLoading);
+
+  const pendingDirectionalBetsUpdatesRef = useRef<Map<string, any>>(new Map());
+  const directionalBetsDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [runtimeDatabaseId, setRuntimeDatabaseId] = useState<string | undefined>(
+    getRuntimeDatabaseId()
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    ensureAppwriteInitialized().then(() => {
+      if (cancelled) return;
+      const runtimeId = getRuntimeDatabaseId();
+      if (runtimeId) {
+        setRuntimeDatabaseId(runtimeId);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Hydrate drift state from localStorage so we don't apply drift multiple times per real day on reload and honor admin toggle.
   useEffect(() => {
@@ -417,7 +439,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
             // Reward verified accounts once the email is confirmed.
             const hasVerifiedAccountAward = awardsData.some(
-              (a) => a.userId === matchedUser.id && a.type === "verified_account"
+              (a) =>
+                a.userId === matchedUser.id && a.type === "verified_account"
             );
             if (user?.emailVerification && !hasVerifiedAccountAward) {
               await useStore
@@ -640,10 +663,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const refreshPriceHistoryForStock = useCallback(
     async (stockId: string) => {
       try {
-        const latest = await priceHistoryService.getLatestByStockId(
-          stockId,
-          2
-        );
+        const latest = await priceHistoryService.getLatestByStockId(stockId, 2);
         if (DEBUG_PRICE_HISTORY) {
           console.info("[price_history.refresh]", {
             stockId,
@@ -665,53 +685,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const unsubscribe = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${COMMENTS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create")) {
-          const newComment = mapComment(document);
-          useStore.setState((state) => {
-            const existingIndex = state.comments.findIndex(
-              (c) =>
-                c.id === newComment.id ||
-                (c.id.startsWith("temp-") &&
-                  c.userId === newComment.userId &&
-                  c.content === newComment.content &&
-                  c.animeId === newComment.animeId &&
-                  c.parentId === newComment.parentId &&
-                  Math.abs(
-                    c.timestamp.getTime() - newComment.timestamp.getTime()
-                  ) < 10000)
-            );
+          if (event.includes("create")) {
+            const newComment = mapComment(document);
+            useStore.setState((state) => {
+              const existingIndex = state.comments.findIndex(
+                (c) =>
+                  c.id === newComment.id ||
+                  (c.id.startsWith("temp-") &&
+                    c.userId === newComment.userId &&
+                    c.content === newComment.content &&
+                    c.animeId === newComment.animeId &&
+                    c.parentId === newComment.parentId &&
+                    Math.abs(
+                      c.timestamp.getTime() - newComment.timestamp.getTime()
+                    ) < 10000)
+              );
 
-            if (existingIndex !== -1) {
-              const oldComment = state.comments[existingIndex];
-              return {
-                comments: state.comments.map((c) => {
-                  if (c.id === oldComment.id) {
-                    return newComment;
-                  } else if (c.parentId === oldComment.id) {
-                    return { ...c, parentId: newComment.id };
-                  }
-                  return c;
-                }),
-              };
-            }
+              if (existingIndex !== -1) {
+                const oldComment = state.comments[existingIndex];
+                return {
+                  comments: state.comments.map((c) => {
+                    if (c.id === oldComment.id) {
+                      return newComment;
+                    } else if (c.parentId === oldComment.id) {
+                      return { ...c, parentId: newComment.id };
+                    }
+                    return c;
+                  }),
+                };
+              }
 
-            return { comments: [...state.comments, newComment] };
-          });
-        } else if (event.includes("update")) {
-          const updatedComment = mapComment(document);
-          useStore.setState((state) => ({
-            comments: state.comments.map((c) =>
-              c.id === updatedComment.id ? updatedComment : c
-            ),
-          }));
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            comments: state.comments.filter((c) => c.id !== deletedId),
-          }));
+              return { comments: [...state.comments, newComment] };
+            });
+          } else if (event.includes("update")) {
+            const updatedComment = mapComment(document);
+            useStore.setState((state) => ({
+              comments: state.comments.map((c) =>
+                c.id === updatedComment.id ? updatedComment : c
+              ),
+            }));
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              comments: state.comments.filter((c) => c.id !== deletedId),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process comment realtime event:", error);
         }
       }
     );
@@ -725,150 +749,154 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const messagesUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create") || event.includes("update")) {
-          const incoming = mapMessage(document);
-          useStore.setState((state) => {
-            const currentUserId = state.currentUser?.id;
-            if (!currentUserId) return state;
+          if (event.includes("create") || event.includes("update")) {
+            const incoming = mapMessage(document);
+            useStore.setState((state) => {
+              const currentUserId = state.currentUser?.id;
+              if (!currentUserId) return state;
 
-            const participantIds = incoming.conversationId
-              .split("-")
-              .filter((id) => id);
-            if (!participantIds.includes(currentUserId)) return state;
+              const participantIds = incoming.conversationId
+                .split("-")
+                .filter((id) => id);
+              if (!participantIds.includes(currentUserId)) return state;
 
-            const hasMessage = state.messages.some(
-              (message) => message.id === incoming.id
-            );
-            const nextMessages = hasMessage
-              ? state.messages.map((message) =>
-                  message.id === incoming.id ? incoming : message
-                )
-              : [...state.messages, incoming];
+              const hasMessage = state.messages.some(
+                (message) => message.id === incoming.id
+              );
+              const nextMessages = hasMessage
+                ? state.messages.map((message) =>
+                    message.id === incoming.id ? incoming : message
+                  )
+                : [...state.messages, incoming];
 
-            let nextConversations = state.conversations;
-            const existingConversation = state.conversations.find(
-              (conv) => conv.id === incoming.conversationId
-            );
-            const isLatest =
-              !existingConversation ||
-              incoming.createdAt.getTime() >=
-                existingConversation.updatedAt.getTime() ||
-              (existingConversation.lastMessage.timestamp.getTime() ===
-                incoming.createdAt.getTime() &&
-                existingConversation.lastMessage.senderId ===
-                  incoming.senderId);
+              let nextConversations = state.conversations;
+              const existingConversation = state.conversations.find(
+                (conv) => conv.id === incoming.conversationId
+              );
+              const isLatest =
+                !existingConversation ||
+                incoming.createdAt.getTime() >=
+                  existingConversation.updatedAt.getTime() ||
+                (existingConversation.lastMessage.timestamp.getTime() ===
+                  incoming.createdAt.getTime() &&
+                  existingConversation.lastMessage.senderId ===
+                    incoming.senderId);
 
-            if (existingConversation) {
-              if (isLatest) {
+              if (existingConversation) {
+                if (isLatest) {
+                  nextConversations = state.conversations.map((conv) =>
+                    conv.id === incoming.conversationId
+                      ? {
+                          ...conv,
+                          lastMessage: {
+                            content: incoming.content,
+                            senderId: incoming.senderId,
+                            timestamp: incoming.createdAt,
+                          },
+                          updatedAt: incoming.createdAt,
+                        }
+                      : conv
+                  );
+                }
+              } else {
+                nextConversations = [
+                  ...state.conversations,
+                  {
+                    id: incoming.conversationId,
+                    participants: participantIds,
+                    lastMessage: {
+                      content: incoming.content,
+                      senderId: incoming.senderId,
+                      timestamp: incoming.createdAt,
+                    },
+                    createdAt: incoming.createdAt,
+                    updatedAt: incoming.createdAt,
+                  },
+                ];
+              }
+
+              if (nextConversations !== state.conversations) {
+                nextConversations = [...nextConversations].sort(
+                  (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+                );
+              }
+
+              return {
+                messages: nextMessages,
+                conversations: nextConversations,
+              };
+            });
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => {
+              const currentUserId = state.currentUser?.id;
+              if (!currentUserId) return state;
+
+              const messageToDelete = state.messages.find(
+                (message) => message.id === deletedId
+              );
+              if (!messageToDelete) {
+                return {
+                  messages: state.messages.filter(
+                    (message) => message.id !== deletedId
+                  ),
+                };
+              }
+
+              const nextMessages = state.messages.filter(
+                (message) => message.id !== deletedId
+              );
+              const conversationId = messageToDelete.conversationId;
+              const remaining = nextMessages.filter(
+                (message) => message.conversationId === conversationId
+              );
+
+              let nextConversations = state.conversations;
+              if (remaining.length === 0) {
+                nextConversations = state.conversations.filter(
+                  (conv) => conv.id !== conversationId
+                );
+              } else {
+                const latest = remaining.reduce((latestMessage, message) =>
+                  message.createdAt.getTime() >
+                  latestMessage.createdAt.getTime()
+                    ? message
+                    : latestMessage
+                );
+
                 nextConversations = state.conversations.map((conv) =>
-                  conv.id === incoming.conversationId
+                  conv.id === conversationId
                     ? {
                         ...conv,
                         lastMessage: {
-                          content: incoming.content,
-                          senderId: incoming.senderId,
-                          timestamp: incoming.createdAt,
+                          content: latest.content,
+                          senderId: latest.senderId,
+                          timestamp: latest.createdAt,
                         },
-                        updatedAt: incoming.createdAt,
+                        updatedAt: latest.createdAt,
                       }
                     : conv
                 );
               }
-            } else {
-              nextConversations = [
-                ...state.conversations,
-                {
-                  id: incoming.conversationId,
-                  participants: participantIds,
-                  lastMessage: {
-                    content: incoming.content,
-                    senderId: incoming.senderId,
-                    timestamp: incoming.createdAt,
-                  },
-                  createdAt: incoming.createdAt,
-                  updatedAt: incoming.createdAt,
-                },
-              ];
-            }
 
-            if (nextConversations !== state.conversations) {
-              nextConversations = [...nextConversations].sort(
-                (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-              );
-            }
+              if (nextConversations !== state.conversations) {
+                nextConversations = [...nextConversations].sort(
+                  (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+                );
+              }
 
-            return {
-              messages: nextMessages,
-              conversations: nextConversations,
-            };
-          });
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => {
-            const currentUserId = state.currentUser?.id;
-            if (!currentUserId) return state;
-
-            const messageToDelete = state.messages.find(
-              (message) => message.id === deletedId
-            );
-            if (!messageToDelete) {
               return {
-                messages: state.messages.filter(
-                  (message) => message.id !== deletedId
-                ),
+                messages: nextMessages,
+                conversations: nextConversations,
               };
-            }
-
-            const nextMessages = state.messages.filter(
-              (message) => message.id !== deletedId
-            );
-            const conversationId = messageToDelete.conversationId;
-            const remaining = nextMessages.filter(
-              (message) => message.conversationId === conversationId
-            );
-
-            let nextConversations = state.conversations;
-            if (remaining.length === 0) {
-              nextConversations = state.conversations.filter(
-                (conv) => conv.id !== conversationId
-              );
-            } else {
-              const latest = remaining.reduce((latestMessage, message) =>
-                message.createdAt.getTime() >
-                latestMessage.createdAt.getTime()
-                  ? message
-                  : latestMessage
-              );
-
-              nextConversations = state.conversations.map((conv) =>
-                conv.id === conversationId
-                  ? {
-                      ...conv,
-                      lastMessage: {
-                        content: latest.content,
-                        senderId: latest.senderId,
-                        timestamp: latest.createdAt,
-                      },
-                      updatedAt: latest.createdAt,
-                    }
-                  : conv
-              );
-            }
-
-            if (nextConversations !== state.conversations) {
-              nextConversations = [...nextConversations].sort(
-                (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-              );
-            }
-
-            return {
-              messages: nextMessages,
-              conversations: nextConversations,
-            };
-          });
+            });
+          }
+        } catch (error) {
+          console.warn("Failed to process message realtime event:", error);
         }
       }
     );
@@ -886,32 +914,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const notificationsUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${NOTIFICATIONS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create")) {
-          const newNotification = mapNotification(document);
-          useStore.setState((state) => ({
-            notifications: state.notifications.some(
-              (n) => n.id === newNotification.id
-            )
-              ? state.notifications
-              : [...state.notifications, newNotification],
-          }));
-        } else if (event.includes("update")) {
-          const updatedNotification = mapNotification(document);
-          useStore.setState((state) => ({
-            notifications: state.notifications.map((n) =>
-              n.id === updatedNotification.id ? updatedNotification : n
-            ),
-          }));
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            notifications: state.notifications.filter(
-              (n) => n.id !== deletedId
-            ),
-          }));
+          if (event.includes("create")) {
+            const newNotification = mapNotification(document);
+            useStore.setState((state) => ({
+              notifications: state.notifications.some(
+                (n) => n.id === newNotification.id
+              )
+                ? state.notifications
+                : [...state.notifications, newNotification],
+            }));
+          } else if (event.includes("update")) {
+            const updatedNotification = mapNotification(document);
+            useStore.setState((state) => ({
+              notifications: state.notifications.map((n) =>
+                n.id === updatedNotification.id ? updatedNotification : n
+              ),
+            }));
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              notifications: state.notifications.filter(
+                (n) => n.id !== deletedId
+              ),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process notification realtime event:", error);
         }
       }
     );
@@ -919,28 +951,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const friendsUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${FRIENDS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create")) {
-          const newFriend = mapFriend(document);
-          useStore.setState((state) => ({
-            friends: state.friends.some((f) => f.id === newFriend.id)
-              ? state.friends
-              : [...state.friends, newFriend],
-          }));
-        } else if (event.includes("update")) {
-          const updatedFriend = mapFriend(document);
-          useStore.setState((state) => ({
-            friends: state.friends.map((f) =>
-              f.id === updatedFriend.id ? updatedFriend : f
-            ),
-          }));
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            friends: state.friends.filter((f) => f.id !== deletedId),
-          }));
+          if (event.includes("create")) {
+            const newFriend = mapFriend(document);
+            useStore.setState((state) => ({
+              friends: state.friends.some((f) => f.id === newFriend.id)
+                ? state.friends
+                : [...state.friends, newFriend],
+            }));
+          } else if (event.includes("update")) {
+            const updatedFriend = mapFriend(document);
+            useStore.setState((state) => ({
+              friends: state.friends.map((f) =>
+                f.id === updatedFriend.id ? updatedFriend : f
+              ),
+            }));
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              friends: state.friends.filter((f) => f.id !== deletedId),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process friend realtime event:", error);
         }
       }
     );
@@ -961,38 +997,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const usersUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${USERS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
-        const incomingUser = mapUser(document);
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
+          const incomingUser = mapUser(document);
 
-        if (event.includes("create")) {
-          useStore.setState((state) =>
-            state.users.some((u) => u.id === incomingUser.id)
-              ? state
-              : { users: [...state.users, incomingUser] }
-          );
-        } else if (event.includes("update")) {
-          useStore.setState((state) => {
-            const users = state.users.some((u) => u.id === incomingUser.id)
-              ? state.users.map((u) =>
-                  u.id === incomingUser.id ? incomingUser : u
-                )
-              : [...state.users, incomingUser];
+          if (event.includes("create")) {
+            useStore.setState((state) =>
+              state.users.some((u) => u.id === incomingUser.id)
+                ? state
+                : { users: [...state.users, incomingUser] }
+            );
+          } else if (event.includes("update")) {
+            useStore.setState((state) => {
+              const users = state.users.some((u) => u.id === incomingUser.id)
+                ? state.users.map((u) =>
+                    u.id === incomingUser.id ? incomingUser : u
+                  )
+                : [...state.users, incomingUser];
 
-            const currentUser =
-              state.currentUser?.id === incomingUser.id
-                ? { ...state.currentUser, ...incomingUser }
-                : state.currentUser;
+              const currentUser =
+                state.currentUser?.id === incomingUser.id
+                  ? { ...state.currentUser, ...incomingUser }
+                  : state.currentUser;
 
-            return { users, currentUser };
-          });
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            users: state.users.filter((u) => u.id !== deletedId),
-            currentUser:
-              state.currentUser?.id === deletedId ? null : state.currentUser,
-          }));
+              return { users, currentUser };
+            });
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              users: state.users.filter((u) => u.id !== deletedId),
+              currentUser:
+                state.currentUser?.id === deletedId ? null : state.currentUser,
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process user realtime event:", error);
         }
       }
     );
@@ -1000,29 +1040,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const portfoliosUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${PORTFOLIOS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create") || event.includes("update")) {
-          const incoming = mapPortfolio(document);
-          useStore.setState((state) => {
-            const existingIndex = state.portfolios.findIndex(
-              (p) => p.id === incoming.id
-            );
-            if (existingIndex !== -1) {
-              return {
-                portfolios: state.portfolios.map((p) =>
-                  p.id === incoming.id ? incoming : p
-                ),
-              };
-            }
-            return { portfolios: [...state.portfolios, incoming] };
-          });
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            portfolios: state.portfolios.filter((p) => p.id !== deletedId),
-          }));
+          if (event.includes("create") || event.includes("update")) {
+            const incoming = mapPortfolio(document);
+            useStore.setState((state) => {
+              const existingIndex = state.portfolios.findIndex(
+                (p) => p.id === incoming.id
+              );
+              if (existingIndex !== -1) {
+                return {
+                  portfolios: state.portfolios.map((p) =>
+                    p.id === incoming.id ? incoming : p
+                  ),
+                };
+              }
+              return { portfolios: [...state.portfolios, incoming] };
+            });
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              portfolios: state.portfolios.filter((p) => p.id !== deletedId),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process portfolio realtime event:", error);
         }
       }
     );
@@ -1046,30 +1090,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const transactionsUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${TRANSACTIONS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create") || event.includes("update")) {
-          const newTx = mapTransaction(document);
-          useStore.setState((state) => {
-            const existingIndex = state.transactions.findIndex(
-              (t) => t.id === newTx.id
-            );
-            if (existingIndex !== -1) {
-              const updated = [...state.transactions];
-              updated[existingIndex] = newTx;
-              return { transactions: sortTransactions(updated) };
-            }
-            return {
-              transactions: sortTransactions([...state.transactions, newTx]),
-            };
-          });
-          refreshPriceHistoryForStock(newTx.stockId);
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            transactions: state.transactions.filter((t) => t.id !== deletedId),
-          }));
+          if (event.includes("create") || event.includes("update")) {
+            const newTx = mapTransaction(document);
+            useStore.setState((state) => {
+              const existingIndex = state.transactions.findIndex(
+                (t) => t.id === newTx.id
+              );
+              if (existingIndex !== -1) {
+                const updated = [...state.transactions];
+                updated[existingIndex] = newTx;
+                return { transactions: sortTransactions(updated) };
+              }
+              return {
+                transactions: sortTransactions([...state.transactions, newTx]),
+              };
+            });
+            refreshPriceHistoryForStock(newTx.stockId);
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              transactions: state.transactions.filter(
+                (t) => t.id !== deletedId
+              ),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process transaction realtime event:", error);
         }
       }
     );
@@ -1087,80 +1137,91 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const stockUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${STOCKS_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create")) {
-          const incoming = mapStock(document);
-          useStore.setState((state) => {
-            const latestHistory = state.priceHistory
-              .filter((ph) => ph.stockId === incoming.id)
-              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
-            const currentPrice =
-              incoming.currentPrice > 0
-                ? incoming.currentPrice
-                : latestHistory?.price ?? incoming.currentPrice;
+          if (event.includes("create")) {
+            const incoming = mapStock(document);
+            useStore.setState((state) => {
+              const latestHistory = state.priceHistory
+                .filter((ph) => ph.stockId === incoming.id)
+                .sort(
+                  (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+                )[0];
+              const currentPrice =
+                incoming.currentPrice > 0
+                  ? incoming.currentPrice
+                  : latestHistory?.price ?? incoming.currentPrice;
 
-            // Only add if it doesn't already exist (prevent duplicates from manual creation)
-            if (!state.stocks.some((s) => s.id === incoming.id)) {
-              if (incoming.currentPrice <= 0) {
+              // Only add if it doesn't already exist (prevent duplicates from manual creation)
+              if (!state.stocks.some((s) => s.id === incoming.id)) {
+                if (incoming.currentPrice <= 0) {
+                  console.warn(
+                    "[realtime][stocks:create] incoming price is zero/undefined; using fallback",
+                    {
+                      stockId: incoming.id,
+                      fallback: currentPrice,
+                      latestHistory: latestHistory?.price,
+                    }
+                  );
+                }
+                return {
+                  stocks: [...state.stocks, { ...incoming, currentPrice }],
+                };
+              }
+              return state;
+            });
+            useStore.getState().schedulePriceHistoryLoad([incoming.id], {
+              minEntries: 2,
+              limit: 20,
+            });
+          } else if (event.includes("update")) {
+            const incoming = mapStock(document);
+            useStore.setState((state) => {
+              const latestHistory = state.priceHistory
+                .filter((ph) => ph.stockId === incoming.id)
+                .sort(
+                  (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+                )[0];
+              const existing = state.stocks.find((s) => s.id === incoming.id);
+              const currentPrice =
+                incoming.currentPrice > 0
+                  ? incoming.currentPrice
+                  : latestHistory?.price ??
+                    existing?.currentPrice ??
+                    incoming.currentPrice;
+
+              if (
+                incoming.currentPrice <= 0 ||
+                (existing && incoming.currentPrice < existing.currentPrice / 10)
+              ) {
                 console.warn(
-                  "[realtime][stocks:create] incoming price is zero/undefined; using fallback",
+                  "[realtime][stocks:update] price fallback applied",
                   {
                     stockId: incoming.id,
-                    fallback: currentPrice,
-                    latestHistory: latestHistory?.price,
+                    incoming: incoming.currentPrice,
+                    existing: existing?.currentPrice,
+                    history: latestHistory?.price,
+                    effective: currentPrice,
                   }
                 );
               }
+
               return {
-                stocks: [...state.stocks, { ...incoming, currentPrice }],
+                stocks: state.stocks.map((s) =>
+                  s.id === incoming.id ? { ...incoming, currentPrice } : s
+                ),
               };
-            }
-            return state;
-          });
-          useStore.getState().schedulePriceHistoryLoad([incoming.id], {
-            minEntries: 2,
-            limit: 20,
-          });
-        } else if (event.includes("update")) {
-          const incoming = mapStock(document);
-          useStore.setState((state) => {
-            const latestHistory = state.priceHistory
-              .filter((ph) => ph.stockId === incoming.id)
-              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
-            const existing = state.stocks.find((s) => s.id === incoming.id);
-            const currentPrice =
-              incoming.currentPrice > 0
-                ? incoming.currentPrice
-                : latestHistory?.price ??
-                  existing?.currentPrice ??
-                  incoming.currentPrice;
-
-            if (
-              incoming.currentPrice <= 0 ||
-              (existing && incoming.currentPrice < existing.currentPrice / 10)
-            ) {
-              console.warn("[realtime][stocks:update] price fallback applied", {
-                stockId: incoming.id,
-                incoming: incoming.currentPrice,
-                existing: existing?.currentPrice,
-                history: latestHistory?.price,
-                effective: currentPrice,
-              });
-            }
-
-            return {
-              stocks: state.stocks.map((s) =>
-                s.id === incoming.id ? { ...incoming, currentPrice } : s
-              ),
-            };
-          });
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          useStore.setState((state) => ({
-            stocks: state.stocks.filter((s) => s.id !== deletedId),
-          }));
+            });
+          } else if (event.includes("delete")) {
+            const deletedId = document.$id;
+            useStore.setState((state) => ({
+              stocks: state.stocks.filter((s) => s.id !== deletedId),
+            }));
+          }
+        } catch (error) {
+          console.warn("Failed to process stock realtime event:", error);
         }
       }
     );
@@ -1168,19 +1229,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const priceUnsub = databases.client.subscribe(
       `databases.${DATABASE_ID}.collections.${PRICE_HISTORY_COLLECTION}.documents`,
       (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
+        try {
+          const event = response.events[0];
+          const document = response.payload as any;
 
-        if (event.includes("create")) {
-          const newPH = mapPriceHistory(document);
-          if (newPH.price <= 0) {
-            console.warn(
-              "[realtime][price_history:create] non-positive price ignored",
-              newPH
-            );
-            return;
+          if (event.includes("create")) {
+            const newPH = mapPriceHistory(document);
+            if (newPH.price <= 0) {
+              console.warn(
+                "[realtime][price_history:create] non-positive price ignored",
+                newPH
+              );
+              return;
+            }
+            mergePriceHistory([newPH]);
           }
-          mergePriceHistory([newPH]);
+        } catch (error) {
+          console.warn(
+            "Failed to process price history realtime event:",
+            error
+          );
         }
       }
     );
@@ -1238,55 +1306,119 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
+    if (!runtimeDatabaseId) return;
 
-    const updateDirectionalBets = useStore.setState;
+    const applyPendingUpdates = () => {
+      const updates = Array.from(
+        pendingDirectionalBetsUpdatesRef.current.values()
+      );
+      if (updates.length === 0) return;
 
-    const directionalBetsUnsub = databases.client.subscribe(
-      `databases.${DATABASE_ID}.collections.${DIRECTIONAL_BETS_COLLECTION}.documents`,
-      (response) => {
-        const event = response.events[0];
-        const document = response.payload as any;
-        const incomingBet = mapDirectionalBet(document);
+      useStore.setState((state) => {
+        let newDirectionalBets = [...state.directionalBets];
 
-        if (event.includes("create")) {
-          updateDirectionalBets((state) => {
-            const exists = state.directionalBets.some(
-              (bet) => bet.id === incomingBet.id
+        for (const update of updates) {
+          if (update.type === "create") {
+            const existingIndex = newDirectionalBets.findIndex(
+              (bet) => bet.id === update.bet.id
             );
-            if (exists) {
-              return {
-                directionalBets: state.directionalBets.map((bet) =>
-                  bet.id === incomingBet.id ? incomingBet : bet
-                ),
-              };
+            if (existingIndex === -1) {
+              newDirectionalBets.push(update.bet);
+            } else {
+              newDirectionalBets[existingIndex] = update.bet;
             }
-            return {
-              directionalBets: [...state.directionalBets, incomingBet],
-            };
-          });
-        } else if (event.includes("update")) {
-          updateDirectionalBets((state) => ({
-            directionalBets: state.directionalBets.map((bet) =>
-              bet.id === incomingBet.id ? incomingBet : bet
-            ),
-          }));
-        } else if (event.includes("delete")) {
-          const deletedId = document.$id;
-          updateDirectionalBets((state) => ({
-            directionalBets: state.directionalBets.filter(
-              (bet) => bet.id !== deletedId
-            ),
-          }));
+          } else if (update.type === "update") {
+            const existingIndex = newDirectionalBets.findIndex(
+              (bet) => bet.id === update.bet.id
+            );
+            if (existingIndex !== -1) {
+              newDirectionalBets[existingIndex] = update.bet;
+            }
+          } else if (update.type === "delete") {
+            newDirectionalBets = newDirectionalBets.filter(
+              (bet) => bet.id !== update.id
+            );
+          }
         }
+
+        return { directionalBets: newDirectionalBets };
+      });
+
+      pendingDirectionalBetsUpdatesRef.current.clear();
+    };
+
+    const scheduleUpdate = (update: any) => {
+      pendingDirectionalBetsUpdatesRef.current.set(update.key, update);
+
+      if (directionalBetsDebounceTimeoutRef.current) {
+        clearTimeout(directionalBetsDebounceTimeoutRef.current);
       }
-    );
+
+      directionalBetsDebounceTimeoutRef.current = setTimeout(() => {
+        applyPendingUpdates();
+        directionalBetsDebounceTimeoutRef.current = null;
+      }, 100);
+    };
+
+    if (!databases?.client?.subscribe) {
+      console.warn("Realtime client is unavailable for directional bets");
+      return;
+    }
+
+    let directionalBetsUnsub: (() => void) | undefined;
+    try {
+      directionalBetsUnsub = databases.client.subscribe(
+        `databases.${runtimeDatabaseId}.collections.${DIRECTIONAL_BETS_COLLECTION}.documents`,
+        (response) => {
+          try {
+            const event = response.events[0];
+            const document = response.payload as any;
+            const incomingBet = mapDirectionalBet(document);
+
+            if (event.includes("create")) {
+              scheduleUpdate({
+                type: "create",
+                key: `create-${incomingBet.id}`,
+                bet: incomingBet,
+              });
+            } else if (event.includes("update")) {
+              scheduleUpdate({
+                type: "update",
+                key: `update-${incomingBet.id}`,
+                bet: incomingBet,
+              });
+            } else if (event.includes("delete")) {
+              const deletedId = document.$id;
+              scheduleUpdate({
+                type: "delete",
+                key: `delete-${deletedId}`,
+                id: deletedId,
+              });
+            }
+          } catch (error) {
+            console.warn(
+              "Failed to process directional bet realtime event:",
+              error
+            );
+          }
+        }
+      );
+    } catch (error) {
+      console.warn(
+        "Failed to subscribe to directional bet realtime events:",
+        error
+      );
+    }
 
     return () => {
       try {
-        directionalBetsUnsub();
+        directionalBetsUnsub?.();
       } catch {}
+      if (directionalBetsDebounceTimeoutRef.current) {
+        clearTimeout(directionalBetsDebounceTimeoutRef.current);
+      }
     };
-  }, [isLoading]);
+  }, [isLoading, runtimeDatabaseId]);
 
   return <>{children}</>;
 }

@@ -12,13 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  LayoutGrid,
-  List,
-  Search,
-  Activity,
-  Zap,
-} from "lucide-react";
+import { LayoutGrid, List, Search, Activity, Zap } from "lucide-react";
 import type { Stock } from "@/lib/types";
 import { useStore } from "@/lib/store";
 
@@ -210,8 +204,8 @@ export function StockBrowser({ stocks, onBuy }: StockBrowserProps) {
           <div
             className={
               viewMode === "grid"
-                ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                : "grid gap-4 sm:grid-cols-2"
+                ? "grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                : "grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             }
           >
             {displayedStocks.map((stock) => (

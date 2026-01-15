@@ -8,6 +8,7 @@
     "dev": "infisical run pnpm run next:dev",
     "next:dev": "next dev",
     "lint": "eslint .",
+    "check": "pnpm lint && pnpm typecheck",
     "next:start": "next start",
     "appwritepush:kofi": "cd /Users/adarc/Projects/the-anime-stock-market/appwrite-functions/kofi-webhook && appwrite push functions",
     "appwritepush:drift": "cd /Users/adarc/Projects/the-anime-stock-market/appwrite-functions/market-drift && appwrite push functions",

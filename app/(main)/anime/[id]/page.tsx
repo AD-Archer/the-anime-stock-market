@@ -1,6 +1,14 @@
 "use client";
 
-import { use, useState, useEffect, useMemo, useRef } from "react";
+import {
+  use,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type ChangeEvent,
+  type MouseEvent,
+} from "react";
 import { useStore } from "@/lib/store";
 import { User, Comment, ContentTag } from "@/lib/types";
 import {
@@ -76,7 +84,7 @@ const CHART_COLORS = [
 ];
 
 // Maximum series to show on the anime chart by default
-const MAX_CHART_SERIES = 10;
+const MAX_CHART_SERIES = 5;
 
 interface CommentThreadProps {
   comment: Comment;
@@ -314,7 +322,9 @@ function CommentThread({
           <div className="space-y-2">
             <Textarea
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                setEditContent(e.target.value)
+              }
               rows={2}
               className="text-sm"
             />
@@ -407,7 +417,9 @@ function CommentThread({
             <Textarea
               placeholder="Write a reply..."
               value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                setReplyContent(e.target.value)
+              }
               rows={2}
               className="text-sm"
             />
@@ -542,13 +554,33 @@ export default function AnimeDetailPage({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const animeCharacters = stocks.filter((stock) => {
-    return generateAnimeSlug(stock.anime) === generateAnimeSlug(id);
-  });
+  const animeCharacters = useMemo(
+    () =>
+      stocks.filter((stock) => {
+        return generateAnimeSlug(stock.anime) === generateAnimeSlug(id);
+      }),
+    [stocks, id]
+  );
 
-  const characterTransactions = transactions
-    .filter((t) => t.stockId && animeCharacters.some((c) => c.id === t.stockId))
-    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  // Load price history for characters
+  useEffect(() => {
+    if (animeCharacters.length > 0) {
+      useStore.getState().schedulePriceHistoryLoad(
+        animeCharacters.map((c) => c.id),
+        { minEntries: 2, limit: 20 }
+      );
+    }
+  }, [animeCharacters]);
+
+  const characterTransactions = useMemo(
+    () =>
+      transactions
+        .filter(
+          (t) => t.stockId && animeCharacters.some((c) => c.id === t.stockId)
+        )
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+    [transactions, animeCharacters]
+  );
 
   const userPortfolio = currentUser ? getUserPortfolio(currentUser.id) : [];
 
@@ -616,10 +648,13 @@ export default function AnimeDetailPage({
     return () => clearTimeout(tid);
   }, [searchQuery, id]);
 
-  const displayCharacters =
-    searchResults && searchResults.length > 0
-      ? searchResults
-      : animeCharacters.slice(0, charactersLimit);
+  const displayCharacters = useMemo(
+    () =>
+      searchResults && searchResults.length > 0
+        ? searchResults
+        : animeCharacters.slice(0, charactersLimit),
+    [searchResults, animeCharacters, charactersLimit]
+  );
 
   const toggleChartStock = (stockId: string) => {
     // If removing, do it immediately
@@ -661,7 +696,8 @@ export default function AnimeDetailPage({
           action: (
             <ToastAction
               altText={`Replace ${addName}`}
-              onClick={() => {
+              onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                e.preventDefault();
                 setSelectedChartStocks((prev) => {
                   const next = new Set(prev);
                   if (candidate) next.delete(candidate.id);
@@ -726,6 +762,59 @@ export default function AnimeDetailPage({
     return { commentMap, rootComments };
   }, [comments]);
 
+  const { selectedStocks, chartData, totalMarketCap, averagePrice } =
+    useMemo(() => {
+      const allDates = new Set<string>();
+      const priceDataByStock = new Map<string, Map<string, number>>();
+
+      animeCharacters.forEach((stock) => {
+        const history = getStockPriceHistory(stock.id);
+        const dateMap = new Map<string, number>();
+
+        history.forEach((ph) => {
+          const dateKey = ph.timestamp.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          allDates.add(dateKey);
+          dateMap.set(dateKey, ph.price);
+        });
+
+        priceDataByStock.set(stock.id, dateMap);
+      });
+
+      // Only include selected characters in the chart data
+      const selectedStocks = animeCharacters
+        .filter((s) => selectedChartStocks.has(s.id))
+        .sort(
+          (a, b) =>
+            b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
+        );
+
+      const chartData = Array.from(allDates)
+        .sort()
+        .map((date) => {
+          const dataPoint: any = { date };
+          selectedStocks.forEach((stock) => {
+            dataPoint[stock.characterName] =
+              priceDataByStock.get(stock.id)?.get(date) || null;
+          });
+          return dataPoint;
+        });
+
+      const totalMarketCap = animeCharacters.reduce(
+        (sum, char) => sum + char.currentPrice * char.totalShares,
+        0
+      );
+      const averagePrice =
+        animeCharacters.length > 0
+          ? animeCharacters.reduce((sum, char) => sum + char.currentPrice, 0) /
+            animeCharacters.length
+          : 0;
+
+      return { selectedStocks, chartData, totalMarketCap, averagePrice };
+    }, [animeCharacters, selectedChartStocks, getStockPriceHistory]);
+
   if (animeCharacters.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -733,51 +822,6 @@ export default function AnimeDetailPage({
       </div>
     );
   }
-
-  const totalMarketCap = animeCharacters.reduce(
-    (sum, char) => sum + char.currentPrice * char.totalShares,
-    0
-  );
-  const averagePrice =
-    animeCharacters.reduce((sum, char) => sum + char.currentPrice, 0) /
-    animeCharacters.length;
-
-  const allDates = new Set<string>();
-  const priceDataByStock = new Map<string, Map<string, number>>();
-
-  animeCharacters.forEach((stock) => {
-    const history = getStockPriceHistory(stock.id);
-    const dateMap = new Map<string, number>();
-
-    history.forEach((ph) => {
-      const dateKey = ph.timestamp.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-      allDates.add(dateKey);
-      dateMap.set(dateKey, ph.price);
-    });
-
-    priceDataByStock.set(stock.id, dateMap);
-  });
-
-  // Only include selected characters in the chart data
-  const selectedStocks = animeCharacters
-    .filter((s) => selectedChartStocks.has(s.id))
-    .sort(
-      (a, b) => b.currentPrice * b.totalShares - a.currentPrice * a.totalShares
-    );
-
-  const chartData = Array.from(allDates)
-    .sort()
-    .map((date) => {
-      const dataPoint: any = { date };
-      selectedStocks.forEach((stock) => {
-        dataPoint[stock.characterName] =
-          priceDataByStock.get(stock.id)?.get(date) || null;
-      });
-      return dataPoint;
-    });
 
   const handleAddComment = async () => {
     if (comment.trim()) {
@@ -987,15 +1031,19 @@ export default function AnimeDetailPage({
           <CardContent>
             <Tabs
               value={activeTab}
-              onValueChange={(v: any) =>
-                setActiveTab(v as "comments" | "animeTransactions")
+              onValueChange={(value: string) =>
+                setActiveTab(value as "comments" | "animeTransactions")
               }
             >
               {isMobile ? (
                 <div className="mb-3">
                   <select
                     value={activeTab}
-                    onChange={(e) => setActiveTab(e.target.value as any)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                      setActiveTab(
+                        e.target.value as "comments" | "animeTransactions"
+                      )
+                    }
                     className="w-full rounded-md border px-3 py-2 text-sm"
                     aria-label="Select activity tab"
                   >
@@ -1023,7 +1071,9 @@ export default function AnimeDetailPage({
                   <Textarea
                     placeholder="Share your thoughts about this anime..."
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                      setComment(e.target.value)
+                    }
                     rows={3}
                   />
                   <Select
@@ -1215,15 +1265,17 @@ export default function AnimeDetailPage({
             </CardDescription>
             <div className="ml-4">
               <Input
-                placeholder="Search characters (server-side)"
+                placeholder="Search characters"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setSearchQuery(e.target.value)
+                }
                 className="max-w-xs"
               />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {displayCharacters.map((stock: any) => {
                 const priceHistory = getStockPriceHistory(stock.id);
                 let priceChange = 0;
@@ -1244,74 +1296,85 @@ export default function AnimeDetailPage({
                 return (
                   <Card
                     key={stock.id}
-                    className="transition-all hover:shadow-md"
+                    className="transition-all hover:shadow-md h-full flex flex-col overflow-hidden"
                   >
                     <Link
                       href={`/character/${stock.characterSlug || stock.id}`}
+                      className="flex-1 flex flex-col"
                     >
-                      <CardContent className="p-4">
-                        <div className="mb-3 flex items-center gap-3">
-                          <div className="relative h-16 w-16 overflow-hidden rounded-lg">
-                            <Image
-                              src={stock.imageUrl || "/placeholder.svg"}
-                              alt={stock.characterName}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-foreground">
-                              {stock.characterName}
-                            </h3>
-                          </div>
+                      {/* Character Image */}
+                      <div className="relative w-full aspect-square bg-muted">
+                        <Image
+                          src={stock.imageUrl || "/placeholder.svg"}
+                          alt={stock.characterName}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+
+                      {/* Card Content */}
+                      <CardContent className="p-3 flex-1 flex flex-col justify-between">
+                        {/* Character Name */}
+                        <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-2">
+                          {stock.characterName}
+                        </h3>
+
+                        {/* Price and Change */}
+                        <div className="space-y-1 mb-2">
+                          <p className="text-lg font-bold text-foreground">
+                            ${stock.currentPrice.toFixed(2)}
+                          </p>
+                          {priceHistory.length >= 2 && (
+                            <div className="flex items-center gap-1">
+                              {isPositive && (
+                                <TrendingUp className="h-3 w-3 text-chart-4" />
+                              )}
+                              {isNegative && (
+                                <TrendingDown className="h-3 w-3 text-destructive" />
+                              )}
+                              <span
+                                className={`text-xs font-medium ${
+                                  isPositive
+                                    ? "text-chart-4"
+                                    : isNegative
+                                    ? "text-destructive"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {isPositive && "+"}
+                                {priceChange.toFixed(2)}%
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xl font-bold text-foreground break-all">
-                              ${stock.currentPrice.toFixed(2)}
-                            </p>
-                            {priceHistory.length >= 2 && (
-                              <div className="flex items-center gap-1">
-                                {isPositive && (
-                                  <TrendingUp className="h-3 w-3 text-chart-4" />
-                                )}
-                                {isNegative && (
-                                  <TrendingDown className="h-3 w-3 text-destructive" />
-                                )}
-                                <span
-                                  className={`text-xs font-medium ${
-                                    isPositive
-                                      ? "text-chart-4"
-                                      : isNegative
-                                      ? "text-destructive"
-                                      : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {isPositive && "+"}
-                                  {priceChange.toFixed(2)}%
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <Badge variant="secondary">
+
+                        {/* Available Shares */}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Available
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
                             {stock.availableShares.toLocaleString()}
                           </Badge>
                         </div>
+
+                        {/* User Holdings */}
                         {userHolding && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            You own: {userHolding.shares.toLocaleString()}{" "}
-                            shares
+                          <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+                            You own: {userHolding.shares.toLocaleString()}
                           </div>
                         )}
                       </CardContent>
                     </Link>
-                    {userHolding && userHolding.shares > 0 && (
-                      <div className="p-4 pt-0">
+
+                    {/* Action Buttons */}
+                    <div className="p-3 pt-0 space-y-2 mt-auto">
+                      {userHolding && userHolding.shares > 0 && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full"
-                          onClick={(e) => {
+                          onClick={(e: MouseEvent<HTMLButtonElement>) => {
                             e.preventDefault();
                             e.stopPropagation();
                             setSelectedStockForSell(stock.id);
@@ -1320,9 +1383,7 @@ export default function AnimeDetailPage({
                         >
                           Sell Shares
                         </Button>
-                      </div>
-                    )}
-                    <div className="p-4 pt-0">
+                      )}
                       <Button
                         size="sm"
                         className="w-full"
@@ -1331,7 +1392,7 @@ export default function AnimeDetailPage({
                             ? "destructive"
                             : "outline"
                         }
-                        onClick={(e) => {
+                        onClick={(e: MouseEvent<HTMLButtonElement>) => {
                           e.preventDefault();
                           e.stopPropagation();
                           toggleChartStock(stock.id);
@@ -1340,15 +1401,14 @@ export default function AnimeDetailPage({
                         {selectedChartStocks.has(stock.id) ? (
                           <>
                             <TrendingDown className="mr-2 h-4 w-4" /> Remove
-                            from Graph
                           </>
                         ) : (
                           <>
-                            <TrendingUp className="mr-2 h-4 w-4" /> Add to Graph
+                            <TrendingUp className="mr-2 h-4 w-4" /> Add
                           </>
                         )}
                       </Button>
-                    </div>{" "}
+                    </div>
                   </Card>
                 );
               })}

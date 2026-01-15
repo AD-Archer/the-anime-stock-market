@@ -25,18 +25,15 @@ export function WelcomeJoinPopup() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (currentUser) {
-      setOpen(false);
-      return;
-    }
-    if (suppressed) {
-      setOpen(false);
-      return;
-    }
     if (typeof window === "undefined") return;
+    if (currentUser || suppressed) {
+      return;
+    }
+
     const dismissed = localStorage.getItem(DISMISS_KEY);
     if (!dismissed) {
-      setOpen(true);
+      const timer = window.setTimeout(() => setOpen(true), 0);
+      return () => window.clearTimeout(timer);
     }
   }, [currentUser, isLoading, suppressed]);
 

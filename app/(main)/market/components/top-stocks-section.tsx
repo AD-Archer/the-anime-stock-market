@@ -105,7 +105,7 @@ export function TopStocksSection({ topStocks, onBuy }: TopStocksSectionProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5">
+      <div className="grid gap-6 grid-cols-2 lg:grid-cols-3">
         {top10.map((stock) => (
           <StockCard
             key={stock.id}
