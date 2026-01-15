@@ -19,6 +19,7 @@ import { userService } from "./database";
 import { awardService } from "./database/awardService";
 import { sendSystemEvent } from "./system-events-client";
 import { generateDisplaySlug } from "./usernames";
+import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal";
 
 type AuthUser = {
   id: string;
@@ -235,6 +236,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isPortfolioPublic: false,
         hideTransactions: false,
         anonymousTransactions: false,
+        termsAcceptedVersion: TERMS_VERSION,
+        termsAcceptedAt: new Date(),
+        privacyAcceptedVersion: PRIVACY_VERSION,
+        privacyAcceptedAt: new Date(),
         pendingDeletionAt: null,
         // default theme preference
         theme: "system",

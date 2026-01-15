@@ -28,9 +28,6 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Email OTP removed; using email/password + Google OAuth
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   // Redirect if already signed in
   useEffect(() => {
@@ -67,13 +64,6 @@ export default function SignInPage() {
     e.preventDefault();
     setError(null);
 
-    if (!termsAccepted || !privacyAccepted) {
-      setError(
-        "Please accept the Terms of Service and Privacy Policy to continue."
-      );
-      return;
-    }
-
     if (!isValidEmail(trimmedEmail)) {
       setError("Enter a valid email address.");
       return;
@@ -96,12 +86,6 @@ export default function SignInPage() {
 
   const handleGoogle = async () => {
     setError(null);
-    if (!termsAccepted || !privacyAccepted) {
-      setError(
-        "Please accept the Terms of Service and Privacy Policy to continue."
-      );
-      return;
-    }
     try {
       await signInWithGoogle();
     } catch (err) {
@@ -146,14 +130,6 @@ export default function SignInPage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               Use email/password or Google OAuth.
-            </p>
-          </div>
-
-          {/* Notice to accept both Terms and Privacy */}
-          <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30 p-3">
-            <p className="text-xs text-blue-900 dark:text-blue-200">
-              <strong>Please accept Terms of Service AND Privacy Policy</strong>{" "}
-              before signing in.
             </p>
           </div>
 
@@ -216,46 +192,7 @@ export default function SignInPage() {
                 {error}
               </p>
             )}
-            <div className="space-y-2">
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <input
-                  id="tos-accept-signin"
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-primary"
-                />
-                <label htmlFor="tos-accept-signin">
-                  I have read and agree to the most recent {""}
-                  <Link href="/terms" className="text-primary hover:underline">
-                    Terms of Service
-                  </Link>
-                </label>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <input
-                  id="privacy-accept-signin"
-                  type="checkbox"
-                  checked={privacyAccepted}
-                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-primary"
-                />
-                <label htmlFor="privacy-accept-signin">
-                  I have read and agree to the most recent {""}
-                  <Link
-                    href="/privacy"
-                    className="text-primary hover:underline"
-                  >
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || !termsAccepted || !privacyAccepted}
-            >
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" /> Signing in...

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { termsLastUpdatedDisplay } from "@/lib/legal";
 
 export default function TermsPage() {
   return (
@@ -20,7 +21,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-muted-foreground">
-            Last updated: November 2, 2025
+            Last updated: {termsLastUpdatedDisplay}
           </p>
         </div>
 

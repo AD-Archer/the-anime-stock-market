@@ -114,6 +114,30 @@ const collections: CollectionPlan[] = [
         size: 64,
         required: false,
       },
+      {
+        kind: "string",
+        key: "termsAcceptedVersion",
+        size: 64,
+        required: false,
+      },
+      {
+        kind: "string",
+        key: "termsAcceptedAt",
+        size: 64,
+        required: false,
+      },
+      {
+        kind: "string",
+        key: "privacyAcceptedVersion",
+        size: 64,
+        required: false,
+      },
+      {
+        kind: "string",
+        key: "privacyAcceptedAt",
+        size: 64,
+        required: false,
+      },
     ],
   },
   {

@@ -41,6 +41,10 @@ export interface User {
   emailNotificationsEnabled?: boolean;
   directMessageEmailNotifications?: boolean;
   premiumMeta?: PremiumMeta;
+  termsAcceptedVersion?: string | null;
+  privacyAcceptedVersion?: string | null;
+  termsAcceptedAt?: Date | null;
+  privacyAcceptedAt?: Date | null;
 }
 
 export interface Stock {

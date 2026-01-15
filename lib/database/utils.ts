@@ -216,6 +216,14 @@ export const mapUser = (doc: AppwriteDocument): User => ({
     docValue(doc, "directMessageEmailNotifications"),
     false
   ),
+  termsAcceptedVersion: toOptionalString(
+    docValue(doc, "termsAcceptedVersion")
+  ),
+  privacyAcceptedVersion: toOptionalString(
+    docValue(doc, "privacyAcceptedVersion")
+  ),
+  termsAcceptedAt: toOptionalDate(docValue(doc, "termsAcceptedAt")),
+  privacyAcceptedAt: toOptionalDate(docValue(doc, "privacyAcceptedAt")),
 });
 
 export const mapStock = (doc: AppwriteDocument): Stock => ({

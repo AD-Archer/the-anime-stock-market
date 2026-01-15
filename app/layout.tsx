@@ -6,6 +6,7 @@ import Script from "next/script";
 import { StoreProvider } from "@/lib/store";
 import { SiteStickyTicker } from "@/components/site-sticky-ticker";
 import { Toaster } from "@/components/ui/toaster";
+import { LegalUpdatePrompt } from "@/components/legal-update-toast";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AuthProvider } from "@/lib/auth";
 import { PageShellLoading } from "@/components/loading/page-shell";
@@ -172,9 +173,10 @@ export default function RootLayout({
             <AuthProvider>
               <div className="min-h-screen w-full pt-14 md:pt-[4.5rem]">
                 <StackedProviders>
-                  <SiteStickyTicker />
-                  {children}
-                  <Toaster />
+                <SiteStickyTicker />
+                {children}
+                <LegalUpdatePrompt />
+                <Toaster />
                 </StackedProviders>
               </div>
             </AuthProvider>

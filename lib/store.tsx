@@ -82,6 +82,7 @@ import type { User, Transaction, PriceHistory } from "./types";
 import { DEFAULT_PREMIUM_META } from "./premium";
 import { generateDisplaySlug } from "./usernames";
 import { debugPriceHistory } from "./debug/price-history";
+import { PRIVACY_VERSION, TERMS_VERSION } from "./legal";
 
 const DEBUG_PRICE_HISTORY = process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
 
@@ -404,6 +405,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 isPortfolioPublic: false,
                 hideTransactions: false,
                 anonymousTransactions: false,
+                termsAcceptedVersion: TERMS_VERSION,
+                termsAcceptedAt: new Date(),
+                privacyAcceptedVersion: PRIVACY_VERSION,
+                privacyAcceptedAt: new Date(),
                 emailNotificationsEnabled: false,
                 directMessageEmailNotifications: false,
                 premiumMeta: { ...DEFAULT_PREMIUM_META },

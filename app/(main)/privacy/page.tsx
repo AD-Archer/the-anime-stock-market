@@ -6,6 +6,7 @@ import { ArrowLeft, Mail } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { privacyLastUpdatedDisplay } from "@/lib/legal";
 
 export default function PrivacyPage() {
   const dataCollectionMarkdown = `
@@ -49,7 +50,9 @@ We do **not** sell your data.
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Privacy Policy
           </h1>
-          <p className="text-muted-foreground">Last updated: December 23th</p>
+          <p className="text-muted-foreground">
+            Last updated: {privacyLastUpdatedDisplay}
+          </p>
         </div>
 
         <div className="space-y-6">
