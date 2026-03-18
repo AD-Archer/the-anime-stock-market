@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -71,17 +72,13 @@ function FollowUpForm({ ticketId }: { ticketId: string }) {
 }
 
 export function SupportList() {
-  const {
-    currentUser,
-    supportTickets,
-    getSupportTickets,
-    users,
-  } = useStore();
+  const { currentUser, supportTickets, getSupportTickets, users } = useStore();
+  const searchParams = useSearchParams();
+  const selectedTicketId = searchParams.get("ticket");
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [tagFilter, setTagFilter] =
-    useState<SupportTagFilterValue>("all");
+  const [tagFilter, setTagFilter] = useState<SupportTagFilterValue>("all");
 
   useEffect(() => {
     void (async () => {
@@ -114,25 +111,44 @@ export function SupportList() {
         (t) =>
           t.userId === currentUser?.id ||
           t.contactEmail === currentUser?.email ||
-          (t as any).email === currentUser?.email
+          (t as any).email === currentUser?.email,
       ),
-    [supportTickets, currentUser]
+    [supportTickets, currentUser],
   );
   const premiumRequests = useMemo(
     () => myTickets.filter((t) => t.tag === "premium"),
-    [myTickets]
+    [myTickets],
   );
   const latestPremiumRequest = useMemo(
     () => premiumRequests[0],
-    [premiumRequests]
+    [premiumRequests],
   );
 
   const visibleTickets = useMemo(() => {
-    if (currentUser?.isAdmin) {
-      return supportTickets;
-    }
-    return myTickets;
-  }, [supportTickets, myTickets, currentUser?.isAdmin]);
+    const scoped = currentUser?.isAdmin ? supportTickets : myTickets;
+    return [...scoped].sort((a, b) => {
+      if (selectedTicketId && a.id === selectedTicketId) return -1;
+      if (selectedTicketId && b.id === selectedTicketId) return 1;
+      const priority = (status: string) =>
+        status === "open" ? 0 : status === "in_progress" ? 1 : 2;
+      const statusDelta = priority(a.status) - priority(b.status);
+      if (statusDelta !== 0) return statusDelta;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [supportTickets, myTickets, currentUser?.isAdmin, selectedTicketId]);
+
+  const ticketSummary = useMemo(() => {
+    return visibleTickets.reduce(
+      (acc, ticket) => {
+        acc.total += 1;
+        if (ticket.status === "open") acc.open += 1;
+        if (ticket.status === "in_progress") acc.inProgress += 1;
+        if (ticket.status === "closed") acc.closed += 1;
+        return acc;
+      },
+      { total: 0, open: 0, inProgress: 0, closed: 0 },
+    );
+  }, [visibleTickets]);
 
   const headingLabel = currentUser?.isAdmin
     ? "Support Tickets"
@@ -142,7 +158,17 @@ export function SupportList() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">{headingLabel}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold">{headingLabel}</h3>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="secondary">Total: {ticketSummary.total}</Badge>
+          <Badge>Open: {ticketSummary.open}</Badge>
+          <Badge variant="outline">
+            In Progress: {ticketSummary.inProgress}
+          </Badge>
+          <Badge variant="outline">Closed: {ticketSummary.closed}</Badge>
+        </div>
+      </div>
       <div className="flex gap-2">
         <Input
           placeholder="Search tickets..."
@@ -181,7 +207,8 @@ export function SupportList() {
               Premium request recorded
             </p>
             <p className="text-xs text-muted-foreground">
-              We have your premium request{premiumRequests.length > 1 ? "s" : ""} queued for review.
+              We have your premium request
+              {premiumRequests.length > 1 ? "s" : ""} queued for review.
             </p>
             <p className="text-xs text-muted-foreground">
               Status: {latestPremiumRequest.status} • Submitted on{" "}
@@ -205,10 +232,17 @@ export function SupportList() {
           const ticketUser = t.userId
             ? users.find((u) => u.id === t.userId)
             : undefined;
+          const assignedAdmin = t.assignedTo
+            ? users.find((u) => u.id === t.assignedTo)
+            : undefined;
           const contactLabel =
             ticketUser?.email || t.contactEmail || "Anonymous";
+          const isSelectedFromUrl = selectedTicketId === t.id;
           return (
-            <Card key={t.id}>
+            <Card
+              key={t.id}
+              className={isSelectedFromUrl ? "ring-2 ring-primary/40" : ""}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{t.subject}</span>
@@ -247,7 +281,16 @@ export function SupportList() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Ticket: {t.id}</span>
+                    <span>•</span>
                     <span>Status: {t.status}</span>
+                    <span>•</span>
+                    <span>
+                      Assigned:{" "}
+                      {assignedAdmin?.displayName ||
+                        assignedAdmin?.username ||
+                        (t.assignedTo ? "Admin" : "Unassigned")}
+                    </span>
                     <span>•</span>
                     <span>{new Date(t.createdAt).toLocaleString()}</span>
                   </div>
@@ -262,13 +305,26 @@ export function SupportList() {
                       {t.messages!.map((m, i) => (
                         <div key={i} className="rounded border p-3">
                           <div className="text-xs text-muted-foreground mb-1">
-                            {m.senderId ||
-                              t.contactEmail ||
-                              (t as any).email ||
-                              "User"}{" "}
+                            {(() => {
+                              const sender = m.senderId
+                                ? users.find((u) => u.id === m.senderId)
+                                : undefined;
+                              if (sender) {
+                                return (
+                                  sender.displayName ||
+                                  sender.username ||
+                                  sender.email
+                                );
+                              }
+                              return (
+                                t.contactEmail || (t as any).email || "User"
+                              );
+                            })()}{" "}
                             • {new Date(m.createdAt).toLocaleString()}
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{m.text}</p>
+                          <p className="text-sm whitespace-pre-wrap">
+                            {m.text}
+                          </p>
                         </div>
                       ))}
                     </div>

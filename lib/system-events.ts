@@ -6,9 +6,11 @@ export type SystemEventType =
   | "deletion_scheduled"
   | "account_deleted"
   | "support_ticket_created"
+  | "support_ticket_followup"
   | "premium_status_changed"
   | "notification_email"
-  | "market_drift_completed";
+  | "market_drift_completed"
+  | "client_error";
 
 export type PasswordChangedEvent = {
   type: "password_changed";
@@ -47,7 +49,24 @@ export type SupportTicketCreatedEvent = {
     id?: string;
     subject?: string;
     email?: string;
+    contactEmail?: string;
+    tag?: string;
+    referenceId?: string;
     messageSnippet?: string;
+  };
+};
+
+export type SupportTicketFollowUpEvent = {
+  type: "support_ticket_followup";
+  userId?: string;
+  metadata?: {
+    id?: string;
+    subject?: string;
+    contactEmail?: string;
+    messageSnippet?: string;
+    senderId?: string;
+    senderDisplay?: string;
+    isAdminReply?: boolean;
   };
 };
 
@@ -82,12 +101,26 @@ export type MarketDriftCompletedEvent = {
   };
 };
 
+export type ClientErrorEvent = {
+  type: "client_error";
+  userId?: string;
+  metadata: {
+    message: string;
+    source?: string;
+    stack?: string;
+    pageUrl?: string;
+    userAgent?: string;
+  };
+};
+
 export type SystemEventRequest =
   | PasswordChangedEvent
   | UserBannedEvent
   | DeletionScheduledEvent
   | AccountDeletedEvent
   | SupportTicketCreatedEvent
+  | SupportTicketFollowUpEvent
   | PremiumStatusChangedEvent
   | NotificationEmailEvent
-  | MarketDriftCompletedEvent;
+  | MarketDriftCompletedEvent
+  | ClientErrorEvent;
