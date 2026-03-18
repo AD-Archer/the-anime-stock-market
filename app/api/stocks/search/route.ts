@@ -5,29 +5,17 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim().toLowerCase() || "";
   const anime = url.searchParams.get("anime")?.trim() || "";
-  const limit = Number(url.searchParams.get("limit") || 50);
+  const limit = Math.min(
+    Math.max(Number(url.searchParams.get("limit") || 50), 1),
+    200
+  );
 
   try {
-    const all = await stockService.getAll();
-
-    let results = all;
-
-    if (anime) {
-      results = results.filter(
-        (s) => s.anime.toLowerCase().replace(/\s+/g, "-") === anime
-      );
-    }
-
-    if (q) {
-      results = results.filter((s) =>
-        [s.characterName, s.characterSlug, s.anime]
-          .filter(Boolean)
-          .some((v) => v.toLowerCase().includes(q))
-      );
-    }
-
-    results = results.slice(0, limit);
-
+    const results = await stockService.search({
+      query: q,
+      animeSlug: anime,
+      limit,
+    });
     return NextResponse.json(results);
   } catch (err) {
     console.error("Failed to search stocks", err);

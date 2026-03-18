@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 
 export default function TradingPage() {
   const {
-    stocks,
     currentUser,
     addComment,
     editComment,
@@ -80,7 +79,7 @@ export default function TradingPage() {
           <h2 className="text-3xl font-bold text-foreground mb-6">
             Browse & Trade
           </h2>
-          <StockBrowser stocks={stocks} onBuy={handleBuy} />
+          <StockBrowser onBuy={handleBuy} />
         </div>
 
         {/* Community Discussion */}

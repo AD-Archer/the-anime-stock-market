@@ -20,10 +20,10 @@ export default async function Head({ params }: { params: { id: string } }) {
   ];
 
   try {
-    const stocks = await stockService.getAll();
-    const animeCharacters = stocks.filter(
-      (s) => generateAnimeSlug(s.anime) === id
-    );
+    const animeCharacters = await stockService.search({
+      animeSlug: id,
+      limit: 300,
+    });
 
     const animeName =
       animeCharacters.length > 0 ? animeCharacters[0].anime : null;

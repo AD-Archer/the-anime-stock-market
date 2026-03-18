@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
@@ -28,9 +28,62 @@ export function BuyDialog({ stockId, onClose }: BuyDialogProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [sharesInput, setSharesInput] = useState('1')
+  const [resolvedStock, setResolvedStock] = useState<any | null>(null)
+  const [isResolvingStock, setIsResolvingStock] = useState(false)
 
-  const stock = stocks.find((s) => s.id === stockId)
-  if (!stock) return null
+  const stockFromStore = stocks.find((s) => s.id === stockId)
+  const stock = stockFromStore || resolvedStock
+
+  useEffect(() => {
+    let cancelled = false
+    if (stockFromStore) {
+      return
+    }
+    const startTid = setTimeout(() => {
+      setIsResolvingStock(true)
+    }, 0)
+    fetch(`/api/stocks/resolve?id=${encodeURIComponent(stockId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const normalized = {
+          ...data,
+          createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
+        }
+        setResolvedStock(normalized)
+        useStore.setState((state) => ({
+          stocks: state.stocks.some((s) => s.id === normalized.id)
+            ? state.stocks
+            : [...state.stocks, normalized],
+        }))
+      })
+      .catch((error) => {
+        console.error("Failed to resolve stock for buy dialog:", error)
+      })
+      .finally(() => {
+        if (!cancelled) setIsResolvingStock(false)
+      })
+
+    return () => {
+      cancelled = true
+      clearTimeout(startTid)
+    }
+  }, [stockId, stockFromStore])
+
+  if (!stock) {
+    if (isResolvingStock) {
+      return (
+        <Dialog open onOpenChange={onClose}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Loading stock...</DialogTitle>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )
+    }
+    return null
+  }
 
   const shares = Number.parseInt(sharesInput) || 1
 

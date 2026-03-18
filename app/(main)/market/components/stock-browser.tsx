@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StockCard } from "@/components/stock-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LayoutGrid, List, Search, Activity, Zap } from "lucide-react";
 import type { Stock } from "@/lib/types";
-import { useStore } from "@/lib/store";
 
 type SortMode =
   | "most_active"
@@ -26,85 +25,82 @@ type SortMode =
 type ViewMode = "grid" | "list";
 
 interface StockBrowserProps {
-  stocks: Stock[];
   onBuy: (stockId: string) => void;
 }
 
-export function StockBrowser({ stocks, onBuy }: StockBrowserProps) {
+const PAGE_SIZE = 24;
+
+export function StockBrowser({ onBuy }: StockBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("most_active");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [showCount, setShowCount] = useState(12);
-  const { transactions } = useStore();
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  // Calculate transaction count for each stock
-  const stockTransactionCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    transactions.forEach((transaction) => {
-      counts[transaction.stockId] = (counts[transaction.stockId] || 0) + 1;
-    });
-    return counts;
-  }, [transactions]);
+  useEffect(() => {
+    const tid = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 250);
+    return () => clearTimeout(tid);
+  }, [searchQuery]);
 
-  // Filter and sort stocks
-  const displayedStocks = useMemo(() => {
-    let filtered = stocks;
+  const queryValue = useMemo(
+    () => (debouncedQuery ? `&q=${encodeURIComponent(debouncedQuery)}` : ""),
+    [debouncedQuery]
+  );
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = stocks.filter(
-        (stock) =>
-          stock.characterName.toLowerCase().includes(query) ||
-          stock.anime.toLowerCase().includes(query)
+  const loadPage = async (reset = false) => {
+    if (isLoading && !reset) return;
+    setIsLoading(true);
+    try {
+      const pageOffset = reset ? 0 : offset;
+      const res = await fetch(
+        `/api/stocks/browse?sort=${encodeURIComponent(
+          sortMode
+        )}&limit=${PAGE_SIZE}&offset=${pageOffset}${queryValue}`
       );
+
+      if (!res.ok) {
+        throw new Error(`Failed to load stocks (${res.status})`);
+      }
+
+      const data = await res.json();
+      const incoming = Array.isArray(data?.items) ? (data.items as Stock[]) : [];
+
+      setStocks((prev) => {
+        if (reset) return incoming;
+        const map = new Map(prev.map((stock) => [stock.id, stock]));
+        incoming.forEach((stock) => map.set(stock.id, stock));
+        return Array.from(map.values());
+      });
+      setOffset(typeof data?.nextOffset === "number" ? data.nextOffset : 0);
+      setHasMore(Boolean(data?.hasMore));
+      setHasLoadedOnce(true);
+    } catch (error) {
+      console.error("Failed to load stock browser page:", error);
+      if (reset) {
+        setStocks([]);
+        setHasMore(false);
+        setOffset(0);
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Apply sorting
-    let sorted = [...filtered];
-    switch (sortMode) {
-      case "most_active":
-        sorted.sort((a, b) => {
-          const aCount = stockTransactionCounts[a.id] || 0;
-          const bCount = stockTransactionCounts[b.id] || 0;
-          return bCount - aCount;
-        });
-        break;
-      case "trending":
-        // Combine recent activity and market cap
-        sorted.sort((a, b) => {
-          const aActivity = stockTransactionCounts[a.id] || 0;
-          const aMarketCap = a.currentPrice * a.totalShares;
-          const bActivity = stockTransactionCounts[b.id] || 0;
-          const bMarketCap = b.currentPrice * b.totalShares;
-          const aScore = aActivity * 2 + aMarketCap;
-          const bScore = bActivity * 2 + bMarketCap;
-          return bScore - aScore;
-        });
-        break;
-      case "price_desc":
-        sorted.sort((a, b) => b.currentPrice - a.currentPrice);
-        break;
-      case "price_asc":
-        sorted.sort((a, b) => a.currentPrice - b.currentPrice);
-        break;
-      case "rarest":
-        sorted.sort((a, b) => a.availableShares - b.availableShares);
-        break;
-      case "newest":
-        sorted.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
-    }
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(false);
+    setHasLoadedOnce(false);
+    loadPage(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortMode, queryValue]);
 
-    return sorted.slice(0, showCount);
-  }, [stocks, searchQuery, sortMode, showCount, stockTransactionCounts]);
-
-  const totalCount = stocks.filter(
-    (stock) =>
-      !searchQuery.trim() ||
-      stock.characterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.anime.toLowerCase().includes(searchQuery.toLowerCase())
-  ).length;
+  const displayedStocks = stocks;
 
   return (
     <div id="browse-stocks" className="space-y-6">
@@ -123,7 +119,6 @@ export function StockBrowser({ stocks, onBuy }: StockBrowserProps) {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setShowCount(12); // Reset to initial count on search
                 }}
                 className="pl-10 h-10"
               />
@@ -192,8 +187,8 @@ export function StockBrowser({ stocks, onBuy }: StockBrowserProps) {
         {/* Results Info */}
         {searchQuery && (
           <div className="text-sm text-muted-foreground">
-            Found <Badge variant="secondary">{displayedStocks.length}</Badge> of{" "}
-            <Badge variant="secondary">{totalCount}</Badge> stocks
+            Showing <Badge variant="secondary">{displayedStocks.length}</Badge>{" "}
+            matching stocks
           </div>
         )}
       </div>
@@ -219,34 +214,43 @@ export function StockBrowser({ stocks, onBuy }: StockBrowserProps) {
           </div>
 
           {/* Load More Button */}
-          {showCount < totalCount && (
+          {hasMore && (
             <div className="flex justify-center pt-4">
               <Button
                 variant="outline"
-                onClick={() => setShowCount((prev) => prev + 12)}
+                onClick={() => loadPage(false)}
+                disabled={isLoading}
               >
-                Load More
+                {isLoading ? "Loading..." : "Load More"}
               </Button>
             </div>
           )}
         </>
       ) : (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
-          <p className="text-muted-foreground">
-            {searchQuery
-              ? "No stocks found matching your search"
-              : "No stocks available"}
-          </p>
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              className="mt-4"
-              onClick={() => setSearchQuery("")}
-            >
-              Clear Search
-            </Button>
+        <>
+          {isLoading && !hasLoadedOnce ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
+              <p className="text-muted-foreground">Loading stocks...</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
+              <p className="text-muted-foreground">
+                {searchQuery
+                  ? "No stocks found matching your search"
+                  : "No stocks available"}
+              </p>
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  className="mt-4"
+                  onClick={() => setSearchQuery("")}
+                >
+                  Clear Search
+                </Button>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

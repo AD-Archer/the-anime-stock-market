@@ -1,5 +1,6 @@
 import React from "react";
 import { generateCharacterSlug } from "@/lib/utils";
+import { stockService } from "@/lib/database/stockService";
 
 export default async function Head({ params }: { params: { id: string } }) {
   const siteUrl =
@@ -18,18 +19,24 @@ export default async function Head({ params }: { params: { id: string } }) {
   ];
 
   try {
-    const { stockService } = await import("@/lib/database/stockService");
-    const stocks = await stockService.getAll();
     const normalizedId = generateCharacterSlug(id);
-    const stock =
-      stocks.find((s) => s.characterSlug === id) ||
-      stocks.find(
-        (s) => generateCharacterSlug(s.characterSlug) === normalizedId
-      ) ||
-      stocks.find(
-        (s) => generateCharacterSlug(s.characterName) === normalizedId
-      ) ||
-      stocks.find((s) => s.id === id);
+    const byId = await stockService.getById(id);
+    const bySlug = byId ? null : await stockService.getByCharacterSlug(id);
+    let stock = byId || bySlug;
+
+    if (!stock) {
+      const candidates = await stockService.search({ query: id, limit: 200 });
+      stock =
+        candidates.find(
+          (entry) =>
+            generateCharacterSlug(entry.characterSlug) === normalizedId
+        ) ||
+        candidates.find(
+          (entry) =>
+            generateCharacterSlug(entry.characterName) === normalizedId
+        ) ||
+        null;
+    }
 
     if (stock) {
       const { characterName, anime, description: stockDesc, imageUrl } = stock;
