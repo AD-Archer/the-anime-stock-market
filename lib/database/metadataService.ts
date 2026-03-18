@@ -1,6 +1,9 @@
 import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
-import { DATABASE_ID, METADATA_COLLECTION } from "./utils";
+import {
+  METADATA_COLLECTION,
+  ensureDatabaseIdAvailable,
+} from "./utils";
 
 const METADATA_KEYS = {
   stockCount: "stock_count",
@@ -28,7 +31,7 @@ export const metadataService = {
    */
   async get(key: string): Promise<number | null> {
     try {
-      const dbId = DATABASE_ID;
+      const dbId = ensureDatabaseIdAvailable();
       const response = await databases.listDocuments(
         dbId,
         METADATA_COLLECTION,
@@ -51,7 +54,7 @@ export const metadataService = {
    */
   async set(key: string, value: number): Promise<void> {
     try {
-      const dbId = DATABASE_ID;
+      const dbId = ensureDatabaseIdAvailable();
 
       // Try to update existing document
       const existing = await databases.listDocuments(
@@ -89,7 +92,7 @@ export const metadataService = {
    */
   async increment(key: string, amount: number = 1): Promise<number> {
     try {
-      const dbId = DATABASE_ID;
+      const dbId = ensureDatabaseIdAvailable();
 
       // Get current value
       const existing = await databases.listDocuments(

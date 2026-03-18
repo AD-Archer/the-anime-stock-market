@@ -193,7 +193,7 @@ export const mapUser = (doc: AppwriteDocument): User => ({
     : null,
   showNsfw: toBooleanOr(docValue(doc, "showNsfw"), true),
   showSpoilers: toBooleanOr(docValue(doc, "showSpoilers"), true),
-  isPortfolioPublic: toBooleanOr(docValue(doc, "isPortfolioPublic"), false),
+  isPortfolioPublic: toBooleanOr(docValue(doc, "isPortfolioPublic"), true),
   hideTransactions: toBooleanOr(docValue(doc, "hideTransactions"), false),
   anonymousTransactions: toBooleanOr(
     docValue(doc, "anonymousTransactions"),
@@ -214,6 +214,10 @@ export const mapUser = (doc: AppwriteDocument): User => ({
   ),
   directMessageEmailNotifications: toBooleanOr(
     docValue(doc, "directMessageEmailNotifications"),
+    false
+  ),
+  allowProfanityInDirectMessages: toBooleanOr(
+    docValue(doc, "allowProfanityInDirectMessages"),
     false
   ),
   termsAcceptedVersion: toOptionalString(

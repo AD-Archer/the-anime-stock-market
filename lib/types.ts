@@ -40,6 +40,7 @@ export interface User {
   theme?: "light" | "dark" | "system";
   emailNotificationsEnabled?: boolean;
   directMessageEmailNotifications?: boolean;
+  allowProfanityInDirectMessages?: boolean;
   premiumMeta?: PremiumMeta;
   termsAcceptedVersion?: string | null;
   privacyAcceptedVersion?: string | null;

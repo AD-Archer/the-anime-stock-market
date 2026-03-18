@@ -63,6 +63,7 @@ type ProfileSettingsProps = {
   onUpdateNotificationPreferences: (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    allowProfanityInDirectMessages?: boolean;
   }) => Promise<void>;
   onUpdateAvatar: (avatarUrl: string | null) => Promise<void>;
   onExportData: () => void;
@@ -110,12 +111,14 @@ export function ProfileSettings({
     useState(false);
   const [directMessageEmailNotifications, setDirectMessageEmailNotifications] =
     useState(false);
+  const [allowProfanityInDirectMessages, setAllowProfanityInDirectMessages] =
+    useState(false);
   const [avatarSearch, setAvatarSearch] = useState("");
   const [avatarUpdating, setAvatarUpdating] = useState(false);
   const { toast } = useToast();
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [preferenceLoading, setPreferenceLoading] = useState<
-    null | "spoilers" | "nsfw" | "portfolio" | "transactions"
+    null | "spoilers" | "nsfw" | "portfolio" | "transactions" | "dm-profanity"
   >(null);
   const [notificationPreferenceLoading, setNotificationPreferenceLoading] =
     useState<null | "email" | "direct">(null);
@@ -217,6 +220,9 @@ export function ProfileSettings({
       setEmailNotificationsEnabled(!!storeUser.emailNotificationsEnabled);
       setDirectMessageEmailNotifications(
         !!storeUser.directMessageEmailNotifications
+      );
+      setAllowProfanityInDirectMessages(
+        !!storeUser.allowProfanityInDirectMessages
       );
     }
   }, [storeUser]);
@@ -517,6 +523,22 @@ export function ProfileSettings({
       setDirectMessageEmailNotifications((prev) => !value);
     } finally {
       setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleDirectMessageProfanityToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    setAllowProfanityInDirectMessages(value);
+    setPreferenceLoading("dm-profanity");
+    try {
+      await onUpdateNotificationPreferences({
+        allowProfanityInDirectMessages: value,
+      });
+    } catch (error) {
+      console.error("Failed to update DM profanity preference", error);
+      setAllowProfanityInDirectMessages(!value);
+    } finally {
+      setPreferenceLoading(null);
     }
   };
 
@@ -1186,6 +1208,26 @@ export function ProfileSettings({
                       />
                     </div>
                   ))}
+                  <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Allow Profanity In DMs
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Disabled by default. Profanity is only allowed when both
+                        you and the other person have this enabled.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={allowProfanityInDirectMessages}
+                      onChange={(e) =>
+                        handleDirectMessageProfanityToggle(e.target.checked)
+                      }
+                      disabled={preferenceLoading === "dm-profanity"}
+                      className="h-5 w-5 accent-primary rounded"
+                    />
+                  </div>
                 </div>
               </div>
             )}

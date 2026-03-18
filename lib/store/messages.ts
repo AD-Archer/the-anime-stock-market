@@ -2,6 +2,11 @@ import type { StoreApi } from "zustand";
 import type { Conversation, Message } from "../types";
 import { messageService } from "../database";
 import type { StoreState } from "./types";
+import { toast } from "@/hooks/use-toast";
+import {
+  assertTextAllowed,
+  ContentModerationError,
+} from "@/lib/moderation/client";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 type MessageActionsArgs = StoreMutators & {
@@ -11,11 +16,41 @@ type MessageActionsArgs = StoreMutators & {
 const truncate = (text: string, length = 120) =>
   text.length > length ? `${text.slice(0, length - 3)}...` : text;
 
+const getConversationParticipants = (
+  conversationId: string,
+  conversations: Conversation[]
+) => {
+  const conversation = conversations.find((conv) => conv.id === conversationId);
+  return conversation?.participants ?? conversationId.split("-").filter(Boolean);
+};
+
 export function createMessageActions({
   setState,
   getState,
   sendNotification,
 }: MessageActionsArgs) {
+  const canBypassDirectMessageFilter = (conversationId: string) => {
+    const state = getState();
+    const currentUser = state.currentUser;
+    if (!currentUser?.allowProfanityInDirectMessages) {
+      return false;
+    }
+
+    const participants = getConversationParticipants(
+      conversationId,
+      state.conversations
+    );
+    const recipientIds = participants.filter((id) => id !== currentUser.id);
+    if (recipientIds.length === 0) {
+      return false;
+    }
+
+    return recipientIds.every((recipientId) => {
+      const recipient = state.users.find((user) => user.id === recipientId);
+      return recipient?.allowProfanityInDirectMessages === true;
+    });
+  };
+
   const sendMessage = async (
     conversationId: string,
     content: string,
@@ -25,6 +60,13 @@ export function createMessageActions({
     if (!currentUser) return null;
 
     try {
+      if (!canBypassDirectMessageFilter(conversationId)) {
+        await assertTextAllowed({
+          text: content,
+          surface: "direct_message",
+        });
+      }
+
       const message = await messageService.create({
         conversationId,
         senderId: currentUser.id,
@@ -52,9 +94,10 @@ export function createMessageActions({
       const conversation = getState().conversations.find(
         (conv) => conv.id === conversationId
       );
-      const participants =
-        conversation?.participants ??
-        conversationId.split("-").filter((id) => id);
+      const participants = getConversationParticipants(
+        conversationId,
+        getState().conversations
+      );
       const recipientIds = Array.from(new Set(participants)).filter(
         (id) => id && id !== currentUser.id
       );
@@ -88,6 +131,14 @@ export function createMessageActions({
 
       return message;
     } catch (error) {
+      if (error instanceof ContentModerationError) {
+        toast({
+          title: "Message blocked",
+          description: error.message,
+          variant: "destructive",
+        });
+        return null;
+      }
       console.error("Failed to send message:", error);
       return null;
     }
@@ -102,6 +153,26 @@ export function createMessageActions({
 
     const original = getState().messages.find((m) => m.id === messageId);
     if (!original || original.senderId !== currentUser.id) return null;
+
+    try {
+      if (!canBypassDirectMessageFilter(original.conversationId)) {
+        await assertTextAllowed({
+          text: content,
+          surface: "direct_message",
+        });
+      }
+    } catch (error) {
+      if (error instanceof ContentModerationError) {
+        toast({
+          title: "Edit blocked",
+          description: error.message,
+          variant: "destructive",
+        });
+        return null;
+      }
+      console.error("Failed to moderate edited message:", error);
+      return null;
+    }
 
     const optimistic: Message = {
       ...original,
