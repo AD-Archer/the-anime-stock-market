@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { ContentTag } from "@/lib/types";
+import { ContentTag, Stock } from "@/lib/types";
 import {
   generateAnimeSlug,
   generateCharacterSlug,
@@ -25,6 +25,30 @@ import { OptionStatsCard } from "@/components/options/OptionStatsCard";
 import { usePaginatedComments } from "@/lib/use-paginated-comments";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
+
+function normalizeStockFromApi(raw: any): Stock {
+  return {
+    id: String(raw?.id ?? raw?.$id ?? ""),
+    characterName: String(raw?.characterName ?? ""),
+    characterSlug: String(raw?.characterSlug ?? ""),
+    anilistCharacterId: Number(raw?.anilistCharacterId ?? 0),
+    anilistMediaIds: Array.isArray(raw?.anilistMediaIds)
+      ? raw.anilistMediaIds.map(String)
+      : [],
+    anime: String(raw?.anime ?? ""),
+    currentPrice: Number(raw?.currentPrice ?? 0),
+    createdBy: String(raw?.createdBy ?? ""),
+    createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
+    imageUrl: String(raw?.imageUrl ?? ""),
+    animeImageUrl: raw?.animeImageUrl ? String(raw.animeImageUrl) : undefined,
+    description: String(raw?.description ?? ""),
+    totalShares: Number(raw?.totalShares ?? 0),
+    availableShares: Number(raw?.availableShares ?? 0),
+    mediaType: raw?.mediaType === "manga" ? "manga" : "anime",
+    characterNumber:
+      raw?.characterNumber !== undefined ? Number(raw.characterNumber) : undefined,
+  };
+}
 
 export default function CharacterPage({
   params,
@@ -54,6 +78,8 @@ export default function CharacterPage({
   const [showBuyDialog, setShowBuyDialog] = useState(false);
   const [showSellDialog, setShowSellDialog] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [resolvedStock, setResolvedStock] = useState<Stock | null>(null);
+  const [isStockLoading, setIsStockLoading] = useState(true);
 
   // Get initial tab from URL or default to "stocks"
   const activeTab =
@@ -87,7 +113,7 @@ export default function CharacterPage({
   // Try to find by characterSlug first (new format), then by ID (backward compatibility)
   // Normalize the incoming ID to handle any special characters consistently
   const normalizedId = generateCharacterSlug(id);
-  const stock =
+  const stockFromStore =
     stocks.find((s) => s.characterSlug === id) ||
     stocks.find(
       (s) => generateCharacterSlug(s.characterSlug) === normalizedId
@@ -96,6 +122,51 @@ export default function CharacterPage({
       (s) => generateCharacterSlug(s.characterName) === normalizedId
     ) ||
     stocks.find((s) => s.id === id);
+  const mergeStocksIntoStore = useCallback((incoming: Stock[]) => {
+    if (incoming.length === 0) return;
+    useStore.setState((state) => {
+      const merged = new Map(state.stocks.map((stock) => [stock.id, stock]));
+      incoming.forEach((stock) => merged.set(stock.id, stock));
+      return { stocks: Array.from(merged.values()) };
+    });
+  }, []);
+  const stock = useMemo(() => {
+    if (!resolvedStock) return stockFromStore;
+    return stocks.find((entry) => entry.id === resolvedStock.id) ?? resolvedStock;
+  }, [resolvedStock, stockFromStore, stocks]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const startTid = setTimeout(() => {
+      setIsStockLoading(true);
+    }, 0);
+
+    fetch(`/api/stocks/resolve?id=${encodeURIComponent(id)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          setResolvedStock(null);
+          return;
+        }
+        const normalized = normalizeStockFromApi(data);
+        setResolvedStock(normalized);
+        mergeStocksIntoStore([normalized]);
+      })
+      .catch((error) => {
+        console.error("Failed to resolve stock:", error);
+        if (!cancelled) setResolvedStock(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsStockLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(startTid);
+    };
+  }, [id, mergeStocksIntoStore]);
+
   const resolvedStockId = stock?.id;
   const characterIdentifiers = Array.from(
     new Set([stock?.id, id].filter(Boolean) as string[])
@@ -125,6 +196,12 @@ export default function CharacterPage({
       limit: 200,
     });
   }, [resolvedStockId, schedulePriceHistoryLoad]);
+
+  if (isStockLoading && !stock) {
+    return (
+      <div className="container mx-auto px-4 py-8">Loading character...</div>
+    );
+  }
 
   if (!stock) {
     return (

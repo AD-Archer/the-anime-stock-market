@@ -11,8 +11,28 @@ import {
 import { metadataService } from "./metadataService";
 import { trackPlausible } from "../analytics";
 import { buildStockIndexNowUrls, publishIndexNow } from "../indexnow";
+import { generateAnimeSlug } from "../utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
+export type StockBrowseSort =
+  | "most_active"
+  | "trending"
+  | "price_desc"
+  | "price_asc"
+  | "rarest"
+  | "newest";
+
+type StockBrowsePageParams = {
+  limit?: number;
+  offset?: number;
+  sort?: StockBrowseSort;
+};
+
+type StockSearchParams = {
+  query?: string;
+  animeSlug?: string;
+  limit?: number;
+};
 
 const STOCK_INDEXNOW_FIELDS: Array<keyof Stock> = [
   "characterName",
@@ -67,14 +87,30 @@ export const stockService = {
   async getAll(): Promise<Stock[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(dbId, STOCKS_COLLECTION, [
-        Query.limit(1000),
-      ]);
+      const limit = 100;
+      let offset = 0;
+      const allDocuments: any[] = [];
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          STOCKS_COLLECTION,
+          [Query.limit(limit), Query.offset(offset)]
+        );
+
+        allDocuments.push(...response.documents);
+
+        if (response.documents.length < limit) {
+          break;
+        }
+
+        offset += limit;
+      }
 
       // Server-side logging to aid debugging when frontend shows no stocks
       if (typeof window === "undefined") {
         try {
-          const sample = response.documents.slice(0, 5).map((d: any) => d.$id);
+          const sample = allDocuments.slice(0, 5).map((d: any) => d.$id);
         } catch (err) {
           console.warn(
             "[stockService.getAll] Failed to log response summary:",
@@ -83,9 +119,138 @@ export const stockService = {
         }
       }
 
-      return response.documents.map(mapStock);
+      return allDocuments.map(mapStock);
     } catch (error) {
       console.warn("Failed to fetch stocks from database:", error);
+      return [];
+    }
+  },
+
+  async getBrowsePage({
+    limit = 24,
+    offset = 0,
+    sort = "newest",
+  }: StockBrowsePageParams = {}): Promise<{
+    items: Stock[];
+    hasMore: boolean;
+    nextOffset: number;
+  }> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 50));
+      const safeOffset = Math.max(0, offset);
+      const queries = [Query.limit(safeLimit + 1), Query.offset(safeOffset)];
+
+      if (sort === "price_desc") {
+        queries.push(Query.orderDesc("currentPrice"));
+      } else if (sort === "price_asc") {
+        queries.push(Query.orderAsc("currentPrice"));
+      } else if (sort === "rarest") {
+        queries.push(Query.orderAsc("availableShares"));
+      } else {
+        queries.push(Query.orderDesc("createdAt"));
+      }
+
+      const response = await databases.listDocuments(
+        dbId,
+        STOCKS_COLLECTION,
+        queries
+      );
+      const mapped = response.documents.map(mapStock);
+      const hasMore = mapped.length > safeLimit;
+      const items = hasMore ? mapped.slice(0, safeLimit) : mapped;
+
+      return {
+        items,
+        hasMore,
+        nextOffset: safeOffset + items.length,
+      };
+    } catch (error) {
+      console.warn("Failed to fetch paginated stocks:", error);
+      return { items: [], hasMore: false, nextOffset: offset };
+    }
+  },
+
+  async search({
+    query,
+    animeSlug,
+    limit = 50,
+  }: StockSearchParams = {}): Promise<Stock[]> {
+    const normalizedQuery = query?.trim().toLowerCase() ?? "";
+    const normalizedAnimeSlug = animeSlug
+      ? generateAnimeSlug(animeSlug)
+      : undefined;
+    const safeLimit = Math.max(1, Math.min(limit, 200));
+
+    const matches = (stock: Stock) => {
+      const animeMatches = normalizedAnimeSlug
+        ? generateAnimeSlug(stock.anime) === normalizedAnimeSlug
+        : true;
+      if (!animeMatches) return false;
+      if (!normalizedQuery) return true;
+      return [stock.characterName, stock.characterSlug, stock.anime]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedQuery));
+    };
+
+    // Best effort: try indexed fulltext search first for much faster lookups.
+    // If indexes are missing, fall back to bounded pagination scan.
+    if (normalizedQuery) {
+      try {
+        const dbId = ensureDatabaseIdAvailable();
+        const [nameRes, animeRes] = await Promise.all([
+          databases.listDocuments(dbId, STOCKS_COLLECTION, [
+            Query.search("characterName", normalizedQuery),
+            Query.limit(safeLimit),
+          ]),
+          databases.listDocuments(dbId, STOCKS_COLLECTION, [
+            Query.search("anime", normalizedQuery),
+            Query.limit(safeLimit),
+          ]),
+        ]);
+
+        const deduped = new Map<string, Stock>();
+        [...nameRes.documents, ...animeRes.documents]
+          .map(mapStock)
+          .forEach((stock) => {
+            if (matches(stock)) deduped.set(stock.id, stock);
+          });
+        const results = Array.from(deduped.values());
+        if (results.length > 0) return results.slice(0, safeLimit);
+      } catch {
+        // Ignore and fall back to pagination scan.
+      }
+    }
+
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const pageSize = 100;
+      const maxScan = 20000;
+      let offset = 0;
+      let scanned = 0;
+      const results: Stock[] = [];
+
+      while (results.length < safeLimit && scanned < maxScan) {
+        const response = await databases.listDocuments(dbId, STOCKS_COLLECTION, [
+          Query.orderDesc("createdAt"),
+          Query.limit(pageSize),
+          Query.offset(offset),
+        ]);
+        const page = response.documents.map(mapStock);
+        for (const stock of page) {
+          if (matches(stock)) {
+            results.push(stock);
+            if (results.length >= safeLimit) break;
+          }
+        }
+        scanned += response.documents.length;
+        if (response.documents.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      return results;
+    } catch (error) {
+      console.warn("Failed to search stocks:", error);
       return [];
     }
   },
@@ -126,6 +291,23 @@ export const stockService = {
       if ((error as any)?.code !== 404) {
         console.warn("Failed to fetch stock from database:", error);
       }
+      return null;
+    }
+  },
+
+  async getByCharacterSlug(slug: string): Promise<Stock | null> {
+    try {
+      const trimmed = slug.trim();
+      if (!trimmed) return null;
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, STOCKS_COLLECTION, [
+        Query.equal("characterSlug", trimmed),
+        Query.limit(1),
+      ]);
+      if (response.documents.length === 0) return null;
+      return mapStock(response.documents[0]);
+    } catch (error) {
+      console.warn("Failed to fetch stock by characterSlug:", error);
       return null;
     }
   },

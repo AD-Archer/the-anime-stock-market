@@ -6,11 +6,12 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useCallback,
   type ChangeEvent,
   type MouseEvent,
 } from "react";
 import { useStore } from "@/lib/store";
-import { User, Comment, ContentTag } from "@/lib/types";
+import { User, Comment, ContentTag, Stock } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -87,6 +88,30 @@ const CHART_COLORS = [
 
 // Maximum series to show on the anime chart by default
 const MAX_CHART_SERIES = 5;
+
+function normalizeStockFromApi(raw: any): Stock {
+  return {
+    id: String(raw?.id ?? raw?.$id ?? ""),
+    characterName: String(raw?.characterName ?? ""),
+    characterSlug: String(raw?.characterSlug ?? ""),
+    anilistCharacterId: Number(raw?.anilistCharacterId ?? 0),
+    anilistMediaIds: Array.isArray(raw?.anilistMediaIds)
+      ? raw.anilistMediaIds.map(String)
+      : [],
+    anime: String(raw?.anime ?? ""),
+    currentPrice: Number(raw?.currentPrice ?? 0),
+    createdBy: String(raw?.createdBy ?? ""),
+    createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
+    imageUrl: String(raw?.imageUrl ?? ""),
+    animeImageUrl: raw?.animeImageUrl ? String(raw.animeImageUrl) : undefined,
+    description: String(raw?.description ?? ""),
+    totalShares: Number(raw?.totalShares ?? 0),
+    availableShares: Number(raw?.availableShares ?? 0),
+    mediaType: raw?.mediaType === "manga" ? "manga" : "anime",
+    characterNumber:
+      raw?.characterNumber !== undefined ? Number(raw.characterNumber) : undefined,
+  };
+}
 
 interface CommentThreadProps {
   comment: Comment;
@@ -521,7 +546,6 @@ export default function AnimeDetailPage({
 }) {
   const { id } = use(params);
   const {
-    stocks,
     getStockPriceHistory,
     transactions,
     currentUser,
@@ -541,6 +565,10 @@ export default function AnimeDetailPage({
     string | null
   >(null);
   const [charactersLimit, setCharactersLimit] = useState(12);
+  const [animeCharacters, setAnimeCharacters] = useState<Stock[]>([]);
+  const [isAnimeLoading, setIsAnimeLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Stock[] | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -552,13 +580,46 @@ export default function AnimeDetailPage({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const animeCharacters = useMemo(
-    () =>
-      stocks.filter((stock) => {
-        return generateAnimeSlug(stock.anime) === generateAnimeSlug(id);
-      }),
-    [stocks, id]
-  );
+  const mergeStocksIntoStore = useCallback((incoming: Stock[]) => {
+    if (incoming.length === 0) return;
+    useStore.setState((state) => {
+      const merged = new Map(state.stocks.map((stock) => [stock.id, stock]));
+      incoming.forEach((stock) => merged.set(stock.id, stock));
+      return { stocks: Array.from(merged.values()) };
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const startTid = setTimeout(() => {
+      setIsAnimeLoading(true);
+      setSearchResults(null);
+      setCharactersLimit(12);
+    }, 0);
+
+    fetch(`/api/stocks/by-anime?anime=${encodeURIComponent(id)}&limit=500`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled) return;
+        const normalized = Array.isArray(data)
+          ? data.map(normalizeStockFromApi)
+          : [];
+        setAnimeCharacters(normalized);
+        mergeStocksIntoStore(normalized);
+      })
+      .catch((error) => {
+        console.error("Failed to load anime stocks:", error);
+        if (!cancelled) setAnimeCharacters([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsAnimeLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(startTid);
+    };
+  }, [id, mergeStocksIntoStore]);
 
   // Load price history for characters
   useEffect(() => {
@@ -574,7 +635,9 @@ export default function AnimeDetailPage({
     () =>
       transactions
         .filter(
-          (t) => t.stockId && animeCharacters.some((c) => c.id === t.stockId)
+          (t) =>
+            Boolean(t.stockId) &&
+            animeCharacters.some((character) => character.id === t.stockId)
         )
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
     [transactions, animeCharacters]
@@ -614,11 +677,8 @@ export default function AnimeDetailPage({
     return () => clearTimeout(tid);
   }, [animeCharacters, id, isMobile]);
 
-  // Server-backed search for characters on this anime page
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
-
   useEffect(() => {
+    let cancelled = false;
     const tid = setTimeout(async () => {
       const q = searchQuery.trim();
       if (!q) {
@@ -627,28 +687,38 @@ export default function AnimeDetailPage({
       }
       try {
         const res = await fetch(
-          `/api/stocks/search?q=${encodeURIComponent(
+          `/api/stocks/by-anime?anime=${encodeURIComponent(
+            id
+          )}&q=${encodeURIComponent(
             q
-          )}&anime=${encodeURIComponent(id)}&limit=200`
+          )}&limit=200`
         );
         if (!res.ok) {
           setSearchResults([]);
           return;
         }
         const data = await res.json();
-        setSearchResults(data);
+        if (cancelled) return;
+        const normalized = Array.isArray(data)
+          ? data.map(normalizeStockFromApi)
+          : [];
+        setSearchResults(normalized);
+        mergeStocksIntoStore(normalized);
       } catch (err) {
         console.error("Search error", err);
-        setSearchResults([]);
+        if (!cancelled) setSearchResults([]);
       }
     }, 300);
 
-    return () => clearTimeout(tid);
-  }, [searchQuery, id]);
+    return () => {
+      cancelled = true;
+      clearTimeout(tid);
+    };
+  }, [searchQuery, id, mergeStocksIntoStore]);
 
   const displayCharacters = useMemo(
     () =>
-      searchResults && searchResults.length > 0
+      searchResults !== null
         ? searchResults
         : animeCharacters.slice(0, charactersLimit),
     [searchResults, animeCharacters, charactersLimit]
@@ -792,6 +862,14 @@ export default function AnimeDetailPage({
 
       return { selectedStocks, chartData, totalMarketCap, averagePrice };
     }, [animeCharacters, selectedChartStocks, getStockPriceHistory]);
+
+  if (isAnimeLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <p className="text-center text-muted-foreground">Loading anime...</p>
+      </div>
+    );
+  }
 
   if (animeCharacters.length === 0) {
     return (
@@ -1167,7 +1245,7 @@ export default function AnimeDetailPage({
                   <div className="space-y-3">
                     {characterTransactions.slice(0, 10).map((tx) => {
                       const user = users.find((u) => u.id === tx.userId);
-                      const stock = stocks.find((s) => s.id === tx.stockId);
+                      const stock = animeCharacters.find((s) => s.id === tx.stockId);
                       return (
                         <div
                           key={tx.id}

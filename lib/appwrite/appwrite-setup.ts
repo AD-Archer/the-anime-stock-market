@@ -650,6 +650,22 @@ async function setup() {
       await ensureIndex(databases, collection.id, "anilistCharacterId", "key", [
         "anilistCharacterId",
       ]);
+      await ensureIndex(databases, collection.id, "anime", "key", ["anime"]);
+      await ensureIndex(databases, collection.id, "createdAt", "key", [
+        "createdAt",
+      ]);
+      await ensureIndex(databases, collection.id, "currentPrice", "key", [
+        "currentPrice",
+      ]);
+      await ensureIndex(databases, collection.id, "availableShares", "key", [
+        "availableShares",
+      ]);
+      await ensureIndex(databases, collection.id, "characterName_text", "fulltext", [
+        "characterName",
+      ]);
+      await ensureIndex(databases, collection.id, "anime_text", "fulltext", [
+        "anime",
+      ]);
     }
     if (collection.id === "support_tickets") {
       await ensureIndex(databases, collection.id, "status", "key", ["status"]);

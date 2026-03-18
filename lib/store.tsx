@@ -212,7 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         const [
           usersData,
-          stocksData,
+          bootstrapStocksPage,
           transactionsData,
           buybackOffersData,
           directionalBetsData,
@@ -230,7 +230,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           premiumAdditionsData,
         ] = await Promise.all([
           userService.getAll(),
-          stockService.getAll(),
+          stockService.getBrowsePage({ limit: 200, offset: 0, sort: "newest" }),
           transactionService.getAll(),
           buybackOfferService.getAll(),
           directionalBetService.getAll(),
@@ -249,10 +249,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? premiumAdditionService.listByUser(user.id, 25)
             : Promise.resolve([]),
         ]);
+        const bootstrapStocksData = bootstrapStocksPage.items;
 
         useStore.setState({
           users: usersData,
-          stocks: Array.from(new Map(stocksData.map((s) => [s.id, s])).values()),
+          stocks: Array.from(
+            new Map(bootstrapStocksData.map((s) => [s.id, s])).values()
+          ),
           buybackOffers: buybackOffersData,
           directionalBets: directionalBetsData,
           comments: commentsData,
@@ -265,8 +268,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           transactions: transactionsData,
           // Synthetic boot history (ph-init-*) so UI can render before DB history loads.
           priceHistory:
-            stocksData.length > 0
-              ? stocksData.map((s) => ({
+            bootstrapStocksData.length > 0
+              ? bootstrapStocksData.map((s) => ({
                   id: `ph-init-${s.id}`,
                   stockId: s.id,
                   price: s.currentPrice,
@@ -283,6 +286,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dailyRewards: dailyRewardsData,
           premiumAdditions: premiumAdditionsData ?? [],
         });
+
+        // Full stock hydration runs in the background so app boot isn't blocked
+        // by large stock datasets. Pages that need full datasets now use targeted APIs.
+        void stockService
+          .getAll()
+          .then((allStocks) => {
+            useStore.setState((state) => {
+              const merged = new Map(allStocks.map((stock) => [stock.id, stock]));
+              state.stocks.forEach((stock) => merged.set(stock.id, stock));
+              return {
+                stocks: Array.from(merged.values()),
+              };
+            });
+
+            if (typeof window !== "undefined") {
+              try {
+                console.log(
+                  `[store.loadData][background] hydrated stocks length: ${allStocks.length}`
+                );
+              } catch {}
+            }
+          })
+          .catch((error) => {
+            console.warn("Failed background stock hydration:", error);
+          });
 
         // Hydrate last market drift timestamp from metadata if available so clients are in sync with server-run drifts
         try {
@@ -312,9 +340,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (typeof window !== "undefined") {
           try {
             console.log(
-              `[store.loadData] stocksData length: ${stocksData.length}`
+              `[store.loadData] bootstrap stocks length: ${bootstrapStocksData.length}`
             );
-            const sampleIds = stocksData.slice(0, 10).map((s) => s.id);
+            const sampleIds = bootstrapStocksData.slice(0, 10).map((s) => s.id);
             console.log("[store.loadData] sample stock IDs:", sampleIds);
             // Expose sample on window for quick debugging
             (window as any).__LATEST_STOCKS_SAMPLE = sampleIds;
