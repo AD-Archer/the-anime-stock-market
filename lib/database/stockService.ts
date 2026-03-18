@@ -10,8 +10,29 @@ import {
 } from "./utils";
 import { metadataService } from "./metadataService";
 import { trackPlausible } from "../analytics";
+import { buildStockIndexNowUrls, publishIndexNow } from "../indexnow";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
+
+const STOCK_INDEXNOW_FIELDS: Array<keyof Stock> = [
+  "characterName",
+  "characterSlug",
+  "anime",
+  "description",
+  "imageUrl",
+  "animeImageUrl",
+];
+
+function shouldPublishStockUpdate(previous: Stock, next: Stock): boolean {
+  return STOCK_INDEXNOW_FIELDS.some((field) => previous[field] !== next[field]);
+}
+
+function publishStockUrls(urls: string[]) {
+  if (urls.length === 0) return;
+  publishIndexNow(urls).catch((error) => {
+    console.warn("Failed to publish stock URLs to IndexNow:", error);
+  });
+}
 
 export const stockService = {
   /**
@@ -134,7 +155,9 @@ export const stockService = {
       }
       trackPlausible("character_created");
 
-      return mapStock(response);
+      const saved = mapStock(response);
+      publishStockUrls(buildStockIndexNowUrls(saved));
+      return saved;
     } catch (error) {
       console.warn("Failed to create stock in database:", error);
       throw error;
@@ -143,6 +166,7 @@ export const stockService = {
 
   async update(id: string, stock: Partial<Stock>): Promise<Stock> {
     try {
+      const previous = await this.getById(id);
       const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
         dbId,
@@ -150,7 +174,16 @@ export const stockService = {
         id,
         normalizePayload(stock)
       );
-      return mapStock(response);
+      const saved = mapStock(response);
+
+      if (previous && shouldPublishStockUpdate(previous, saved)) {
+        publishStockUrls([
+          ...buildStockIndexNowUrls(previous),
+          ...buildStockIndexNowUrls(saved),
+        ]);
+      }
+
+      return saved;
     } catch (error) {
       console.warn("Failed to update stock in database:", error);
       throw error;
@@ -159,6 +192,7 @@ export const stockService = {
 
   async delete(id: string): Promise<void> {
     try {
+      const existing = await this.getById(id);
       const dbId = ensureDatabaseIdAvailable();
       await databases.deleteDocument(dbId, STOCKS_COLLECTION, id);
 
@@ -170,6 +204,10 @@ export const stockService = {
         // Don't fail the deletion if metadata update fails
       }
       trackPlausible("character_deleted");
+
+      if (existing) {
+        publishStockUrls(buildStockIndexNowUrls(existing));
+      }
     } catch (error) {
       console.warn("Failed to delete stock from database:", error);
       throw error;

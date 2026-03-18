@@ -11,8 +11,27 @@ import {
 import { Query } from "appwrite";
 import { metadataService } from "./metadataService";
 import { trackPlausible } from "../analytics";
+import { buildUserIndexNowUrls, publishIndexNow } from "../indexnow";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
+
+const USER_INDEXNOW_FIELDS: Array<keyof User> = [
+  "displaySlug",
+  "username",
+  "displayName",
+  "avatarUrl",
+];
+
+function shouldPublishUserUpdate(previous: User, next: User): boolean {
+  return USER_INDEXNOW_FIELDS.some((field) => previous[field] !== next[field]);
+}
+
+function publishUserUrls(urls: string[]) {
+  if (urls.length === 0) return;
+  publishIndexNow(urls).catch((error) => {
+    console.warn("Failed to publish user URLs to IndexNow:", error);
+  });
+}
 
 export const userService = {
   async getAll(): Promise<User[]> {
@@ -69,7 +88,9 @@ export const userService = {
         console.warn("Failed to update user count metadata:", error);
       }
       trackPlausible("user_created");
-      return mapUser(response);
+      const saved = mapUser(response);
+      publishUserUrls(buildUserIndexNowUrls(saved));
+      return saved;
     } catch (error) {
       console.warn("Failed to create user in database:", error);
       throw error;
@@ -111,6 +132,13 @@ export const userService = {
         });
       }
 
+      if (shouldPublishUserUpdate(current, saved)) {
+        publishUserUrls([
+          ...buildUserIndexNowUrls(current),
+          ...buildUserIndexNowUrls(saved),
+        ]);
+      }
+
       return saved;
     } catch (error) {
       console.warn("Failed to update user in database:", error);
@@ -120,6 +148,7 @@ export const userService = {
 
   async delete(id: string): Promise<void> {
     try {
+      const existing = await this.getById(id);
       const dbId = ensureDatabaseIdAvailable();
       await databases.deleteDocument(dbId, USERS_COLLECTION, id);
       try {
@@ -128,6 +157,10 @@ export const userService = {
         console.warn("Failed to decrement user count metadata:", error);
       }
       trackPlausible("user_deleted");
+
+      if (existing) {
+        publishUserUrls(buildUserIndexNowUrls(existing));
+      }
     } catch (error) {
       console.warn("Failed to delete user from database:", error);
       throw error;
