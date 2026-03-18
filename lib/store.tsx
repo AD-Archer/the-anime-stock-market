@@ -3,24 +3,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { create } from "zustand";
 import { useAuth } from "./auth";
-import {
-  initialBuybackOffers,
-  initialComments,
-  initialNotifications,
-  initialPortfolios,
-  initialPriceHistory,
-  initialReports,
-  initialStocks,
-  initialTransactions,
-  initialUsers,
-  initialAppeals,
-  initialAdminActionLogs,
-  initialAwards,
-  initialFriends,
-  initialDailyRewards,
-  initialCharacterSuggestions,
-  initialDirectionalBets,
-} from "./data";
 import { databases, ensureAppwriteInitialized } from "./appwrite/appwrite";
 import {
   buybackOfferService,
@@ -140,7 +122,7 @@ export const useStore = create<StoreState>((set, get) => {
     portfolios: [],
     comments: [],
     buybackOffers: [],
-    directionalBets: initialDirectionalBets,
+    directionalBets: [],
     notifications: [],
     reports: [],
     appeals: [],
@@ -267,32 +249,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ]);
 
         useStore.setState({
-          users: usersData.length > 0 ? usersData : initialUsers,
-          stocks:
-            stocksData.length > 0
-              ? Array.from(new Map(stocksData.map((s) => [s.id, s])).values()) // Deduplicate by ID
-              : initialStocks,
-
-          buybackOffers:
-            buybackOffersData.length > 0
-              ? buybackOffersData
-              : initialBuybackOffers,
-          directionalBets:
-            directionalBetsData.length > 0
-              ? directionalBetsData
-              : initialDirectionalBets,
-          comments: commentsData.length > 0 ? commentsData : initialComments,
-          reports: (reportsData.length > 0 ? reportsData : initialReports).sort(
+          users: usersData,
+          stocks: Array.from(new Map(stocksData.map((s) => [s.id, s])).values()),
+          buybackOffers: buybackOffersData,
+          directionalBets: directionalBetsData,
+          comments: commentsData,
+          reports: reportsData.sort(
             (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
           ),
-          notifications: (notificationsData.length > 0
-            ? notificationsData
-            : initialNotifications
-          ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-          transactions:
-            transactionsData.length > 0
-              ? transactionsData
-              : initialTransactions,
+          notifications: notificationsData.sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          ),
+          transactions: transactionsData,
           // Synthetic boot history (ph-init-*) so UI can render before DB history loads.
           priceHistory:
             stocksData.length > 0
@@ -303,23 +271,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   timestamp: s.createdAt,
                 }))
               : [],
-          portfolios:
-            portfoliosData.length > 0 ? portfoliosData : initialPortfolios,
-          appeals: appealsData.length > 0 ? appealsData : initialAppeals,
-          supportTickets:
-            supportTicketsData.length > 0 ? supportTicketsData : [],
-          characterSuggestions:
-            characterSuggestionsData.length > 0
-              ? characterSuggestionsData
-              : initialCharacterSuggestions,
-          adminActionLogs:
-            adminLogData.length > 0 ? adminLogData : initialAdminActionLogs,
-          awards: awardsData.length > 0 ? awardsData : initialAwards,
-          friends: friendsData.length > 0 ? friendsData : initialFriends,
-          dailyRewards:
-            dailyRewardsData.length > 0
-              ? dailyRewardsData
-              : initialDailyRewards,
+          portfolios: portfoliosData,
+          appeals: appealsData,
+          supportTickets: supportTicketsData,
+          characterSuggestions: characterSuggestionsData,
+          adminActionLogs: adminLogData,
+          awards: awardsData,
+          friends: friendsData,
+          dailyRewards: dailyRewardsData,
           premiumAdditions: premiumAdditionsData ?? [],
         });
 
@@ -518,35 +477,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           useStore.setState({ currentUser: null });
         }
       } catch (error) {
-        console.warn(
-          "Failed to load from database, using initial data:",
-          error
-        );
+        console.warn("Failed to load from database, clearing store state:", error);
         useStore.setState({
-          users: initialUsers,
-          stocks: initialStocks,
-          transactions: initialTransactions,
-          priceHistory: initialStocks.map((s) => ({
-            id: `ph-init-${s.id}`,
-            stockId: s.id,
-            price: s.currentPrice,
-            timestamp: s.createdAt,
-          })),
-          portfolios: initialPortfolios,
-          comments: initialComments,
-          buybackOffers: initialBuybackOffers,
-          directionalBets: initialDirectionalBets,
-          notifications: initialNotifications,
-          reports: [...initialReports].sort(
-            (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-          ),
-          appeals: initialAppeals,
+          users: [],
+          stocks: [],
+          transactions: [],
+          priceHistory: [],
+          portfolios: [],
+          comments: [],
+          buybackOffers: [],
+          directionalBets: [],
+          notifications: [],
+          reports: [],
+          appeals: [],
           supportTickets: [],
-          characterSuggestions: initialCharacterSuggestions,
-          adminActionLogs: initialAdminActionLogs,
-          awards: initialAwards,
-          friends: initialFriends,
-          dailyRewards: initialDailyRewards,
+          characterSuggestions: [],
+          adminActionLogs: [],
+          awards: [],
+          friends: [],
+          dailyRewards: [],
           currentUser: null,
           lastMarketDriftAt: null,
           marketDriftEnabled: true,

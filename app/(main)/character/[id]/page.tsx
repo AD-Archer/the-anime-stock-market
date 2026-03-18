@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { Comment, ContentTag } from "@/lib/types";
+import { ContentTag } from "@/lib/types";
 import {
   generateAnimeSlug,
   generateCharacterSlug,
@@ -22,6 +22,7 @@ import PriceCharts from "./components/PriceCharts";
 import ActivityDiscussion from "./components/ActivityDiscussion";
 import { OptionChainPanel } from "@/components/options/OptionChainPanel";
 import { OptionStatsCard } from "@/components/options/OptionStatsCard";
+import { usePaginatedComments } from "@/lib/use-paginated-comments";
 
 type TimeRange = "all" | "7d" | "30d" | "90d";
 
@@ -41,7 +42,6 @@ export default function CharacterPage({
     addComment,
     editComment,
     deleteComment,
-    getCharacterComments,
     users,
     reportComment,
     toggleCommentReaction,
@@ -107,19 +107,16 @@ export default function CharacterPage({
   const characterTransactions = transactions
     .filter((t) => characterIdentifiers.includes(t.stockId))
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  const comments = Array.from(
-    new Map(
-      characterIdentifiers
-        .flatMap((identifier) => getCharacterComments(identifier))
-        .map((comment) => [comment.id, comment])
-    ).values()
-  );
   const userShares = currentUser
     ? getUserPortfolio(currentUser.id).find((p) =>
         characterIdentifiers.includes(p.stockId)
       )?.shares ?? 0
     : 0;
   const animeSlug = stock?.anime ? generateAnimeSlug(stock.anime) : "";
+  const characterDiscussion = usePaginatedComments({
+    kind: "character",
+    characterId: commentCharacterId,
+  });
 
   useEffect(() => {
     if (!resolvedStockId) return;
@@ -128,30 +125,6 @@ export default function CharacterPage({
       limit: 200,
     });
   }, [resolvedStockId, schedulePriceHistoryLoad]);
-
-  // Process comments into threaded structure
-  const commentMap = new Map<string, Comment & { replies: Comment[] }>();
-  const rootComments: (Comment & { replies: Comment[] })[] = [];
-
-  // First pass: create comment objects with empty replies arrays
-  comments.forEach((comment) => {
-    commentMap.set(comment.id, { ...comment, replies: [] });
-  });
-
-  // Second pass: build the tree structure
-  comments.forEach((comment) => {
-    if (comment.parentId) {
-      const parent = commentMap.get(comment.parentId);
-      if (parent) {
-        parent.replies.push(commentMap.get(comment.id)!);
-      }
-    } else {
-      rootComments.push(commentMap.get(comment.id)!);
-    }
-  });
-
-  // Sort root comments by timestamp (newest first)
-  rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   if (!stock) {
     return (
@@ -222,13 +195,14 @@ export default function CharacterPage({
     if (comment.trim()) {
       const tags = commentTag === "none" ? [] : ([commentTag] as ContentTag[]);
       await addComment({
-        animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
-        content: comment,
+        animeId: animeSlug,
         characterId: commentCharacterId,
+        content: comment,
         tags,
       });
       setComment("");
       setCommentTag("none");
+      await characterDiscussion.reload({ scrollToBottom: true });
     }
   };
 
@@ -239,23 +213,26 @@ export default function CharacterPage({
   ) => {
     if (content.trim()) {
       await addComment({
-        animeId: stock.anime.toLowerCase().replace(/\s+/g, "-"),
-        content,
+        animeId: animeSlug,
         characterId: commentCharacterId,
+        content,
         parentId,
         tags,
       });
+      await characterDiscussion.reload({ scrollToBottom: true });
     }
   };
 
   const handleEditComment = async (commentId: string, content: string) => {
     if (content.trim()) {
       await editComment(commentId, content);
+      await characterDiscussion.reload();
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
     await deleteComment(commentId);
+    await characterDiscussion.reload();
   };
 
   const handleReportComment = async (
@@ -264,6 +241,14 @@ export default function CharacterPage({
     description?: string
   ) => {
     await reportComment(commentId, reason as any, description);
+  };
+
+  const handleToggleReaction = async (
+    commentId: string,
+    reaction: "like" | "dislike"
+  ) => {
+    await toggleCommentReaction(commentId, reaction);
+    await characterDiscussion.reload();
   };
 
   return (
@@ -294,7 +279,7 @@ export default function CharacterPage({
                 {isMobile && (
                   <ActivityDiscussion
                     isMobile={isMobile}
-                    rootComments={rootComments}
+                    rootComments={characterDiscussion.rootComments}
                     comment={comment}
                     setComment={setComment}
                     commentTag={commentTag}
@@ -304,11 +289,15 @@ export default function CharacterPage({
                     onEditComment={handleEditComment}
                     onDeleteComment={handleDeleteComment}
                     onReportComment={handleReportComment}
-                    onToggleReaction={toggleCommentReaction}
+                    onToggleReaction={handleToggleReaction}
                     users={users}
                     characterTransactions={characterTransactions}
                     currentUser={currentUser}
-                    commentMap={commentMap}
+                    commentMap={characterDiscussion.commentMap}
+                    containerRef={characterDiscussion.containerRef}
+                    onScroll={characterDiscussion.handleScroll}
+                    isLoading={characterDiscussion.isInitialLoading}
+                    isLoadingMore={characterDiscussion.isLoadingMore}
                   />
                 )}
               </div>
@@ -339,7 +328,7 @@ export default function CharacterPage({
                 {!isMobile && (
                   <ActivityDiscussion
                     isMobile={isMobile}
-                    rootComments={rootComments}
+                    rootComments={characterDiscussion.rootComments}
                     comment={comment}
                     setComment={setComment}
                     commentTag={commentTag}
@@ -349,11 +338,15 @@ export default function CharacterPage({
                     onEditComment={handleEditComment}
                     onDeleteComment={handleDeleteComment}
                     onReportComment={handleReportComment}
-                    onToggleReaction={toggleCommentReaction}
+                    onToggleReaction={handleToggleReaction}
                     users={users}
                     characterTransactions={characterTransactions}
                     currentUser={currentUser}
-                    commentMap={commentMap}
+                    commentMap={characterDiscussion.commentMap}
+                    containerRef={characterDiscussion.containerRef}
+                    onScroll={characterDiscussion.handleScroll}
+                    isLoading={characterDiscussion.isInitialLoading}
+                    isLoadingMore={characterDiscussion.isLoadingMore}
                   />
                 )}
               </div>

@@ -54,6 +54,10 @@ interface Props {
   characterTransactions: any[];
   currentUser: User | null;
   commentMap: Map<string, Comment & { replies: Comment[] }>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  onScroll: () => void;
+  isLoading: boolean;
+  isLoadingMore: boolean;
 }
 
 export default function ActivityDiscussion({
@@ -73,6 +77,10 @@ export default function ActivityDiscussion({
   characterTransactions,
   currentUser,
   commentMap,
+  containerRef,
+  onScroll,
+  isLoading,
+  isLoadingMore,
 }: Props) {
   return (
     <Card>
@@ -82,83 +90,110 @@ export default function ActivityDiscussion({
       <CardContent>
         <Tabs defaultValue="comments">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="comments">
-              Comments ({rootComments.length})
-            </TabsTrigger>
+            <TabsTrigger value="comments">Comments ({rootComments.length})</TabsTrigger>
             <TabsTrigger value="transactions">Recent Transactions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="comments" className="space-y-4">
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Share your thoughts about this character..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-              />
-              <Select
-                value={commentTag}
-                onValueChange={(value) =>
-                  setCommentTag(value as "none" | ContentTag)
-                }
-              >
-                <SelectTrigger suppressHydrationWarning>
-                  <SelectValue placeholder="Add a tag (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Tag</SelectItem>
-                  <SelectItem value="spoiler">Spoiler</SelectItem>
-                  <SelectItem value="nsfw">NSFW</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={onAddComment} disabled={!comment.trim()}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Post Comment
-              </Button>
-            </div>
-
-            {rootComments.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">
-                No comments yet. Be the first!
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {(() => {
-                  let lastDate = "";
-                  return rootComments.map((thread) => {
-                    const dateLabel = thread.timestamp.toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric", year: "numeric" }
-                    );
-                    const showDate = dateLabel !== lastDate;
-                    lastDate = dateLabel;
-                    return (
-                      <div key={thread.id} className="space-y-2">
-                        {showDate && (
-                          <div className="flex justify-center">
-                            <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                              {dateLabel}
-                            </span>
-                          </div>
-                        )}
-                        <CommentThread
-                          comment={thread}
-                          commentMap={commentMap}
-                          users={users}
-                          currentUser={currentUser}
-                          onReply={onAddReply}
-                          onEdit={onEditComment}
-                          onDelete={onDeleteComment}
-                          onReport={onReportComment}
-                          onToggleReaction={onToggleReaction}
-                          level={0}
-                        />
-                      </div>
-                    );
-                  });
-                })()}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                {!currentUser && (
+                  <p className="text-sm text-muted-foreground">
+                    Sign in to post messages in this discussion.
+                  </p>
+                )}
+                <Textarea
+                  placeholder="Talk about this character..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={3}
+                  disabled={!currentUser}
+                />
+                <Select
+                  value={commentTag}
+                  onValueChange={(value) =>
+                    setCommentTag(value as "none" | ContentTag)
+                  }
+                  disabled={!currentUser}
+                >
+                  <SelectTrigger suppressHydrationWarning>
+                    <SelectValue placeholder="Add a tag (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Tag</SelectItem>
+                    <SelectItem value="spoiler">Spoiler</SelectItem>
+                    <SelectItem value="nsfw">NSFW</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={onAddComment}
+                  disabled={!currentUser || !comment.trim()}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Post Comment
+                </Button>
               </div>
-            )}
+
+              <div
+                ref={containerRef}
+                onScroll={onScroll}
+                className="max-h-[36rem] space-y-4 overflow-y-auto rounded-lg border p-4"
+              >
+                {isLoadingMore && (
+                  <p className="text-center text-xs text-muted-foreground">
+                    Loading older comments...
+                  </p>
+                )}
+                {isLoading ? (
+                  <p className="py-8 text-center text-muted-foreground">
+                    Loading comments...
+                  </p>
+                ) : rootComments.length === 0 ? (
+                  <p className="py-8 text-center text-muted-foreground">
+                    No comments yet. Be the first!
+                  </p>
+                ) : (
+                  (() => {
+                    let lastDate = "";
+                    return rootComments.map((thread) => {
+                      const dateLabel = thread.timestamp.toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }
+                      );
+                      const showDate = dateLabel !== lastDate;
+                      lastDate = dateLabel;
+                      return (
+                        <div key={thread.id} className="space-y-2">
+                          {showDate && (
+                            <div className="flex justify-center">
+                              <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                                {dateLabel}
+                              </span>
+                            </div>
+                          )}
+                          <CommentThread
+                            comment={thread}
+                            commentMap={commentMap}
+                            users={users}
+                            currentUser={currentUser}
+                            onReply={onAddReply}
+                            onEdit={onEditComment}
+                            onDelete={onDeleteComment}
+                            onReport={onReportComment}
+                            onToggleReaction={onToggleReaction}
+                            level={0}
+                          />
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-4">

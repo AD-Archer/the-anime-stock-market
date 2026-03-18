@@ -1,5 +1,7 @@
 import type { StoreApi } from "zustand";
 import { supportService } from "../database";
+import { trackPlausible } from "../analytics";
+import { sendSystemEvent } from "../system-events-client";
 import type { SupportTicket, SupportTicketTag } from "../types";
 import type { StoreState } from "./types";
 
@@ -37,6 +39,11 @@ export function createSupportActions({ setState, getState }: StoreMutators) {
     };
 
     const created = await supportService.create(payload as any);
+    trackPlausible("support_ticket_submitted", {
+      tag: payload.tag ?? "other",
+      signedIn: Boolean(currentUser?.id),
+      hasContactEmail: Boolean(payload.contactEmail),
+    });
     setState((state) => ({
       supportTickets: [created, ...state.supportTickets],
     }));
@@ -45,18 +52,23 @@ export function createSupportActions({ setState, getState }: StoreMutators) {
 
   const updateSupportTicket = async (
     id: string,
-    patch: Partial<SupportTicket>
+    patch: Partial<SupportTicket>,
   ): Promise<SupportTicket | null> => {
     const updated = await supportService.update(id, patch as any);
 
     setState((state) => ({
       supportTickets: state.supportTickets.map((t) =>
-        t.id === id ? updated : t
+        t.id === id ? updated : t,
       ),
     }));
 
     // Log admin action when an admin performs the update
     const currentUser = getState().currentUser;
+    trackPlausible("support_ticket_updated", {
+      status: patch.status ?? updated?.status,
+      hasAssignment: Boolean(patch.assignedTo ?? updated?.assignedTo),
+      isAdmin: Boolean(currentUser?.isAdmin),
+    });
     if (currentUser?.isAdmin && updated) {
       try {
         // metadata: include ticket id, new status, assignedTo and snippet of latest message
@@ -72,7 +84,7 @@ export function createSupportActions({ setState, getState }: StoreMutators) {
             status: updated.status,
             assignedTo: updated.assignedTo,
             latestMessage,
-          }
+          },
         );
       } catch (e) {
         console.warn("Failed to log admin action for support ticket update", e);
@@ -84,17 +96,44 @@ export function createSupportActions({ setState, getState }: StoreMutators) {
 
   const addSupportFollowUp = async (
     ticketId: string,
-    message: string
+    message: string,
   ): Promise<SupportTicket | null> => {
     const currentUser = getState().currentUser;
     const updated = await supportService.addFollowUp(
       ticketId,
       message,
-      currentUser?.id
+      currentUser?.id,
     );
+    trackPlausible("support_followup_submitted", {
+      isAdmin: Boolean(currentUser?.isAdmin),
+      ticketStatus: updated?.status,
+      hasContactEmail: Boolean(updated?.contactEmail),
+    });
+
+    if (currentUser?.isAdmin && updated?.contactEmail) {
+      try {
+        await sendSystemEvent({
+          type: "support_ticket_followup",
+          userId: updated.userId,
+          metadata: {
+            id: updated.id,
+            subject: updated.subject,
+            contactEmail: updated.contactEmail,
+            messageSnippet: message.slice(0, 1200),
+            senderId: currentUser.id,
+            senderDisplay:
+              currentUser.displayName || currentUser.username || "Admin",
+            isAdminReply: true,
+          },
+        });
+      } catch (error) {
+        console.warn("Failed to emit support follow-up event", error);
+      }
+    }
+
     setState((state) => ({
       supportTickets: state.supportTickets.map((t) =>
-        t.id === ticketId ? updated : t
+        t.id === ticketId ? updated : t,
       ),
     }));
     return updated as SupportTicket;

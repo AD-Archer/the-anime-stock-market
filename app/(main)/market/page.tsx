@@ -16,15 +16,12 @@ export default function TradingPage() {
     addComment,
     editComment,
     deleteComment,
-    getMarketComments,
     users,
     reportComment,
     toggleCommentReaction,
   } = useStore();
   const router = useRouter();
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
-
-  const marketComments = getMarketComments();
 
   const handleAddComment = async (content: string, tags: ContentTag[]) => {
     await addComment({
@@ -93,7 +90,6 @@ export default function TradingPage() {
           </h2>
           <MarketDiscussion
             currentUser={currentUser}
-            marketComments={marketComments}
             users={users}
             onAddComment={handleAddComment}
             onAddReply={handleAddReply}

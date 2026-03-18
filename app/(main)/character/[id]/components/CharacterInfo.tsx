@@ -41,6 +41,8 @@ export default function CharacterInfo({
             src={stock.imageUrl || "/placeholder.svg"}
             alt={stock.characterName}
             fill
+            priority
+            loading="eager"
             className="object-cover"
           />
         </div>

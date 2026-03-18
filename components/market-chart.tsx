@@ -388,21 +388,24 @@ export function MarketChart({}: MarketChartProps = {}) {
 
     if (chartData.length === 0) {
       return (
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <CardTitle>Market Overview</CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1">
                   Top 10 characters by trading activity
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 <Select
                   value={filter}
                   onValueChange={(value: StockFilter) => setFilter(value)}
                 >
-                  <SelectTrigger className="w-[140px]" suppressHydrationWarning>
+                  <SelectTrigger
+                    className="w-full sm:w-[140px]"
+                    suppressHydrationWarning
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -416,7 +419,10 @@ export function MarketChart({}: MarketChartProps = {}) {
                   value={timePeriod}
                   onValueChange={(value: TimePeriod) => setTimePeriod(value)}
                 >
-                  <SelectTrigger className="w-[120px]" suppressHydrationWarning>
+                  <SelectTrigger
+                    className="w-full sm:w-[120px]"
+                    suppressHydrationWarning
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -432,7 +438,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                   size="sm"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="gap-2"
+                  className="w-full gap-2 sm:w-auto"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
@@ -446,7 +452,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                 <Badge
                   key={stock.id}
                   variant="outline"
-                  className="gap-2"
+                  className="max-w-full gap-2 overflow-hidden"
                   style={{
                     borderColor: CHART_COLORS[index % CHART_COLORS.length],
                     color: CHART_COLORS[index % CHART_COLORS.length],
@@ -459,7 +465,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                         CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
-                  {stock.characterName}
+                  <span className="truncate">{stock.characterName}</span>
                 </Badge>
               ))}
             </div>
@@ -474,21 +480,24 @@ export function MarketChart({}: MarketChartProps = {}) {
     }
 
     return (
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <CardTitle>Market Overview</CardTitle>
-              <CardDescription>
+              <CardDescription className="mt-1">
                 Top 10 characters by trading activity
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Select
                 value={filter}
                 onValueChange={(value: StockFilter) => setFilter(value)}
               >
-                <SelectTrigger className="w-[140px]" suppressHydrationWarning>
+                <SelectTrigger
+                  className="w-full sm:w-[140px]"
+                  suppressHydrationWarning
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -500,7 +509,10 @@ export function MarketChart({}: MarketChartProps = {}) {
                 value={timePeriod}
                 onValueChange={(value: TimePeriod) => setTimePeriod(value)}
               >
-                <SelectTrigger className="w-[120px]" suppressHydrationWarning>
+                <SelectTrigger
+                  className="w-full sm:w-[120px]"
+                  suppressHydrationWarning
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -520,7 +532,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                 <Badge
                   key={stock.id}
                   variant={isHidden ? "secondary" : "default"}
-                  className={`gap-2 cursor-pointer transition-opacity border ${
+                  className={`max-w-full gap-2 cursor-pointer overflow-hidden transition-opacity border ${
                     isHidden ? "text-muted-foreground bg-muted opacity-50" : ""
                   }`}
                   onClick={() => {
@@ -551,7 +563,7 @@ export function MarketChart({}: MarketChartProps = {}) {
                         : CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
-                  {stock.characterName}
+                  <span className="truncate">{stock.characterName}</span>
                 </Badge>
               );
             })}
@@ -612,14 +624,14 @@ export function MarketChart({}: MarketChartProps = {}) {
             </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="items-start">
           <div className="flex w-full items-start gap-2 text-sm">
-            <div className="grid gap-2">
+            <div className="grid gap-2 pr-2">
               <div className="flex items-center gap-2 font-medium leading-none">
                 Top 10 trading activity trends{" "}
                 <TrendingUp className="h-4 w-4" />
               </div>
-              <div className="flex items-center gap-2 leading-none text-muted-foreground">
+              <div className="leading-relaxed text-muted-foreground">
                 Tap a character to hide or show their line
               </div>
             </div>

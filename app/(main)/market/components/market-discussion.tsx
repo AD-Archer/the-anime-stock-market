@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, type ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import {
   Card,
   CardContent,
@@ -40,10 +40,11 @@ import {
 import { ThumbsUp, ThumbsDown, Flag, Crown } from "lucide-react";
 import { MessageContent } from "@/components/chat/message-content";
 import { getUserProfileHref } from "@/lib/user-profile";
+import { usePaginatedComments } from "@/lib/use-paginated-comments";
+import { canEditComment } from "@/lib/comment-permissions";
 
 interface MarketDiscussionProps {
   currentUser: any;
-  marketComments: Comment[];
   users: any[];
   onAddComment: (content: string, tags: ContentTag[]) => Promise<void>;
   onAddReply: (
@@ -66,7 +67,6 @@ interface MarketDiscussionProps {
 
 export function MarketDiscussion({
   currentUser,
-  marketComments,
   users,
   onAddComment,
   onAddReply,
@@ -76,41 +76,49 @@ export function MarketDiscussion({
   onToggleReaction,
 }: MarketDiscussionProps) {
   const [message, setMessage] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Process comments into threaded structure
-  const { commentMap, rootComments } = useMemo(() => {
-    const commentMap = new Map<string, Comment & { replies: Comment[] }>();
-    const rootComments: (Comment & { replies: Comment[] })[] = [];
-
-    // First pass: create comment objects with empty replies arrays
-    marketComments.forEach((comment) => {
-      commentMap.set(comment.id, { ...comment, replies: [] });
-    });
-
-    // Second pass: build the tree structure
-    marketComments.forEach((comment) => {
-      if (comment.parentId) {
-        const parent = commentMap.get(comment.parentId);
-        if (parent) {
-          parent.replies.push(commentMap.get(comment.id)!);
-        }
-      } else {
-        rootComments.push(commentMap.get(comment.id)!);
-      }
-    });
-
-    // Sort root comments by timestamp
-    rootComments.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    return { commentMap, rootComments };
-  }, [marketComments]);
+  const {
+    commentMap,
+    rootComments,
+    containerRef,
+    isInitialLoading,
+    isLoadingMore,
+    reload,
+    handleScroll,
+  } = usePaginatedComments({ kind: "market" });
 
   const handleSendMessage = async () => {
     if (message.trim() && currentUser) {
       await onAddComment(message.trim(), []);
       setMessage("");
+      await reload({ scrollToBottom: true });
     }
+  };
+
+  const handleReply = async (
+    parentId: string,
+    content: string,
+    tags?: ContentTag[]
+  ) => {
+    await onAddReply(parentId, content, tags);
+    await reload({ scrollToBottom: true });
+  };
+
+  const handleEdit = async (commentId: string, content: string) => {
+    await onEditComment(commentId, content);
+    await reload();
+  };
+
+  const handleDelete = async (commentId: string) => {
+    await onDeleteComment(commentId);
+    await reload();
+  };
+
+  const handleToggleReaction = async (
+    commentId: string,
+    reaction: "like" | "dislike"
+  ) => {
+    await onToggleReaction(commentId, reaction);
+    await reload();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -136,8 +144,21 @@ export function MarketDiscussion({
 
         <CardContent className="flex-1 flex flex-col p-0 min-w-0 overflow-hidden">
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0 overflow-x-hidden">
-            {rootComments.length > 0 ? (
+          <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0 overflow-x-hidden"
+          >
+            {isLoadingMore && (
+              <p className="text-center text-xs text-muted-foreground">
+                Loading older messages...
+              </p>
+            )}
+            {isInitialLoading ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Loading messages...</p>
+              </div>
+            ) : rootComments.length > 0 ? (
               (() => {
                 let lastDate = "";
                 return rootComments.map((thread) => {
@@ -156,18 +177,18 @@ export function MarketDiscussion({
                           </span>
                         </div>
                       )}
-                      <CommentThread
-                        comment={thread}
-                        commentMap={commentMap}
-                        users={users}
-                        currentUser={currentUser}
-                        onReply={onAddReply}
-                        onEdit={onEditComment}
-                        onDelete={onDeleteComment}
-                        onReport={onReportComment}
-                        onToggleReaction={onToggleReaction}
-                        level={0}
-                      />
+                        <CommentThread
+                          comment={thread}
+                          commentMap={commentMap}
+                          users={users}
+                          currentUser={currentUser}
+                          onReply={handleReply}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          onReport={onReportComment}
+                          onToggleReaction={handleToggleReaction}
+                          level={0}
+                        />
                     </div>
                   );
                 });
@@ -179,7 +200,6 @@ export function MarketDiscussion({
                 </p>
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Message Input */}
@@ -278,8 +298,7 @@ function CommentThread({
     .map((reply) => commentMap.get(reply.id)!)
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  const canEdit =
-    currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
+  const canEdit = canEditComment(currentUser, comment);
   const canDelete =
     currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
 

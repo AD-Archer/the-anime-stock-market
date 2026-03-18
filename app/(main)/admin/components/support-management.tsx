@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { SupportTicketTag, User } from "@/lib/types";
@@ -32,40 +33,41 @@ import { getUserProfileHref } from "@/lib/user-profile";
 
 type SupportTagFilterValue = SupportTicketTag | "all";
 
-const SUPPORT_TAG_FILTERS: { value: SupportTagFilterValue; label: string }[] =
-  [
-    { value: "all", label: "All types" },
-    { value: "premium", label: "Premium requests" },
-    { value: "donation", label: "Donations" },
-    { value: "feature", label: "Feature requests" },
-    { value: "bug", label: "Bug reports" },
-    { value: "question", label: "Questions" },
-    { value: "report", label: "Reports" },
-    { value: "other", label: "Other" },
-  ];
+const SUPPORT_TAG_FILTERS: { value: SupportTagFilterValue; label: string }[] = [
+  { value: "all", label: "All types" },
+  { value: "premium", label: "Premium requests" },
+  { value: "donation", label: "Donations" },
+  { value: "feature", label: "Feature requests" },
+  { value: "bug", label: "Bug reports" },
+  { value: "question", label: "Questions" },
+  { value: "report", label: "Reports" },
+  { value: "other", label: "Other" },
+];
 
 export function SupportManagement() {
   const {
     supportTickets,
     getSupportTickets,
     updateSupportTicket,
+    addSupportFollowUp,
     currentUser,
     users,
   } = useStore();
+  const searchParams = useSearchParams();
+  const targetTicketId = searchParams.get("ticket");
   const [selected, setSelected] = useState<any | null>(null);
   const [reply, setReply] = useState("");
   const [status, setStatus] = useState<"open" | "in_progress" | "closed">(
-    "open"
+    "open",
   );
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [tagFilter, setTagFilter] =
-    useState<SupportTagFilterValue>("all");
+  const [tagFilter, setTagFilter] = useState<SupportTagFilterValue>("all");
   const [loading, setLoading] = useState(false);
 
   const tagFilterLabel =
-    SUPPORT_TAG_FILTERS.find((option) => option.value === tagFilter)
-      ?.label ?? "Filter by type";
+    SUPPORT_TAG_FILTERS.find((option) => option.value === tagFilter)?.label ??
+    "Filter by type";
   const userById = useMemo(() => {
     return users.reduce<Record<string, User>>((acc, user) => {
       acc[user.id] = user;
@@ -105,26 +107,31 @@ export function SupportManagement() {
 
   const handleSave = async () => {
     if (!selected) return;
-    const messages = selected.messages ? [...selected.messages] : [];
     if (reply.trim()) {
-      messages.push({
-        senderId: currentUser?.id,
-        text: reply.trim(),
-        createdAt: new Date(),
-      });
+      await addSupportFollowUp(selected.id, reply.trim());
     }
+
     await updateSupportTicket(selected.id, {
       status,
-      messages,
       assignedTo: currentUser?.id,
     });
     await getSupportTickets({
       status: statusFilter === "all" ? undefined : statusFilter,
       searchQuery: searchQuery || undefined,
+      tag: tagFilter === "all" ? undefined : tagFilter,
     });
     setSelected(null);
     setReply("");
   };
+
+  useEffect(() => {
+    if (!targetTicketId || selected) return;
+    const ticket = supportTickets.find((entry) => entry.id === targetTicketId);
+    if (ticket) {
+      setSelected(ticket);
+      setTimeout(() => setStatus(ticket.status), 0);
+    }
+  }, [targetTicketId, supportTickets, selected]);
 
   const selectedUser =
     selected && selected.userId ? userById[selected.userId] : undefined;
@@ -178,7 +185,9 @@ export function SupportManagement() {
         ) : supportTickets.length === 0 ? (
           <Card>
             <CardContent className="py-8 flex items-center justify-center">
-              <p className="text-muted-foreground">No support tickets match the filters.</p>
+              <p className="text-muted-foreground">
+                No support tickets match the filters.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -196,8 +205,8 @@ export function SupportManagement() {
                             t.status === "open"
                               ? "default"
                               : t.status === "in_progress"
-                              ? "secondary"
-                              : "outline"
+                                ? "secondary"
+                                : "outline"
                           }
                         >
                           {t.status}
@@ -216,9 +225,7 @@ export function SupportManagement() {
                           {ticketUser.username}
                         </Link>
                       ) : (
-                        <span>
-                          {t.contactEmail || t.userId || "Anonymous"}
-                        </span>
+                        <span>{t.contactEmail || t.userId || "Anonymous"}</span>
                       )}
                       {ticketUser?.email && (
                         <span className="text-xs text-muted-foreground">

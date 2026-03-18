@@ -7,6 +7,7 @@ export const SUPPORT_TAG_LABELS: Record<SupportTicketTag, string> = {
   report: "Report",
   donation: "Donation follow-up",
   premium: "Premium upgrade request",
+  error: "Error report",
   other: "Other",
 };
 
@@ -17,6 +18,7 @@ export const SUPPORT_TAGS: SupportTicketTag[] = [
   "report",
   "donation",
   "premium",
+  "error",
   "other",
 ];
 
@@ -27,6 +29,7 @@ export const SUPPORT_FILTER_OPTIONS: {
   label: string;
 }[] = [
   { value: "all", label: "All tickets" },
+  { value: "error", label: "Error reports" },
   { value: "premium", label: "Premium requests" },
   { value: "donation", label: "Donations" },
   { value: "feature", label: "Feature requests" },

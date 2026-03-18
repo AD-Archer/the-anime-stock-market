@@ -64,6 +64,7 @@ const collections: CollectionPlan[] = [
       { kind: "boolean", key: "hasPassword", required: false, default: false },
       { kind: "float", key: "balance", required: true, default: 0 },
       { kind: "boolean", key: "isAdmin", required: false, default: false },
+      { kind: "boolean", key: "isBanned", required: false, default: false },
       { kind: "string", key: "createdAt", size: 64, required: true },
       { kind: "string", key: "avatarUrl", size: 1024, required: false },
       { kind: "string", key: "bannedUntil", size: 64, required: false },

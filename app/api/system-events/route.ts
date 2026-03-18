@@ -6,11 +6,15 @@ import {
   NOTIFICATIONS_COLLECTION,
 } from "@/lib/database";
 import { sendSystemEmail } from "@/lib/email/mailer";
+import { resolvePublicSiteUrl } from "@/lib/site-url";
 import type {
+  ClientErrorEvent,
   NotificationEmailEvent,
   PremiumStatusChangedEvent,
   MarketDriftCompletedEvent,
+  SupportTicketFollowUpEvent,
   SystemEventRequest,
+  ErrorReportEvent,
 } from "@/lib/system-events";
 
 const friendlyDate = (value: string | undefined): string => {
@@ -32,7 +36,7 @@ async function fetchUser(userId: string) {
     const document = await databases.getDocument(
       DATABASE_ID,
       USERS_COLLECTION,
-      userId
+      userId,
     );
     return {
       email: (document as any).email as string,
@@ -42,6 +46,24 @@ async function fetchUser(userId: string) {
     console.warn("Unable to load user for email notification", error);
     return null;
   }
+}
+
+async function fetchAdminRecipients(): Promise<string[]> {
+  const adminDb = getAdminDatabases();
+  const res = await adminDb.listDocuments(DATABASE_ID, USERS_COLLECTION, [
+    Query.limit(1000),
+  ]);
+
+  const recipients = new Set<string>();
+  for (const userDoc of res.documents as any[]) {
+    const isAdmin = userDoc.isAdmin === true || userDoc.role === "admin";
+    if (isAdmin && userDoc.email) {
+      recipients.add(userDoc.email);
+    }
+  }
+
+  recipients.add("antonioarcher.dev@gmail.com");
+  return Array.from(recipients);
 }
 
 async function handlePasswordChanged(userId: string) {
@@ -99,7 +121,7 @@ async function handleAccountDeleted(userId: string, deletedAt?: string) {
   });
 }
 
-async function handleSupportTicketCreated(event: any) {
+async function handleSupportTicketCreated(event: any, siteUrl: string) {
   try {
     const { userId, metadata } = event;
     const subject = metadata?.subject ?? "Support Request";
@@ -118,27 +140,13 @@ async function handleSupportTicketCreated(event: any) {
       fromText = contactEmail;
     }
 
-    const adminDb = getAdminDatabases();
-    const res = await adminDb.listDocuments(DATABASE_ID, USERS_COLLECTION, [
-      Query.equal("isAdmin", true),
-      Query.limit(500),
-    ]);
-
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+    const recipients = await fetchAdminRecipients();
     const ticketUrl = ticketId
       ? `${siteUrl}/admin?tab=support&ticket=${ticketId}`
       : `${siteUrl}/admin?tab=support`;
 
-    // Collect recipients (admins + fallback address)
-    const recipients = new Set<string>();
-    (res.documents || []).forEach((admin: any) => {
-      if (admin.email) recipients.add(admin.email);
-    });
-    // Always notify this address as requested
-    recipients.add("antonioarcher.dev@gmail.com");
-
     await Promise.all(
-      Array.from(recipients).map(async (to) => {
+      recipients.map(async (to) => {
         const tagText = tag ? `Type: ${tag}\n` : "";
         const refText = referenceId ? `Reference: ${referenceId}\n` : "";
         const bodyText = `New support ticket submitted\n\nFrom: ${fromText}\nSubject: ${subject}\n${tagText}${refText}\n${snippet}\n\nView: ${ticketUrl}`;
@@ -158,20 +166,68 @@ async function handleSupportTicketCreated(event: any) {
         } catch (e) {
           console.warn("Failed to send support email to admin", to, e);
         }
-      })
+      }),
     );
+
+    if (contactEmail) {
+      try {
+        await sendSystemEmail({
+          to: contactEmail,
+          subject: `We received your support ticket: ${subject}`,
+          text: `Thanks for contacting Anime Stock Market support. Your ticket has been received and queued for review.\n\nTicket ID: ${ticketId || "pending"}\nSubject: ${subject}\n\nWe will reply to this email address as soon as possible.`,
+          html: `<p>Thanks for contacting Anime Stock Market support.</p><p>Your ticket has been received and queued for review.</p><p><strong>Ticket ID:</strong> ${
+            ticketId || "pending"
+          }<br /><strong>Subject:</strong> ${subject}</p><p>We will reply to this email address as soon as possible.</p>`,
+        });
+      } catch (e) {
+        console.warn("Failed to send support acknowledgement email", e);
+      }
+    }
   } catch (e) {
     console.warn("Error handling support_ticket_created event", e);
   }
 }
 
-async function handlePremiumStatusChanged(event: PremiumStatusChangedEvent) {
+async function handleSupportTicketFollowUp(
+  event: SupportTicketFollowUpEvent,
+  siteUrl: string,
+) {
+  try {
+    const metadata = event.metadata;
+    if (!metadata?.isAdminReply || !metadata.contactEmail) {
+      return;
+    }
+
+    const supportUrl = metadata.id
+      ? `${siteUrl}/support?ticket=${metadata.id}`
+      : `${siteUrl}/support`;
+
+    await sendSystemEmail({
+      to: metadata.contactEmail,
+      subject: `Support update: ${metadata.subject || "Your ticket"}`,
+      text: `Your support ticket has a new response from ${
+        metadata.senderDisplay || "an admin"
+      }.\n\n${metadata.messageSnippet || ""}\n\nView ticket: ${supportUrl}`,
+      html: `<p>Your support ticket has a new response from <strong>${
+        metadata.senderDisplay || "an admin"
+      }</strong>.</p><div style="white-space:pre-wrap">${
+        metadata.messageSnippet || ""
+      }</div><p><a href="${supportUrl}">View your support ticket</a></p>`,
+    });
+  } catch (error) {
+    console.warn("Error handling support_ticket_followup event", error);
+  }
+}
+
+async function handlePremiumStatusChanged(
+  event: PremiumStatusChangedEvent,
+  siteUrl: string,
+) {
   if (!event.metadata?.enabled) return;
 
   const user = await fetchUser(event.userId);
   if (!user || !user.email) return;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   const premiumUrl = `${siteUrl || ""}/premium`;
 
   await sendSystemEmail({
@@ -182,11 +238,13 @@ async function handlePremiumStatusChanged(event: PremiumStatusChangedEvent) {
   });
 }
 
-async function handleNotificationEmail(event: NotificationEmailEvent) {
+async function handleNotificationEmail(
+  event: NotificationEmailEvent,
+  siteUrl: string,
+) {
   const user = await fetchUser(event.userId);
   if (!user || !user.email) return;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   const isDirectMessage = event.metadata.type === "direct_message";
   const targetPath = isDirectMessage ? "/messages" : "/notifications";
   const targetUrl = `${siteUrl}${targetPath}`;
@@ -194,8 +252,8 @@ async function handleNotificationEmail(event: NotificationEmailEvent) {
   const subject = trimmedTitle
     ? `[Anime Stock Market] ${trimmedTitle}`
     : isDirectMessage
-    ? "[Anime Stock Market] New direct message"
-    : "[Anime Stock Market] New notification";
+      ? "[Anime Stock Market] New direct message"
+      : "[Anime Stock Market] New notification";
   const shortMessage = event.metadata.message || "You have a new alert.";
   const text = `${shortMessage}\n\nView it here: ${targetUrl}`;
   const html = `<p>${shortMessage}</p><p><a href="${targetUrl}">View it in ${
@@ -210,6 +268,94 @@ async function handleNotificationEmail(event: NotificationEmailEvent) {
   });
 }
 
+async function handleClientError(event: ClientErrorEvent) {
+  try {
+    const recipients = await fetchAdminRecipients();
+    const { metadata } = event;
+    const subject = "Anime Stock Market client error detected";
+    const text = [
+      "A client-side error event was captured.",
+      "",
+      `Message: ${metadata.message}`,
+      metadata.source ? `Source: ${metadata.source}` : "",
+      metadata.pageUrl ? `Page: ${metadata.pageUrl}` : "",
+      metadata.userAgent ? `User Agent: ${metadata.userAgent}` : "",
+      metadata.stack ? `Stack:\n${metadata.stack}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const html = `<p>A client-side error event was captured.</p>
+<p><strong>Message:</strong> ${metadata.message}</p>
+${metadata.source ? `<p><strong>Source:</strong> ${metadata.source}</p>` : ""}
+${metadata.pageUrl ? `<p><strong>Page:</strong> ${metadata.pageUrl}</p>` : ""}
+${metadata.userAgent ? `<p><strong>User Agent:</strong> ${metadata.userAgent}</p>` : ""}
+${
+  metadata.stack
+    ? `<p><strong>Stack</strong></p><pre style="white-space:pre-wrap">${metadata.stack}</pre>`
+    : ""
+}`;
+
+    await Promise.all(
+      recipients.map(async (to) => {
+        try {
+          await sendSystemEmail({ to, subject, text, html });
+        } catch (error) {
+          console.warn("Failed to send client error email", to, error);
+        }
+      }),
+    );
+  } catch (error) {
+    console.warn("Error handling client_error event", error);
+  }
+}
+
+async function handleErrorReport(event: any, siteUrl: string) {
+  try {
+    const recipients = await fetchAdminRecipients();
+    const { metadata } = event;
+
+    const ticketUrl = `${siteUrl}/admin?tab=support&ticket=${metadata.id}`;
+    const subject = `🚨 ERROR REPORT: ${metadata.errorType || "Unknown"} on ${new URL(metadata.pageUrl || "").pathname || "/"}`;
+
+    const text = [
+      "A user reported an error:",
+      "",
+      `Error Type: ${metadata.errorType || "Unknown"}`,
+      `Error Message: ${metadata.errorMessage || "N/A"}`,
+      `Page: ${metadata.pageUrl || "N/A"}`,
+      metadata.affectedFeature ? `Affected Feature: ${metadata.affectedFeature}` : "",
+      `Reported At: ${metadata.timestamp || new Date().toISOString()}`,
+      "",
+      `View Support Ticket: ${ticketUrl}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const html = `
+<p>⚠️ A user reported an error:</p>
+<p><strong>Error Type:</strong> ${metadata.errorType || "Unknown"}</p>
+<p><strong>Error Message:</strong> ${metadata.errorMessage || "N/A"}</p>
+<p><strong>Page:</strong> <a href="${metadata.pageUrl || "#"}">${metadata.pageUrl || "N/A"}</a></p>
+${metadata.affectedFeature ? `<p><strong>Affected Feature:</strong> ${metadata.affectedFeature}</p>` : ""}
+<p><strong>Reported At:</strong> ${metadata.timestamp || new Date().toISOString()}</p>
+<p><a href="${ticketUrl}" style="display: inline-block; padding: 10px 20px; background-color: #ef4444; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Support Ticket</a></p>
+    `.trim();
+
+    await Promise.all(
+      recipients.map(async (to) => {
+        try {
+          await sendSystemEmail({ to, subject, text, html });
+        } catch (error) {
+          console.warn("Failed to send error report email", to, error);
+        }
+      }),
+    );
+  } catch (error) {
+    console.warn("Error handling error_report event", error);
+  }
+}
+
 async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
   try {
     const { metadata } = event;
@@ -222,7 +368,7 @@ async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
     const adminUsers = await databases.listDocuments(
       DATABASE_ID,
       USERS_COLLECTION,
-      [Query.equal("role", "admin")]
+      [Query.equal("role", "admin")],
     );
 
     // Create notification for each admin user
@@ -246,16 +392,16 @@ async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
                 duration,
                 timestamp: metadata?.timestamp,
               },
-            }
+            },
           );
         } catch (e) {
           console.warn("Failed to create notification for admin", admin.$id, e);
         }
-      })
+      }),
     );
 
     console.log(
-      `Market drift notification sent to ${adminUsers.documents.length} admin users`
+      `Market drift notification sent to ${adminUsers.documents.length} admin users`,
     );
   } catch (error) {
     console.error("Error handling market drift completed event", error);
@@ -265,8 +411,24 @@ async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SystemEventRequest | null;
-    if (!body || !body.userId || !body.type) {
+    const siteUrl = resolvePublicSiteUrl(req);
+    if (!body || !body.type) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const userIdRequiredEvents = new Set([
+      "password_changed",
+      "user_banned",
+      "deletion_scheduled",
+      "account_deleted",
+      "premium_status_changed",
+      "notification_email",
+    ]);
+    if (userIdRequiredEvents.has(body.type) && !body.userId) {
+      return NextResponse.json(
+        { error: "Invalid payload: userId required" },
+        { status: 400 },
+      );
     }
 
     switch (body.type) {
@@ -284,21 +446,36 @@ export async function POST(req: Request) {
         break;
       case "support_ticket_created":
         // email all admins with ticket details
-        await handleSupportTicketCreated(body as any);
+        await handleSupportTicketCreated(body as any, siteUrl);
+        break;
+      case "support_ticket_followup":
+        await handleSupportTicketFollowUp(
+          body as SupportTicketFollowUpEvent,
+          siteUrl,
+        );
         break;
       case "premium_status_changed":
-        await handlePremiumStatusChanged(body as PremiumStatusChangedEvent);
+        await handlePremiumStatusChanged(
+          body as PremiumStatusChangedEvent,
+          siteUrl,
+        );
         break;
       case "notification_email":
-        await handleNotificationEmail(body as NotificationEmailEvent);
+        await handleNotificationEmail(body as NotificationEmailEvent, siteUrl);
         break;
       case "market_drift_completed":
         await handleMarketDriftCompleted(body as MarketDriftCompletedEvent);
         break;
+      case "client_error":
+        await handleClientError(body as ClientErrorEvent);
+        break;
+      case "error_report":
+        await handleErrorReport(body as ErrorReportEvent, siteUrl);
+        break;
       default:
         return NextResponse.json(
           { error: "Unsupported event" },
-          { status: 400 }
+          { status: 400 },
         );
     }
 
@@ -307,7 +484,7 @@ export async function POST(req: Request) {
     console.error("Failed to process system event", error);
     return NextResponse.json(
       { error: "Failed to process system event" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

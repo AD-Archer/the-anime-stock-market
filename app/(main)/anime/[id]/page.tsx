@@ -64,6 +64,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserProfileHref } from "@/lib/user-profile";
 import { generateAnimeSlug, formatCurrencyCompact } from "@/lib/utils";
 import { SellDialog } from "@/components/sell-dialog";
+import { usePaginatedComments } from "@/lib/use-paginated-comments";
+import { canEditComment } from "@/lib/comment-permissions";
 import {
   Line,
   LineChart,
@@ -132,8 +134,7 @@ function CommentThread({
   const [replyTag, setReplyTag] = useState<"none" | ContentTag>("none");
 
   const user = users.find((u) => u.id === comment.userId);
-  const canEdit =
-    currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
+  const canEdit = canEditComment(currentUser, comment);
   const canDelete =
     currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
 
@@ -527,7 +528,6 @@ export default function AnimeDetailPage({
     addComment,
     editComment,
     deleteComment,
-    getAnimeComments,
     users,
     reportComment,
     toggleCommentReaction,
@@ -541,8 +541,6 @@ export default function AnimeDetailPage({
     string | null
   >(null);
   const [charactersLimit, setCharactersLimit] = useState(12);
-
-  const animeComments = getAnimeComments(id);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -728,39 +726,19 @@ export default function AnimeDetailPage({
     animeCharacters.find((char) => char.animeImageUrl)?.animeImageUrl ||
     animeCharacters.find((char) => char.imageUrl)?.imageUrl ||
     "/placeholder.svg";
-  const comments = getAnimeComments(id);
+  const {
+    commentMap,
+    rootComments,
+    containerRef,
+    isInitialLoading: isCommentsLoading,
+    isLoadingMore: isLoadingMoreComments,
+    reload: reloadComments,
+    handleScroll: handleCommentScroll,
+  } = usePaginatedComments({ kind: "anime", animeId: id });
 
   const [activeTab, setActiveTab] = useState<"comments" | "animeTransactions">(
     "comments"
   );
-
-  // Process comments into threaded structure
-  const { commentMap, rootComments } = useMemo(() => {
-    const commentMap = new Map<string, Comment & { replies: Comment[] }>();
-    const rootComments: (Comment & { replies: Comment[] })[] = [];
-
-    // First pass: create comment objects with empty replies arrays
-    comments.forEach((comment) => {
-      commentMap.set(comment.id, { ...comment, replies: [] });
-    });
-
-    // Second pass: build the tree structure
-    comments.forEach((comment) => {
-      if (comment.parentId) {
-        const parent = commentMap.get(comment.parentId);
-        if (parent) {
-          parent.replies.push(commentMap.get(comment.id)!);
-        }
-      } else {
-        rootComments.push(commentMap.get(comment.id)!);
-      }
-    });
-
-    // Sort root comments by timestamp (newest first)
-    rootComments.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    return { commentMap, rootComments };
-  }, [comments]);
 
   const { selectedStocks, chartData, totalMarketCap, averagePrice } =
     useMemo(() => {
@@ -833,6 +811,7 @@ export default function AnimeDetailPage({
       });
       setComment("");
       setCommentTag("none");
+      await reloadComments({ scrollToBottom: true });
     }
   };
 
@@ -848,17 +827,20 @@ export default function AnimeDetailPage({
         parentId,
         tags,
       });
+      await reloadComments({ scrollToBottom: true });
     }
   };
 
   const handleEditComment = async (commentId: string, content: string) => {
     if (content.trim()) {
       await editComment(commentId, content);
+      await reloadComments();
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
     await deleteComment(commentId);
+    await reloadComments();
   };
 
   const handleReportComment = async (
@@ -867,6 +849,14 @@ export default function AnimeDetailPage({
     description?: string
   ) => {
     await reportComment(commentId, reason as any, description);
+  };
+
+  const handleToggleReaction = async (
+    commentId: string,
+    reaction: "like" | "dislike"
+  ) => {
+    await toggleCommentReaction(commentId, reaction);
+    await reloadComments();
   };
 
   return (
@@ -1068,6 +1058,11 @@ export default function AnimeDetailPage({
 
               <TabsContent value="comments" className="space-y-4">
                 <div className="space-y-2">
+                  {!currentUser && (
+                    <p className="text-sm text-muted-foreground">
+                      Sign in to post messages in this discussion.
+                    </p>
+                  )}
                   <Textarea
                     placeholder="Share your thoughts about this anime..."
                     value={comment}
@@ -1075,12 +1070,14 @@ export default function AnimeDetailPage({
                       setComment(e.target.value)
                     }
                     rows={3}
+                    disabled={!currentUser}
                   />
                   <Select
                     value={commentTag}
                     onValueChange={(value) =>
                       setCommentTag(value as "none" | ContentTag)
                     }
+                    disabled={!currentUser}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Add a tag (optional)" />
@@ -1091,19 +1088,35 @@ export default function AnimeDetailPage({
                       <SelectItem value="nsfw">NSFW</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={handleAddComment} disabled={!comment.trim()}>
+                  <Button
+                    onClick={handleAddComment}
+                    disabled={!currentUser || !comment.trim()}
+                  >
                     <MessageSquare className="mr-2 h-4 w-4" />
                     Post Comment
                   </Button>
                 </div>
 
-                {rootComments.length === 0 ? (
-                  <p className="py-8 text-center text-muted-foreground">
-                    No comments yet. Be the first!
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {(() => {
+                <div
+                  ref={containerRef}
+                  onScroll={handleCommentScroll}
+                  className="max-h-[36rem] space-y-4 overflow-y-auto rounded-lg border p-4"
+                >
+                  {isLoadingMoreComments && (
+                    <p className="text-center text-xs text-muted-foreground">
+                      Loading older comments...
+                    </p>
+                  )}
+                  {isCommentsLoading ? (
+                    <p className="py-8 text-center text-muted-foreground">
+                      Loading comments...
+                    </p>
+                  ) : rootComments.length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">
+                      No comments yet. Be the first!
+                    </p>
+                  ) : (
+                    (() => {
                       let lastDate = "";
                       return rootComments.map((thread) => {
                         const dateLabel = thread.timestamp.toLocaleDateString(
@@ -1134,15 +1147,15 @@ export default function AnimeDetailPage({
                               onEdit={handleEditComment}
                               onDelete={handleDeleteComment}
                               onReport={handleReportComment}
-                              onToggleReaction={toggleCommentReaction}
+                              onToggleReaction={handleToggleReaction}
                               level={0}
                             />
                           </div>
                         );
                       });
-                    })()}
-                  </div>
-                )}
+                    })()
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="animeTransactions" className="space-y-4">

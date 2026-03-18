@@ -2,9 +2,42 @@
 
 import Link from "next/link";
 import { Github, Shield, FileText, Heart } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export function Footer() {
+  const footerLinks: Array<{
+    href: string;
+    label: string;
+    icon: typeof Shield;
+    external?: boolean;
+  }> = [
+    {
+      href: "/privacy",
+      label: "Privacy Policy",
+      icon: Shield,
+    },
+    {
+      href: "/terms",
+      label: "Terms of Service",
+      icon: FileText,
+    },
+    {
+      href: "/support",
+      label: "Support",
+      icon: Shield,
+    },
+    {
+      href: "/donate",
+      label: "Donate",
+      icon: Heart,
+    },
+    {
+      href: "https://github.com/AD-Archer/the-anime-stock-market",
+      label: "GitHub",
+      icon: Github,
+      external: true,
+    },
+  ] as const;
+
   return (
     <footer className="border-t border-border bg-card mt-auto">
       <div className="container mx-auto px-4 py-6">
@@ -18,49 +51,21 @@ export function Footer() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-6">
-            <Link
-              href="/privacy"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Shield className="h-4 w-4" />
-              Privacy Policy
-            </Link>
-
-            <Link
-              href="/terms"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <FileText className="h-4 w-4" />
-              Terms of Service
-            </Link>
-
-            <Link
-              href="/support"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Shield className="h-4 w-4" />
-              Support
-            </Link>
-
-            <Link
-              href="/donate"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Heart className="h-4 w-4" />
-              Donate
-            </Link>
-
-            <Link
-              href="https://github.com/AD-Archer/the-anime-stock-market"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Github className="h-4 w-4" />
-              GitHub
-            </Link>
-          </div>
+           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+             {footerLinks.map(({ href, label, icon: Icon, external = false }) => (
+               <Link
+                 key={href}
+                 href={href}
+                 target={external ? "_blank" : undefined}
+                 rel={external ? "noopener noreferrer" : undefined}
+                 aria-label={label}
+                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+               >
+                 <Icon className="h-4 w-4" />
+                 <span className="hidden sm:inline">{label}</span>
+               </Link>
+             ))}
+           </div>
         </div>
       </div>
     </footer>

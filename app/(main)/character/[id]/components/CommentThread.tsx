@@ -28,6 +28,7 @@ import { ContentModeration } from "@/components/content-moderation";
 import { MessageContent } from "@/components/chat/message-content";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { ReportModal } from "@/components/report-modal";
+import { canEditComment } from "@/lib/comment-permissions";
 import {
   Tooltip,
   TooltipContent,
@@ -80,8 +81,7 @@ export default function CommentThread({
   const [replyTag, setReplyTag] = useState<"none" | ContentTag>("none");
 
   const user = users.find((u) => u.id === comment.userId);
-  const canEdit =
-    currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
+  const canEdit = canEditComment(currentUser, comment);
   const canDelete =
     currentUser && (currentUser.id === comment.userId || currentUser.isAdmin);
 
