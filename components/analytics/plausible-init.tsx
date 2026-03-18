@@ -81,6 +81,7 @@ export default function PlausibleInit() {
       process.env.NEXT_PUBLIC_PLAUSIBLE_API_HOST ??
       "https://plausible.adarcher.app";
     const reportClientError = createErrorReporter();
+    const shouldDebug = process.env.NODE_ENV === "development";
 
     async function initTracker() {
       if ((window as any).plausible) return;
@@ -95,13 +96,13 @@ export default function PlausibleInit() {
           hashBasedRouting: true,
           captureOnLocalhost: process.env.NODE_ENV === "development",
         });
-
-        console.log("Plausible tracker initialized for domain:", domain);
       } catch (err) {
-        console.warn(
-          "Plausible tracker import failed, falling back to CDN",
-          err,
-        );
+        if (shouldDebug) {
+          console.warn(
+            "Plausible tracker import failed, falling back to CDN",
+            err,
+          );
+        }
         // Fallback: inject CDN script
         if (!document.querySelector("script[data-plausible-fallback]")) {
           const s = document.createElement("script");
@@ -110,6 +111,11 @@ export default function PlausibleInit() {
           s.setAttribute("data-domain", domain);
           s.setAttribute("data-api", apiHost);
           s.src = `${apiHost}/js/script.js`;
+          s.onerror = () => {
+            if (shouldDebug) {
+              console.warn("Plausible fallback script was blocked or failed to load.");
+            }
+          };
           document.head.appendChild(s);
         }
       }

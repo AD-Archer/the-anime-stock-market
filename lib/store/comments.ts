@@ -3,6 +3,11 @@ import type { Comment, CommentSnapshot, ContentTag } from "../types";
 import { commentService } from "../database";
 import type { StoreState } from "./types";
 import { canEditComment } from "../comment-permissions";
+import { toast } from "@/hooks/use-toast";
+import {
+  assertTextAllowed,
+  ContentModerationError,
+} from "@/lib/moderation/client";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -43,6 +48,25 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     const normalizedTags = tags.filter(
       (tag): tag is ContentTag => tag === "nsfw" || tag === "spoiler"
     );
+
+    try {
+      await assertTextAllowed({
+        text: content,
+        surface: "comment",
+        location,
+      });
+    } catch (error) {
+      if (error instanceof ContentModerationError) {
+        toast({
+          title: "Comment blocked",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      console.warn("Failed to moderate comment before saving:", error);
+      return;
+    }
 
     const tempComment: Comment = {
       id: `temp-${Date.now()}`,
@@ -114,6 +138,25 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
     const comment = getState().comments.find((c) => c.id === commentId);
     if (!comment) return;
     if (!canEditComment(currentUser, comment)) return;
+
+    try {
+      await assertTextAllowed({
+        text: content,
+        surface: "comment",
+        location: comment.location,
+      });
+    } catch (error) {
+      if (error instanceof ContentModerationError) {
+        toast({
+          title: "Edit blocked",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      console.warn("Failed to moderate edited comment:", error);
+      return;
+    }
 
     // Store original content if this is the first edit
     const updateData: Partial<Comment> = {

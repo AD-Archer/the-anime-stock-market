@@ -84,6 +84,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.directMessageEmailNotifications !== undefined) {
         preferenceKeys.push("directMessageEmailNotifications");
       }
+      if (updates.allowProfanityInDirectMessages !== undefined) {
+        preferenceKeys.push("allowProfanityInDirectMessages");
+      }
 
       const buildPayload = (keys: (keyof User)[]) =>
         Object.fromEntries(keys.map((key) => [key, (merged as any)[key]]));
@@ -218,6 +221,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
   const updateNotificationPreferences = async (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    allowProfanityInDirectMessages?: boolean;
   }) => {
     const currentUser = getState().currentUser;
     if (!currentUser) return;

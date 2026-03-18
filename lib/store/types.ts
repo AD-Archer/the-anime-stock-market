@@ -129,6 +129,7 @@ export interface StoreContextType {
   updateNotificationPreferences: (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    allowProfanityInDirectMessages?: boolean;
   }) => Promise<void>;
   setUserAvatar: (avatarUrl: string | null) => Promise<void>;
   // persist theme preference for current user

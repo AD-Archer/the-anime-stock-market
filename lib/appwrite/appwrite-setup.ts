@@ -76,7 +76,7 @@ const collections: CollectionPlan[] = [
         kind: "boolean",
         key: "isPortfolioPublic",
         required: false,
-        default: false,
+        default: true,
       },
       {
         kind: "boolean",
@@ -99,6 +99,12 @@ const collections: CollectionPlan[] = [
       {
         kind: "boolean",
         key: "directMessageEmailNotifications",
+        required: false,
+        default: false,
+      },
+      {
+        kind: "boolean",
+        key: "allowProfanityInDirectMessages",
         required: false,
         default: false,
       },

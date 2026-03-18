@@ -208,6 +208,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         authUser: user ? { id: user.id } : null,
       });
       try {
+        await ensureAppwriteInitialized();
+
         const [
           usersData,
           stocksData,
@@ -361,7 +363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 bannedUntil: null,
                 showNsfw: true,
                 showSpoilers: true,
-                isPortfolioPublic: false,
+                isPortfolioPublic: true,
                 hideTransactions: false,
                 anonymousTransactions: false,
                 termsAcceptedVersion: TERMS_VERSION,
@@ -370,6 +372,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 privacyAcceptedAt: new Date(),
                 emailNotificationsEnabled: false,
                 directMessageEmailNotifications: false,
+                allowProfanityInDirectMessages: false,
                 premiumMeta: { ...DEFAULT_PREMIUM_META },
                 pendingDeletionAt: null,
               });
