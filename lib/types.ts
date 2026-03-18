@@ -215,6 +215,7 @@ export type SupportTicketTag =
   | "report"
   | "donation"
   | "premium"
+  | "error"
   | "other";
 
 export interface SupportTicket {
@@ -229,6 +230,16 @@ export interface SupportTicket {
   tag?: SupportTicketTag;
   // optional reference (e.g., a message ID when reporting a message)
   referenceId?: string;
+  // optional priority level (auto-computed, default: normal)
+  priority?: "low" | "normal" | "high";
+  // error context for automatic error reports
+  errorContext?: {
+    errorType: string;
+    errorMessage: string;
+    errorStack?: string;
+    pageUrl: string;
+    userAgent: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   assignedTo?: string | null;

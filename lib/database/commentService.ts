@@ -1,4 +1,4 @@
-import { ID } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { Comment } from "../types";
 import {
@@ -10,6 +10,24 @@ import {
 } from "./utils";
 
 type Creatable<T extends { id: string }> = Omit<T, "id"> & { id?: string };
+
+export type CommentListScope =
+  | {
+      kind: "market";
+    }
+  | {
+      kind: "anime";
+      animeId: string;
+    }
+  | {
+      kind: "character";
+      characterId: string;
+    };
+
+export type CommentListPage = {
+  comments: Comment[];
+  total: number;
+};
 
 const serializeCommentPayload = (comment: Partial<Comment>) => {
   const payload: Record<string, unknown> = {};
@@ -23,6 +41,47 @@ const serializeCommentPayload = (comment: Partial<Comment>) => {
 };
 
 export const commentService = {
+  async listPage(
+    scope: CommentListScope,
+    limit = 15,
+    offset = 0
+  ): Promise<CommentListPage> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const safeLimit = Math.max(1, Math.min(limit, 100));
+      const queries = [Query.orderDesc("timestamp"), Query.limit(safeLimit)];
+
+      if (offset > 0) {
+        queries.push(Query.offset(offset));
+      }
+
+      if (scope.kind === "market") {
+        queries.push(Query.isNull("animeId"));
+        queries.push(Query.isNull("characterId"));
+        queries.push(Query.equal("premiumOnly", false));
+      } else if (scope.kind === "anime") {
+        queries.push(Query.equal("animeId", scope.animeId));
+        queries.push(Query.isNull("characterId"));
+      } else {
+        queries.push(Query.equal("characterId", scope.characterId));
+      }
+
+      const response = await databases.listDocuments(
+        dbId,
+        COMMENTS_COLLECTION,
+        queries
+      );
+
+      return {
+        comments: response.documents.map(mapComment),
+        total: response.total,
+      };
+    } catch (error) {
+      console.warn("Failed to fetch paginated comments from database:", error);
+      return { comments: [], total: 0 };
+    }
+  },
+
   async getAll(): Promise<Comment[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();

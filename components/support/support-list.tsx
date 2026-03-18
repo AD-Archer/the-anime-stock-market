@@ -9,12 +9,14 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import { AlertCircle, CheckCircle2, Clock, MessageSquare, X } from "lucide-react";
 import { useStore } from "@/lib/store";
-import type { SupportTicketTag } from "@/lib/types";
+import type { SupportTicket, SupportTicketTag } from "@/lib/types";
 import { getUserProfileHref } from "@/lib/user-profile";
 import {
   SUPPORT_FILTER_OPTIONS,
   SUPPORT_TAG_LABELS,
+  SUPPORT_TAGS,
   SupportTagFilterValue,
 } from "./support-tags";
 import {
@@ -35,6 +37,102 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+
+function AdminTicketControls({
+  ticket,
+  onUpdate,
+}: {
+  ticket: SupportTicket;
+  onUpdate: (updates: Partial<SupportTicket>) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<SupportTicketTag>(ticket.tag || "other");
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleTagChange = async (newTag: SupportTicketTag) => {
+    setSelectedTag(newTag);
+    setIsUpdating(true);
+    try {
+      await onUpdate({ tag: newTag });
+    } finally {
+      setIsUpdating(false);
+      setIsEditing(false);
+    }
+  };
+
+  const handleClose = async () => {
+    setIsUpdating(true);
+    try {
+      await onUpdate({ status: "closed" });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 pt-4 border-t space-y-3">
+      {isEditing ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Select Category</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {SUPPORT_TAGS.map((tag) => (
+              <Button
+                key={tag}
+                size="sm"
+                variant={selectedTag === tag ? "default" : "outline"}
+                onClick={() => void handleTagChange(tag)}
+                disabled={isUpdating}
+                className="text-xs"
+              >
+                {SUPPORT_TAG_LABELS[tag]}
+              </Button>
+            ))}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsEditing(false)}
+            className="w-full text-xs"
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsEditing(true)}
+            disabled={isUpdating}
+            className="text-xs w-full"
+          >
+            Change Category
+          </Button>
+
+          {ticket.status !== "closed" && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => void handleClose()}
+              disabled={isUpdating}
+              className="text-xs w-full"
+            >
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Close Ticket
+            </Button>
+          )}
+
+          {ticket.status === "closed" && (
+            <Badge variant="secondary" className="text-xs w-full justify-center">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Closed
+            </Badge>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FollowUpForm({ ticketId }: { ticketId: string }) {
   const { addSupportFollowUp } = useStore();
@@ -169,36 +267,37 @@ export function SupportList() {
           <Badge variant="outline">Closed: {ticketSummary.closed}</Badge>
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="space-y-3">
         <Input
           placeholder="Search tickets..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]" suppressHydrationWarning>
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {SUPPORT_FILTER_OPTIONS.map((tab) => (
-          <Button
-            key={tab.value}
-            size="sm"
-            variant={tagFilter === tab.value ? "secondary" : "outline"}
-            onClick={() => setTagFilter(tab.value)}
-          >
-            {tab.label}
-          </Button>
-        ))}
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger suppressHydrationWarning>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={tagFilter} onValueChange={(val) => setTagFilter(val as SupportTagFilterValue)}>
+            <SelectTrigger suppressHydrationWarning>
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORT_FILTER_OPTIONS.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       {premiumRequests.length > 0 && latestPremiumRequest && (
         <Card className="border-l-4 border-primary/70 bg-primary/5">
@@ -241,95 +340,149 @@ export function SupportList() {
           return (
             <Card
               key={t.id}
-              className={isSelectedFromUrl ? "ring-2 ring-primary/40" : ""}
+              className={`transition-all ${
+                isSelectedFromUrl
+                  ? "ring-2 ring-primary/40 shadow-md"
+                  : ""
+              } ${
+                t.tag === "error"
+                  ? "border-l-4 border-l-red-500"
+                  : ""
+              }`}
             >
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{t.subject}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(t.createdAt).toLocaleString()}
-                  </span>
-                </CardTitle>
-                <CardDescription className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        {t.tag === "error" && (
+                          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{t.subject}</span>
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(t.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {t.status === "open" && (
+                        <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Open
+                        </Badge>
+                      )}
+                      {t.status === "in_progress" && (
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          In Progress
+                        </Badge>
+                      )}
+                      {t.status === "closed" && (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Closed
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
                     {ticketUser ? (
                       <Link
                         href={getUserProfileHref(ticketUser, ticketUser.id)}
-                        className="hover:underline font-medium text-foreground"
+                        className="hover:underline font-medium text-sm text-foreground"
                       >
                         {ticketUser.displayName || ticketUser.username}
                       </Link>
                     ) : (
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-sm text-foreground">
                         {contactLabel}
                       </span>
                     )}
-                    {ticketUser?.email && (
-                      <span className="text-xs text-muted-foreground">
-                        {ticketUser.email}
-                      </span>
-                    )}
-                    {!ticketUser && t.contactEmail && (
-                      <span className="text-xs text-muted-foreground">
-                        {t.contactEmail}
-                      </span>
-                    )}
+
                     {t.tag && (
-                      <Badge variant="outline" className="text-xs px-2 py-0.5">
+                      <Badge variant="outline" className="text-xs">
                         {SUPPORT_TAG_LABELS[t.tag]}
                       </Badge>
                     )}
+
+                    {assignedAdmin && (
+                      <span className="text-xs text-muted-foreground">
+                        • Assigned to{" "}
+                        <span className="font-medium">
+                          {assignedAdmin.displayName ||
+                            assignedAdmin.username}
+                        </span>
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Ticket: {t.id}</span>
-                    <span>•</span>
-                    <span>Status: {t.status}</span>
-                    <span>•</span>
-                    <span>
-                      Assigned:{" "}
-                      {assignedAdmin?.displayName ||
-                        assignedAdmin?.username ||
-                        (t.assignedTo ? "Admin" : "Unassigned")}
-                    </span>
-                    <span>•</span>
-                    <span>{new Date(t.createdAt).toLocaleString()}</span>
-                  </div>
-                </CardDescription>
+
+                  {(t.messages || []).length > 0 && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      {t.messages!.length} response{t.messages!.length !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{t.message}</p>
+                <p className="text-sm whitespace-pre-wrap mb-3">{t.message}</p>
                 {(t.messages || []).length > 0 && (
-                  <div className="mt-3">
-                    <h4 className="text-sm font-medium">Conversation</h4>
-                    <div className="space-y-2 mt-2">
-                      {t.messages!.map((m, i) => (
-                        <div key={i} className="rounded border p-3">
-                          <div className="text-xs text-muted-foreground mb-1">
-                            {(() => {
-                              const sender = m.senderId
-                                ? users.find((u) => u.id === m.senderId)
-                                : undefined;
-                              if (sender) {
-                                return (
-                                  sender.displayName ||
-                                  sender.username ||
-                                  sender.email
-                                );
-                              }
-                              return (
-                                t.contactEmail || (t as any).email || "User"
-                              );
-                            })()}{" "}
-                            • {new Date(m.createdAt).toLocaleString()}
+                  <div className="mt-4 pt-4 border-t space-y-3">
+                    <h4 className="text-sm font-semibold">
+                      {t.messages!.length} {t.messages!.length === 1 ? "Reply" : "Replies"}
+                    </h4>
+                    <div className="space-y-2">
+                      {t.messages!.map((m, i) => {
+                        const sender = m.senderId
+                          ? users.find((u) => u.id === m.senderId)
+                          : undefined;
+                        const isAdmin = sender?.isAdmin;
+                        const senderName =
+                          sender?.displayName ||
+                          sender?.username ||
+                          sender?.email ||
+                          t.contactEmail ||
+                          (t as any).email ||
+                          "You";
+
+                        return (
+                          <div key={i} className="space-y-1">
+                            <div className="flex items-baseline gap-2">
+                              <p className="text-sm font-semibold">{senderName}</p>
+                              {isAdmin && (
+                                <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
+                                  Support
+                                </span>
+                              )}
+                              <p className="text-xs text-muted-foreground ml-auto">
+                                {new Date(m.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <p className="text-sm text-foreground bg-muted/40 rounded p-3 whitespace-pre-wrap">
+                              {m.text}
+                            </p>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">
-                            {m.text}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
+
+                {currentUser?.isAdmin && (
+                  <AdminTicketControls
+                    ticket={t}
+                    onUpdate={async (updates) => {
+                      try {
+                        const { updateSupportTicket } = useStore.getState();
+                        await updateSupportTicket(t.id, updates);
+                      } catch (error) {
+                        console.error("Failed to update ticket:", error);
+                      }
+                    }}
+                  />
+                )}
+
                 <FollowUpForm ticketId={t.id} />
               </CardContent>
             </Card>

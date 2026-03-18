@@ -14,6 +14,7 @@ import type {
   MarketDriftCompletedEvent,
   SupportTicketFollowUpEvent,
   SystemEventRequest,
+  ErrorReportEvent,
 } from "@/lib/system-events";
 
 const friendlyDate = (value: string | undefined): string => {
@@ -309,6 +310,52 @@ ${
   }
 }
 
+async function handleErrorReport(event: any, siteUrl: string) {
+  try {
+    const recipients = await fetchAdminRecipients();
+    const { metadata } = event;
+
+    const ticketUrl = `${siteUrl}/admin?tab=support&ticket=${metadata.id}`;
+    const subject = `🚨 ERROR REPORT: ${metadata.errorType || "Unknown"} on ${new URL(metadata.pageUrl || "").pathname || "/"}`;
+
+    const text = [
+      "A user reported an error:",
+      "",
+      `Error Type: ${metadata.errorType || "Unknown"}`,
+      `Error Message: ${metadata.errorMessage || "N/A"}`,
+      `Page: ${metadata.pageUrl || "N/A"}`,
+      metadata.affectedFeature ? `Affected Feature: ${metadata.affectedFeature}` : "",
+      `Reported At: ${metadata.timestamp || new Date().toISOString()}`,
+      "",
+      `View Support Ticket: ${ticketUrl}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const html = `
+<p>⚠️ A user reported an error:</p>
+<p><strong>Error Type:</strong> ${metadata.errorType || "Unknown"}</p>
+<p><strong>Error Message:</strong> ${metadata.errorMessage || "N/A"}</p>
+<p><strong>Page:</strong> <a href="${metadata.pageUrl || "#"}">${metadata.pageUrl || "N/A"}</a></p>
+${metadata.affectedFeature ? `<p><strong>Affected Feature:</strong> ${metadata.affectedFeature}</p>` : ""}
+<p><strong>Reported At:</strong> ${metadata.timestamp || new Date().toISOString()}</p>
+<p><a href="${ticketUrl}" style="display: inline-block; padding: 10px 20px; background-color: #ef4444; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">View Support Ticket</a></p>
+    `.trim();
+
+    await Promise.all(
+      recipients.map(async (to) => {
+        try {
+          await sendSystemEmail({ to, subject, text, html });
+        } catch (error) {
+          console.warn("Failed to send error report email", to, error);
+        }
+      }),
+    );
+  } catch (error) {
+    console.warn("Error handling error_report event", error);
+  }
+}
+
 async function handleMarketDriftCompleted(event: MarketDriftCompletedEvent) {
   try {
     const { metadata } = event;
@@ -421,6 +468,9 @@ export async function POST(req: Request) {
         break;
       case "client_error":
         await handleClientError(body as ClientErrorEvent);
+        break;
+      case "error_report":
+        await handleErrorReport(body as ErrorReportEvent, siteUrl);
         break;
       default:
         return NextResponse.json(

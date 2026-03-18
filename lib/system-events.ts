@@ -10,7 +10,8 @@ export type SystemEventType =
   | "premium_status_changed"
   | "notification_email"
   | "market_drift_completed"
-  | "client_error";
+  | "client_error"
+  | "error_report";
 
 export type PasswordChangedEvent = {
   type: "password_changed";
@@ -113,6 +114,20 @@ export type ClientErrorEvent = {
   };
 };
 
+export type ErrorReportEvent = {
+  type: "error_report";
+  userId?: string;
+  metadata?: {
+    id?: string;
+    subject?: string;
+    errorType?: string;
+    errorMessage?: string;
+    pageUrl?: string;
+    affectedFeature?: string;
+    timestamp?: string;
+  };
+};
+
 export type SystemEventRequest =
   | PasswordChangedEvent
   | UserBannedEvent
@@ -123,4 +138,5 @@ export type SystemEventRequest =
   | PremiumStatusChangedEvent
   | NotificationEmailEvent
   | MarketDriftCompletedEvent
-  | ClientErrorEvent;
+  | ClientErrorEvent
+  | ErrorReportEvent;

@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand";
 import type { Comment, CommentSnapshot, ContentTag } from "../types";
 import { commentService } from "../database";
 import type { StoreState } from "./types";
+import { canEditComment } from "../comment-permissions";
 
 type StoreMutators = Pick<StoreApi<StoreState>, "setState" | "getState">;
 
@@ -112,6 +113,7 @@ export function createCommentActions({ setState, getState }: StoreMutators) {
 
     const comment = getState().comments.find((c) => c.id === commentId);
     if (!comment) return;
+    if (!canEditComment(currentUser, comment)) return;
 
     // Store original content if this is the first edit
     const updateData: Partial<Comment> = {
