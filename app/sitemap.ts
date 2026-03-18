@@ -3,9 +3,15 @@ import { generateAnimeSlug, generateCharacterSlug } from "@/lib/utils";
 
 const canUseAppwrite = () =>
   Boolean(
-    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT &&
-      process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+    (process.env.APPWRITE_ENDPOINT ||
+      process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT) &&
+      (process.env.APPWRITE_PROJECT_ID ||
+        process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID) &&
+      (process.env.APPWRITE_DATABASE_ID ||
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID)
   );
+
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
@@ -133,6 +139,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       stocks = await stockService.getAll();
       users = await userService.getAll();
+
+      if (stocks.length === 0) {
+        console.warn(
+          "Sitemap dynamic stock fetch returned 0 records; character and anime detail pages will be omitted."
+        );
+      }
 
       // Try to use DB-side aggregation of anime activity first
       try {

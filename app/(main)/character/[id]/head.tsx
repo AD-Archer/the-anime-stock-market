@@ -1,4 +1,5 @@
 import React from "react";
+import { generateCharacterSlug } from "@/lib/utils";
 
 export default async function Head({ params }: { params: { id: string } }) {
   const siteUrl =
@@ -18,7 +19,18 @@ export default async function Head({ params }: { params: { id: string } }) {
 
   try {
     const { stockService } = await import("@/lib/database/stockService");
-    const stock = await stockService.getById(id);
+    const stocks = await stockService.getAll();
+    const normalizedId = generateCharacterSlug(id);
+    const stock =
+      stocks.find((s) => s.characterSlug === id) ||
+      stocks.find(
+        (s) => generateCharacterSlug(s.characterSlug) === normalizedId
+      ) ||
+      stocks.find(
+        (s) => generateCharacterSlug(s.characterName) === normalizedId
+      ) ||
+      stocks.find((s) => s.id === id);
+
     if (stock) {
       const { characterName, anime, description: stockDesc, imageUrl } = stock;
 
@@ -45,6 +57,10 @@ export default async function Head({ params }: { params: { id: string } }) {
           ? imageUrl
           : `${siteUrl}${imageUrl}`;
       }
+
+      url = `${siteUrl}/character/${encodeURIComponent(
+        stock.characterSlug || generateCharacterSlug(characterName)
+      )}`;
     }
   } catch (err) {
     // ignore
