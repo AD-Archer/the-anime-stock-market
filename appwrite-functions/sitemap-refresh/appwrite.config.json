@@ -1,0 +1,24 @@
+{
+  "projectId": "6949aea600261e0eed1d",
+  "projectName": "animestockexchange",
+  "functions": [
+    {
+      "$id": "sitemap-refresh-function",
+      "execute": [
+        "any"
+      ],
+      "name": "Sitemap Refresh",
+      "enabled": true,
+      "logging": true,
+      "runtime": "node-16.0",
+      "scopes": [],
+      "events": [],
+      "schedule": "0 2 * * *",
+      "timeout": 60,
+      "entrypoint": "src/index.js",
+      "commands": "npm install",
+      "specification": "s-1vcpu-512mb",
+      "path": "."
+    }
+  ]
+}
