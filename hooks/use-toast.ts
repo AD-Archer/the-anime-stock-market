@@ -3,7 +3,11 @@
 // Inspired by react-hot-toast library
 import * as React from 'react'
 
-import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
+import {
+  ToastAction,
+  type ToastActionElement,
+  type ToastProps,
+} from '@/components/ui/toast'
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -13,6 +17,8 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  reportable?: boolean
+  reportContext?: string
 }
 
 const actionTypes = {
@@ -139,8 +145,92 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, 'id'>
 
+const REPORTABLE_TOAST_TEXT =
+  /(failed?|error|cannot|could not|unable|invalid|blocked|issue)/i
+
+function toPlainText(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node)
+  }
+
+  if (Array.isArray(node)) {
+    return node.map((child) => toPlainText(child)).join(' ')
+  }
+
+  if (React.isValidElement(node)) {
+    return toPlainText((node.props as { children?: React.ReactNode }).children)
+  }
+
+  return ''
+}
+
+function truncate(value: string, max = 500): string {
+  if (value.length <= max) return value
+  return `${value.slice(0, max - 3)}...`
+}
+
+function shouldAttachReportAction(props: Toast): boolean {
+  if (props.reportable === false) return false
+  if (props.reportable === true) return true
+  if (props.variant === 'destructive') return true
+
+  const text = `${toPlainText(props.title)} ${toPlainText(props.description)}`.trim()
+  return REPORTABLE_TOAST_TEXT.test(text)
+}
+
+function buildSupportHref(props: Toast): string {
+  const title = truncate(toPlainText(props.title).trim() || 'Issue report')
+  const description = truncate(toPlainText(props.description).trim(), 1200)
+  const context = truncate((props.reportContext || '').trim(), 1200)
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const timestamp = new Date().toISOString()
+
+  const body = [
+    'I encountered an issue from an in-app notification.',
+    '',
+    `Toast title: ${title}`,
+    description ? `Toast details: ${description}` : '',
+    context ? `Extra context: ${context}` : '',
+    pageUrl ? `Page: ${pageUrl}` : '',
+    `Timestamp: ${timestamp}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const params = new URLSearchParams({
+    tag: 'error',
+    subject: title.startsWith('Error:') ? title : `Error: ${title}`,
+    body,
+  })
+
+  return `/support?${params.toString()}`
+}
+
+function withReportAction(props: Toast): Toast {
+  if (props.action || !shouldAttachReportAction(props)) return props
+
+  const action = React.createElement(
+    ToastAction,
+    {
+      altText: 'Report this issue',
+      onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault()
+        if (typeof window === 'undefined') return
+        window.location.assign(buildSupportHref(props))
+      },
+    },
+    'Report Issue',
+  ) as unknown as ToastActionElement
+
+  return {
+    ...props,
+    action,
+  }
+}
+
 function toast({ ...props }: Toast) {
   const id = genId()
+  const normalized = withReportAction(props)
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -152,7 +242,7 @@ function toast({ ...props }: Toast) {
   dispatch({
     type: 'ADD_TOAST',
     toast: {
-      ...props,
+      ...normalized,
       id,
       open: true,
       onOpenChange: (open) => {

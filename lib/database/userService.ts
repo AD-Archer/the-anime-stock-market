@@ -99,13 +99,14 @@ export const userService = {
 
   async update(id: string, user: Partial<User>): Promise<User> {
     try {
-      // Fetch current user to merge with updates, ensuring all required attributes are provided
+      // Fetch current user for side effects (volume tracking + index updates)
       const current = await this.getById(id);
       if (!current) throw new Error("User not found");
       const previousBalance = current.balance ?? 0;
 
-      const merged = { ...current, ...user };
-      const { id: _ignored, ...data } = merged as any;
+      // Send only the patch fields to Appwrite.
+      // This avoids leaking unsupported attributes from local state into updates.
+      const { id: _ignored, ...data } = user as any;
       const dbId = ensureDatabaseIdAvailable();
       const response = await databases.updateDocument(
         dbId,
@@ -116,7 +117,8 @@ export const userService = {
       const saved = mapUser(response);
 
       // Track volume whenever a balance changes (absolute delta)
-      const newBalance = merged.balance ?? previousBalance;
+      const newBalance =
+        typeof user.balance === "number" ? user.balance : previousBalance;
       const balanceDelta = Number.isFinite(newBalance - previousBalance)
         ? newBalance - previousBalance
         : 0;

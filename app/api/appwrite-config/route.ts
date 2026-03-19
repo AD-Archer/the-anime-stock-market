@@ -29,15 +29,11 @@ export async function GET() {
       strip(process.env.SITE_URL) || strip(process.env.NEXT_PUBLIC_SITE_URL),
   };
 
-  // Do NOT expose server-only APPWRITE_DATABASE_ID by default. If a public
-  // database id is intentionally required by the client, set
-  // NEXT_PUBLIC_APPWRITE_DATABASE_ID or set EXPOSE_APPWRITE_DATABASE_ID=true.
-  if (strip(process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID)) {
-    config.databaseId = strip(process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID);
-  } else if (process.env.EXPOSE_APPWRITE_DATABASE_ID === "true") {
-    // Explicit opt-in to expose the server-side DB id (not recommended)
-    config.databaseId = strip(process.env.APPWRITE_DATABASE_ID);
-  }
+  // Database ID is not a secret and is required for direct client DB operations.
+  // Prefer NEXT_PUBLIC_* (build-time) then fallback to APPWRITE_DATABASE_ID (runtime).
+  config.databaseId =
+    strip(process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID) ||
+    strip(process.env.APPWRITE_DATABASE_ID);
 
   if (!config.endpoint || !config.projectId) {
     return NextResponse.json(
