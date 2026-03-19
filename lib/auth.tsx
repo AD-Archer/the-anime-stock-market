@@ -546,10 +546,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       signIn: async (email, password) => {
+        const { ensureAppwriteInitialized } = await import("./appwrite/appwrite");
+        await ensureAppwriteInitialized();
         await account.createEmailPasswordSession(email, password);
         await fetchUser();
       },
       signUp: async (name, email, password, preferences) => {
+        const { ensureAppwriteInitialized } = await import("./appwrite/appwrite");
+        await ensureAppwriteInitialized();
         savePendingSignupPreferences(preferences);
         const newUserId = ID.unique();
         await account.create({

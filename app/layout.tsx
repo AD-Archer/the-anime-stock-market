@@ -12,6 +12,7 @@ import { AuthProvider } from "@/lib/auth";
 import { PageShellLoading } from "@/components/loading/page-shell";
 import { ThemeProvider } from "@/components/theme-provider";
 import PlausibleInit from "@/components/analytics/plausible-init";
+import { startSchemaHealthMonitor } from "@/lib/appwrite/schema-health";
 // @ts-ignore: allow side-effect CSS import without type declarations
 import "./globals.css";
 
@@ -131,6 +132,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  startSchemaHealthMonitor();
+
   const schemaData = {
     "@context": "https://schema.org",
     "@type": "WebApplication",
