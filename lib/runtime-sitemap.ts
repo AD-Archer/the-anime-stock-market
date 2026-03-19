@@ -121,7 +121,7 @@ export async function generateRuntimeSitemap(
   req?: Request
 ): Promise<RuntimeSitemapResult> {
   const baseUrl = resolvePublicSiteUrl(req);
-  const defaultOg = `${baseUrl}/icons/images.jpg`;
+  const defaultOg = `${baseUrl}/logo.webp`;
 
   const staticPages: SitemapEntry[] = [
     {
@@ -393,4 +393,3 @@ export async function generateRuntimeSitemap(
     },
   };
 }
-

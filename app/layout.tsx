@@ -20,7 +20,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.animestockmarket.tech";
-const defaultOg = `${baseUrl}/icons/images.jpg`;
+const defaultOg = `${baseUrl}/logo.webp`;
+const logoUrl = `${baseUrl}/logo.webp`;
 
 // Theme script to prevent flash
 const themeScript = `(function() {
@@ -66,9 +67,9 @@ export const metadata: Metadata = {
     "anime community",
   ],
   icons: {
-    icon: defaultOg,
+    icon: "/logo.webp",
     apple: "/icons/apple-icon.png",
-    shortcut: defaultOg,
+    shortcut: "/logo.webp",
   },
   openGraph: {
     title: "The Anime Stock Market - Trade Your Favorite Characters",
@@ -81,8 +82,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: defaultOg,
-        width: 1200,
-        height: 630,
+        width: 1408,
+        height: 768,
         alt: "Anime Stock Market - Trade Anime Characters",
       },
     ],
@@ -143,11 +144,12 @@ export default function RootLayout({
       price: "0",
       priceCurrency: "USD",
     },
-    image: defaultOg,
+    image: logoUrl,
     creator: {
       "@type": "Organization",
       name: "Anime Stock Market",
       url: baseUrl,
+      logo: logoUrl,
     },
   };
 

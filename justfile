@@ -34,6 +34,9 @@ appwrite-push-sitemap:
 appwrite-push-weekly-engagement:
   infisical run -- pnpm appwritepush:weekly-engagement
 
+appwrite-push-daily-trade-digest:
+  infisical run -- pnpm appwritepush:daily-trade-digest
+
 docker-build:
   infisical run -- pnpm docker:build
 

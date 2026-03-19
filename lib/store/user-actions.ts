@@ -87,6 +87,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.tradeEmailNotifications !== undefined) {
         preferenceKeys.push("tradeEmailNotifications");
       }
+      if (updates.dailyTradeDigestEmailNotifications !== undefined) {
+        preferenceKeys.push("dailyTradeDigestEmailNotifications");
+      }
       if (updates.weeklyPerformanceEmailNotifications !== undefined) {
         preferenceKeys.push("weeklyPerformanceEmailNotifications");
       }
@@ -231,6 +234,7 @@ export function createUserActions({ setState, getState }: StoreMutators) {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
     tradeEmailNotifications?: boolean;
+    dailyTradeDigestEmailNotifications?: boolean;
     weeklyPerformanceEmailNotifications?: boolean;
     weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;

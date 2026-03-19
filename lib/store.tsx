@@ -401,6 +401,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 emailNotificationsEnabled: true,
                 directMessageEmailNotifications: false,
                 tradeEmailNotifications: true,
+                dailyTradeDigestEmailNotifications: true,
                 weeklyPerformanceEmailNotifications: true,
                 weeklyReturnToAppEmailNotifications: true,
                 allowProfanityInDirectMessages: false,

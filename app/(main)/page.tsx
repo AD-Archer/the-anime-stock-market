@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -93,7 +94,27 @@ export default function LandingPage() {
     <div className="bg-background overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-secondary/10">
-        <div className="container mx-auto px-4 py-24 md:py-32">
+        <div className="relative w-full h-64 sm:h-80 md:h-96 lg:h-[28rem]">
+          <Image
+            src="/banner-light.webp"
+            alt="The Anime Stock Market"
+            fill
+            priority
+            className="object-cover block dark:hidden"
+            sizes="100vw"
+          />
+          <Image
+            src="/banner-dark.webp"
+            alt="The Anime Stock Market"
+            fill
+            priority
+            className="object-cover hidden dark:block"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 [background:linear-gradient(to_bottom,transparent_0%,transparent_50%,rgba(200,200,200,0.3)_75%,rgba(230,230,230,0.6)_100%)] dark:[background:linear-gradient(to_bottom,transparent_0%,transparent_50%,rgba(0,0,0,0.6)_75%,var(--background)_100%)]" />
+        </div>
+
+        <div className="container mx-auto px-4 pt-12 pb-24 md:pt-16 md:pb-32">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
               Welcome to the{" "}

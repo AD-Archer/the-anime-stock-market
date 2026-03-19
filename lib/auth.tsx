@@ -31,6 +31,7 @@ type AuthUser = {
 export type SignupNotificationPreferences = {
   emailNotificationsEnabled?: boolean;
   tradeEmailNotifications?: boolean;
+  dailyTradeDigestEmailNotifications?: boolean;
   weeklyPerformanceEmailNotifications?: boolean;
   weeklyReturnToAppEmailNotifications?: boolean;
   directMessageEmailNotifications?: boolean;
@@ -42,6 +43,7 @@ const DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES: Required<SignupNotificationPrefer
   {
     emailNotificationsEnabled: true,
     tradeEmailNotifications: true,
+    dailyTradeDigestEmailNotifications: true,
     weeklyPerformanceEmailNotifications: true,
     weeklyReturnToAppEmailNotifications: true,
     directMessageEmailNotifications: false,
@@ -319,6 +321,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         directMessageEmailNotifications:
           signupPreferences.directMessageEmailNotifications,
         tradeEmailNotifications: signupPreferences.tradeEmailNotifications,
+        dailyTradeDigestEmailNotifications:
+          signupPreferences.dailyTradeDigestEmailNotifications,
         weeklyPerformanceEmailNotifications:
           signupPreferences.weeklyPerformanceEmailNotifications,
         weeklyReturnToAppEmailNotifications:

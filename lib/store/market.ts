@@ -738,26 +738,6 @@ export function createMarketActions({
       unlockAward(currentUser.id, "early_bird_investor").catch(() => {});
     }
 
-    const updatedCurrentUser = getState().currentUser;
-    if (
-      updatedCurrentUser?.emailNotificationsEnabled &&
-      updatedCurrentUser?.tradeEmailNotifications
-    ) {
-      sendSystemEvent({
-        type: "trade_confirmation_email",
-        userId: updatedCurrentUser.id,
-        metadata: {
-          tradeType: "buy",
-          stockId,
-          stockName: stock.characterName,
-          shares,
-          pricePerShare: executionPrice,
-          totalAmount: totalCost,
-          happenedAt: new Date().toISOString(),
-        },
-      });
-    }
-
     return true;
   };
 
