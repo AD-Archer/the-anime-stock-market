@@ -151,6 +151,9 @@ export interface StoreContextType {
   updateNotificationPreferences: (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    tradeEmailNotifications?: boolean;
+    weeklyPerformanceEmailNotifications?: boolean;
+    weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;
   }) => Promise<void>;
   setUserAvatar: (avatarUrl: string | null) => Promise<void>;

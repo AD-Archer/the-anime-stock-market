@@ -24,7 +24,9 @@ export function createNotificationActions({
     const prefersDMs = !!targetUser.directMessageEmailNotifications;
     const prefersGeneral = !!targetUser.emailNotificationsEnabled;
     const shouldEmail =
-      notification.type === "direct_message" ? prefersDMs : prefersGeneral;
+      notification.type === "direct_message"
+        ? prefersGeneral && prefersDMs
+        : prefersGeneral;
     if (!shouldEmail) return;
 
     sendSystemEvent({

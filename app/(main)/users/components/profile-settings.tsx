@@ -63,6 +63,9 @@ type ProfileSettingsProps = {
   onUpdateNotificationPreferences: (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    tradeEmailNotifications?: boolean;
+    weeklyPerformanceEmailNotifications?: boolean;
+    weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;
   }) => Promise<void>;
   onUpdateAvatar: (avatarUrl: string | null) => Promise<void>;
@@ -111,6 +114,11 @@ export function ProfileSettings({
     useState(false);
   const [directMessageEmailNotifications, setDirectMessageEmailNotifications] =
     useState(false);
+  const [tradeEmailNotifications, setTradeEmailNotifications] = useState(false);
+  const [weeklyPerformanceEmailNotifications, setWeeklyPerformanceEmailNotifications] =
+    useState(false);
+  const [weeklyReturnToAppEmailNotifications, setWeeklyReturnToAppEmailNotifications] =
+    useState(false);
   const [allowProfanityInDirectMessages, setAllowProfanityInDirectMessages] =
     useState(false);
   const [avatarSearch, setAvatarSearch] = useState("");
@@ -121,7 +129,9 @@ export function ProfileSettings({
     null | "spoilers" | "nsfw" | "portfolio" | "transactions" | "dm-profanity"
   >(null);
   const [notificationPreferenceLoading, setNotificationPreferenceLoading] =
-    useState<null | "email" | "direct">(null);
+    useState<
+      null | "email" | "direct" | "trade" | "performance" | "return"
+    >(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const {
     signInWithGoogle,
@@ -220,6 +230,13 @@ export function ProfileSettings({
       setEmailNotificationsEnabled(!!storeUser.emailNotificationsEnabled);
       setDirectMessageEmailNotifications(
         !!storeUser.directMessageEmailNotifications
+      );
+      setTradeEmailNotifications(!!storeUser.tradeEmailNotifications);
+      setWeeklyPerformanceEmailNotifications(
+        !!storeUser.weeklyPerformanceEmailNotifications
+      );
+      setWeeklyReturnToAppEmailNotifications(
+        !!storeUser.weeklyReturnToAppEmailNotifications
       );
       setAllowProfanityInDirectMessages(
         !!storeUser.allowProfanityInDirectMessages
@@ -512,6 +529,7 @@ export function ProfileSettings({
 
   const handleDirectMessageEmailToggle = async (value: boolean) => {
     if (!isOwnProfile) return;
+    if (!emailNotificationsEnabled) return;
     setDirectMessageEmailNotifications(value);
     setNotificationPreferenceLoading("direct");
     try {
@@ -521,6 +539,57 @@ export function ProfileSettings({
     } catch (error) {
       console.error("Failed to update DM email notifications", error);
       setDirectMessageEmailNotifications((prev) => !value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleTradeEmailToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    if (!emailNotificationsEnabled) return;
+    setTradeEmailNotifications(value);
+    setNotificationPreferenceLoading("trade");
+    try {
+      await onUpdateNotificationPreferences({
+        tradeEmailNotifications: value,
+      });
+    } catch (error) {
+      console.error("Failed to update trade email notifications", error);
+      setTradeEmailNotifications(!value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleWeeklyPerformanceEmailToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    if (!emailNotificationsEnabled) return;
+    setWeeklyPerformanceEmailNotifications(value);
+    setNotificationPreferenceLoading("performance");
+    try {
+      await onUpdateNotificationPreferences({
+        weeklyPerformanceEmailNotifications: value,
+      });
+    } catch (error) {
+      console.error("Failed to update weekly performance emails", error);
+      setWeeklyPerformanceEmailNotifications(!value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleWeeklyReturnToAppEmailToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    if (!emailNotificationsEnabled) return;
+    setWeeklyReturnToAppEmailNotifications(value);
+    setNotificationPreferenceLoading("return");
+    try {
+      await onUpdateNotificationPreferences({
+        weeklyReturnToAppEmailNotifications: value,
+      });
+    } catch (error) {
+      console.error("Failed to update weekly return-to-app emails", error);
+      setWeeklyReturnToAppEmailNotifications(!value);
     } finally {
       setNotificationPreferenceLoading(null);
     }
@@ -1245,9 +1314,11 @@ export function ProfileSettings({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
                     <div>
-                      <p className="text-sm font-medium">Email Notifications</p>
+                      <p className="text-sm font-medium">
+                        Email Notifications (Master)
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        Receive a digest of your notifications in your inbox.
+                        Turn all email notifications on or off.
                       </p>
                     </div>
                     <input
@@ -1257,6 +1328,76 @@ export function ProfileSettings({
                         handleEmailNotificationToggle(e.target.checked)
                       }
                       disabled={notificationPreferenceLoading === "email"}
+                      className="h-5 w-5 accent-primary rounded"
+                    />
+                  </div>
+                  {!emailNotificationsEnabled && (
+                    <p className="text-xs text-muted-foreground px-1">
+                      Email notifications are currently paused. Re-enable the
+                      master toggle to manage individual email types.
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Trade Confirmation Emails
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Get an email when you buy or sell shares.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={tradeEmailNotifications}
+                      onChange={(e) => handleTradeEmailToggle(e.target.checked)}
+                      disabled={
+                        notificationPreferenceLoading === "trade" ||
+                        !emailNotificationsEnabled
+                      }
+                      className="h-5 w-5 accent-primary rounded"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Weekly Performance Digest
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Receive a weekly summary of your portfolio performance.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={weeklyPerformanceEmailNotifications}
+                      onChange={(e) =>
+                        handleWeeklyPerformanceEmailToggle(e.target.checked)
+                      }
+                      disabled={
+                        notificationPreferenceLoading === "performance" ||
+                        !emailNotificationsEnabled
+                      }
+                      className="h-5 w-5 accent-primary rounded"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Weekly Return Reminder
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Get a once-a-week reminder to jump back into the market.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={weeklyReturnToAppEmailNotifications}
+                      onChange={(e) =>
+                        handleWeeklyReturnToAppEmailToggle(e.target.checked)
+                      }
+                      disabled={
+                        notificationPreferenceLoading === "return" ||
+                        !emailNotificationsEnabled
+                      }
                       className="h-5 w-5 accent-primary rounded"
                     />
                   </div>
@@ -1275,7 +1416,10 @@ export function ProfileSettings({
                       onChange={(e) =>
                         handleDirectMessageEmailToggle(e.target.checked)
                       }
-                      disabled={notificationPreferenceLoading === "direct"}
+                      disabled={
+                        notificationPreferenceLoading === "direct" ||
+                        !emailNotificationsEnabled
+                      }
                       className="h-5 w-5 accent-primary rounded"
                     />
                   </div>

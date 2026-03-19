@@ -84,6 +84,15 @@ export function createUserActions({ setState, getState }: StoreMutators) {
       if (updates.directMessageEmailNotifications !== undefined) {
         preferenceKeys.push("directMessageEmailNotifications");
       }
+      if (updates.tradeEmailNotifications !== undefined) {
+        preferenceKeys.push("tradeEmailNotifications");
+      }
+      if (updates.weeklyPerformanceEmailNotifications !== undefined) {
+        preferenceKeys.push("weeklyPerformanceEmailNotifications");
+      }
+      if (updates.weeklyReturnToAppEmailNotifications !== undefined) {
+        preferenceKeys.push("weeklyReturnToAppEmailNotifications");
+      }
       if (updates.allowProfanityInDirectMessages !== undefined) {
         preferenceKeys.push("allowProfanityInDirectMessages");
       }
@@ -221,6 +230,9 @@ export function createUserActions({ setState, getState }: StoreMutators) {
   const updateNotificationPreferences = async (preferences: {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
+    tradeEmailNotifications?: boolean;
+    weeklyPerformanceEmailNotifications?: boolean;
+    weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;
   }) => {
     const currentUser = getState().currentUser;

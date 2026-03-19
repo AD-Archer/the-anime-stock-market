@@ -1,4 +1,4 @@
-import { Client, Databases, ID, Query } from "node-appwrite";
+import { Client, Databases, ID, Messaging, Query } from "node-appwrite";
 
 const requiredEnv = (key: string): string => {
   const value = process.env[key];
@@ -17,6 +17,16 @@ function createBaseClient(): Client {
 }
 
 export function getAdminDatabases(): Databases {
+  const client = getAdminClient();
+  return new Databases(client);
+}
+
+export function getAdminMessaging(): Messaging {
+  const client = getAdminClient();
+  return new Messaging(client);
+}
+
+function getAdminClient(): Client {
   const apiKey = process.env.APPWRITE_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -24,8 +34,7 @@ export function getAdminDatabases(): Databases {
     );
   }
 
-  const client = createBaseClient().setKey(apiKey);
-  return new Databases(client);
+  return createBaseClient().setKey(apiKey);
 }
 
 export { ID, Query };

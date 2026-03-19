@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
-import { getAdminDatabases, Query, ID } from "@/lib/appwrite/appwrite-admin";
+import {
+  getAdminDatabases,
+  getAdminMessaging,
+  Query,
+  ID,
+} from "@/lib/appwrite/appwrite-admin";
 import {
   DATABASE_ID,
   USERS_COLLECTION,
+  STOCKS_COLLECTION,
   NOTIFICATIONS_COLLECTION,
+  METADATA_COLLECTION,
 } from "@/lib/database";
 import { sendSystemEmail } from "@/lib/email/mailer";
+import { buildUnsubscribeUrl } from "@/lib/email/unsubscribe";
 import { resolvePublicSiteUrl } from "@/lib/site-url";
 import type {
   ClientErrorEvent,
@@ -13,6 +21,7 @@ import type {
   PremiumStatusChangedEvent,
   MarketDriftCompletedEvent,
   SupportTicketFollowUpEvent,
+  TradeConfirmationEmailEvent,
   SystemEventRequest,
   ErrorReportEvent,
 } from "@/lib/system-events";
@@ -48,6 +57,27 @@ async function fetchUser(userId: string) {
   }
 }
 
+async function fetchStock(stockId: string) {
+  try {
+    const databases = getAdminDatabases();
+    const document = await databases.getDocument(
+      DATABASE_ID,
+      STOCKS_COLLECTION,
+      stockId,
+    );
+    return {
+      imageUrl:
+        ((document as any).imageUrl as string | undefined) ||
+        ((document as any).animeImageUrl as string | undefined) ||
+        "",
+      anime: ((document as any).anime as string | undefined) || "",
+    };
+  } catch (error) {
+    console.warn("Unable to load stock for trade email", error);
+    return null;
+  }
+}
+
 async function fetchAdminRecipients(): Promise<string[]> {
   const adminDb = getAdminDatabases();
   const res = await adminDb.listDocuments(DATABASE_ID, USERS_COLLECTION, [
@@ -64,6 +94,110 @@ async function fetchAdminRecipients(): Promise<string[]> {
 
   recipients.add("antonioarcher.dev@gmail.com");
   return Array.from(recipients);
+}
+
+async function sendAppwriteEmailToUser(
+  userId: string,
+  subject: string,
+  content: string,
+  options?: { html?: boolean; scheduledAt?: string },
+) {
+  const messaging = getAdminMessaging();
+  await messaging.createEmail({
+    messageId: ID.unique(),
+    subject,
+    content,
+    users: [userId],
+    draft: false,
+    html: options?.html ?? false,
+    scheduledAt: options?.scheduledAt,
+  });
+}
+
+const DM_EMAIL_DELAY_MINUTES = (() => {
+  const raw = Number(process.env.DM_EMAIL_DELAY_MINUTES || 10);
+  if (!Number.isFinite(raw) || raw < 1) return 10;
+  return Math.floor(raw);
+})();
+
+function dmEmailNextAllowedKey(userId: string): string {
+  return `dm_email_next_allowed_${userId}`;
+}
+
+async function getMetadataValue(key: string): Promise<number | null> {
+  try {
+    const db = getAdminDatabases();
+    const response = await db.listDocuments(DATABASE_ID, METADATA_COLLECTION, [
+      Query.equal("key", key),
+      Query.limit(1),
+    ]);
+    if (!response.documents.length) return null;
+    const value = Number((response.documents[0] as any).value);
+    return Number.isFinite(value) ? value : null;
+  } catch (error) {
+    console.warn("Failed to read metadata key", key, error);
+    return null;
+  }
+}
+
+async function setMetadataValue(key: string, value: number): Promise<void> {
+  const db = getAdminDatabases();
+  const response = await db.listDocuments(DATABASE_ID, METADATA_COLLECTION, [
+    Query.equal("key", key),
+    Query.limit(1),
+  ]);
+  if (response.documents.length > 0) {
+    await db.updateDocument(
+      DATABASE_ID,
+      METADATA_COLLECTION,
+      response.documents[0].$id,
+      {
+        value,
+        updatedAt: new Date().toISOString(),
+      },
+    );
+    return;
+  }
+
+  await db.createDocument(DATABASE_ID, METADATA_COLLECTION, ID.unique(), {
+    key,
+    value,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+async function shouldScheduleDirectMessageEmail(userId: string): Promise<boolean> {
+  const key = dmEmailNextAllowedKey(userId);
+  const now = Date.now();
+  const nextAllowedAt = await getMetadataValue(key);
+  if (nextAllowedAt && now < nextAllowedAt) {
+    return false;
+  }
+
+  const nextWindow = now + DM_EMAIL_DELAY_MINUTES * 60 * 1000;
+  await setMetadataValue(key, nextWindow);
+  return true;
+}
+
+async function getUnreadDirectMessageCount(userId: string): Promise<number> {
+  try {
+    const db = getAdminDatabases();
+    const response = await db.listDocuments(
+      DATABASE_ID,
+      NOTIFICATIONS_COLLECTION,
+      [
+        Query.equal("userId", userId),
+        Query.equal("type", "direct_message"),
+        Query.equal("read", false),
+        Query.limit(1),
+      ],
+    );
+    const total = Number(response.total ?? 0);
+    return Number.isFinite(total) ? total : 0;
+  } catch (error) {
+    console.warn("Failed to load unread direct message count", error);
+    return 0;
+  }
 }
 
 async function handlePasswordChanged(userId: string) {
@@ -248,17 +382,49 @@ async function handleNotificationEmail(
   const isDirectMessage = event.metadata.type === "direct_message";
   const targetPath = isDirectMessage ? "/messages" : "/notifications";
   const targetUrl = `${siteUrl}${targetPath}`;
+  const unsubscribeUrl = buildUnsubscribeUrl(
+    siteUrl,
+    event.userId,
+    isDirectMessage ? "all" : "general",
+  );
   const trimmedTitle = event.metadata.title?.trim() || "";
+  const shortMessage = event.metadata.message || "You have a new alert.";
+
+  if (isDirectMessage) {
+    const shouldSchedule = await shouldScheduleDirectMessageEmail(event.userId);
+    if (!shouldSchedule) return;
+
+    const unreadCount = await getUnreadDirectMessageCount(event.userId);
+    const delayMinutes = DM_EMAIL_DELAY_MINUTES;
+    const scheduleAt = new Date(Date.now() + delayMinutes * 60 * 1000);
+    const subject =
+      unreadCount > 1
+        ? `[Anime Stock Market] You have ${unreadCount} unread messages`
+        : "[Anime Stock Market] You have a new message";
+    const html = `
+<p>You have new direct messages waiting in Anime Stock Market.</p>
+<p>${shortMessage}</p>
+<p><a href="${targetUrl}">Open Messages</a></p>
+<p style="font-size:12px;color:#666">
+  This reminder was delayed by ${delayMinutes} minute${
+      delayMinutes === 1 ? "" : "s"
+    } so we do not spam your inbox.
+</p>
+<p style="font-size:12px;color:#666">Not interested? <a href="${unsubscribeUrl}">Unsubscribe</a></p>
+    `.trim();
+
+    await sendAppwriteEmailToUser(event.userId, subject, html, {
+      html: true,
+      scheduledAt: scheduleAt.toISOString(),
+    });
+    return;
+  }
+
   const subject = trimmedTitle
     ? `[Anime Stock Market] ${trimmedTitle}`
-    : isDirectMessage
-      ? "[Anime Stock Market] New direct message"
-      : "[Anime Stock Market] New notification";
-  const shortMessage = event.metadata.message || "You have a new alert.";
+    : "[Anime Stock Market] New notification";
   const text = `${shortMessage}\n\nView it here: ${targetUrl}`;
-  const html = `<p>${shortMessage}</p><p><a href="${targetUrl}">View it in ${
-    isDirectMessage ? "Messages" : "Notifications"
-  }</a></p>`;
+  const html = `<p>${shortMessage}</p><p><a href="${targetUrl}">View it in Notifications</a></p><p style="font-size:12px;color:#666">Not interested? <a href="${unsubscribeUrl}">Unsubscribe</a></p>`;
 
   await sendSystemEmail({
     to: user.email,
@@ -266,6 +432,51 @@ async function handleNotificationEmail(
     text,
     html,
   });
+}
+
+async function handleTradeConfirmationEmail(
+  event: TradeConfirmationEmailEvent,
+  siteUrl: string,
+) {
+  const user = await fetchUser(event.userId);
+  if (!user) return;
+
+  const happenedAt = friendlyDate(event.metadata.happenedAt);
+  const isBuy = event.metadata.tradeType === "buy";
+  const tradeLabel = isBuy ? "Buy" : "Sell";
+  const direction = isBuy ? "spent" : "received";
+  const shares = Number(event.metadata.shares) || 0;
+  const pricePerShare = Number(event.metadata.pricePerShare) || 0;
+  const totalAmount = Number(event.metadata.totalAmount) || 0;
+  const portfolioUrl = `${siteUrl}/portfolio`;
+  const unsubscribeTradeUrl = buildUnsubscribeUrl(siteUrl, event.userId, "trade");
+  const unsubscribeAllUrl = buildUnsubscribeUrl(siteUrl, event.userId, "all");
+  const stock = event.metadata.stockId
+    ? await fetchStock(event.metadata.stockId)
+    : null;
+  const imageUrl = stock?.imageUrl || "";
+
+  const subject = `[Anime Stock Market] ${tradeLabel} Confirmed: ${event.metadata.stockName}`;
+  const content = `
+<p>Hi ${user.username},</p>
+<p>Your <strong>${tradeLabel.toLowerCase()}</strong> order was executed successfully.</p>
+${imageUrl ? `<p><img src="${imageUrl}" alt="${event.metadata.stockName}" width="320" style="display:block;max-width:100%;height:auto;border-radius:12px" /></p>` : ""}
+<ul>
+  <li><strong>Stock:</strong> ${event.metadata.stockName}</li>
+  ${stock?.anime ? `<li><strong>Series:</strong> ${stock.anime}</li>` : ""}
+  <li><strong>Shares:</strong> ${shares.toLocaleString()}</li>
+  <li><strong>Price per share:</strong> $${pricePerShare.toFixed(2)}</li>
+  <li><strong>Total ${direction}:</strong> $${totalAmount.toFixed(2)}</li>
+  <li><strong>Executed at:</strong> ${happenedAt}</li>
+</ul>
+<p><a href="${portfolioUrl}">View your portfolio</a></p>
+<p style="font-size:12px;color:#666">
+  <a href="${unsubscribeTradeUrl}">Unsubscribe from trade emails</a> ·
+  <a href="${unsubscribeAllUrl}">Unsubscribe from all emails</a>
+</p>
+  `.trim();
+
+  await sendAppwriteEmailToUser(event.userId, subject, content, { html: true });
 }
 
 async function handleClientError(event: ClientErrorEvent) {
@@ -423,6 +634,7 @@ export async function POST(req: Request) {
       "account_deleted",
       "premium_status_changed",
       "notification_email",
+      "trade_confirmation_email",
     ]);
     if (userIdRequiredEvents.has(body.type) && !body.userId) {
       return NextResponse.json(
@@ -462,6 +674,12 @@ export async function POST(req: Request) {
         break;
       case "notification_email":
         await handleNotificationEmail(body as NotificationEmailEvent, siteUrl);
+        break;
+      case "trade_confirmation_email":
+        await handleTradeConfirmationEmail(
+          body as TradeConfirmationEmailEvent,
+          siteUrl,
+        );
         break;
       case "market_drift_completed":
         await handleMarketDriftCompleted(body as MarketDriftCompletedEvent);

@@ -28,6 +28,75 @@ type AuthUser = {
   emailVerification?: boolean;
 };
 
+export type SignupNotificationPreferences = {
+  emailNotificationsEnabled?: boolean;
+  tradeEmailNotifications?: boolean;
+  weeklyPerformanceEmailNotifications?: boolean;
+  weeklyReturnToAppEmailNotifications?: boolean;
+  directMessageEmailNotifications?: boolean;
+};
+
+const SIGNUP_PREFS_STORAGE_KEY = "pending_signup_notification_preferences_v1";
+
+const DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES: Required<SignupNotificationPreferences> =
+  {
+    emailNotificationsEnabled: true,
+    tradeEmailNotifications: true,
+    weeklyPerformanceEmailNotifications: true,
+    weeklyReturnToAppEmailNotifications: true,
+    directMessageEmailNotifications: false,
+  };
+
+function savePendingSignupPreferences(
+  preferences: SignupNotificationPreferences | undefined
+) {
+  if (typeof window === "undefined") return;
+  const derivedWeeklyReturnPreference =
+    preferences?.weeklyReturnToAppEmailNotifications ??
+    preferences?.weeklyPerformanceEmailNotifications;
+  const payload = {
+    ...DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES,
+    ...(preferences || {}),
+    ...(derivedWeeklyReturnPreference !== undefined
+      ? { weeklyReturnToAppEmailNotifications: derivedWeeklyReturnPreference }
+      : {}),
+  };
+  try {
+    window.localStorage.setItem(
+      SIGNUP_PREFS_STORAGE_KEY,
+      JSON.stringify(payload)
+    );
+  } catch (error) {
+    console.warn("Failed to persist signup notification preferences", error);
+  }
+}
+
+function readPendingSignupPreferences(): Required<SignupNotificationPreferences> {
+  if (typeof window === "undefined")
+    return { ...DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES };
+
+  try {
+    const raw = window.localStorage.getItem(SIGNUP_PREFS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES };
+    const parsed = JSON.parse(raw) as SignupNotificationPreferences | null;
+    return {
+      ...DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES,
+      ...(parsed || {}),
+    };
+  } catch {
+    return { ...DEFAULT_SIGNUP_NOTIFICATION_PREFERENCES };
+  }
+}
+
+function clearPendingSignupPreferences() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(SIGNUP_PREFS_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Failed to clear signup notification preferences", error);
+  }
+}
+
 export type SessionInfo = {
   id: string;
   provider: string;
@@ -59,7 +128,12 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    preferences?: SignupNotificationPreferences
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   updateName: (name: string) => Promise<void>;
@@ -72,6 +146,7 @@ type AuthContextValue = {
   signInWithGoogle: (params?: {
     successUrl?: string;
     failureUrl?: string;
+    notificationPreferences?: SignupNotificationPreferences;
   }) => Promise<void>;
   getLinkedProviders: () => Promise<string[]>;
   unlinkProvider: (providerId: string) => Promise<void>;
@@ -158,6 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             "ensureUserDocument: User document already exists, skipping creation"
           );
         }
+        clearPendingSignupPreferences();
         return;
       }
 
@@ -218,6 +294,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userHasPassword = false;
       }
 
+      const signupPreferences = readPendingSignupPreferences();
+
       await userService.create({
         id: accountUser.$id,
         username: uniqueUsername,
@@ -236,6 +314,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isPortfolioPublic: true,
         hideTransactions: false,
         anonymousTransactions: false,
+        emailNotificationsEnabled:
+          signupPreferences.emailNotificationsEnabled,
+        directMessageEmailNotifications:
+          signupPreferences.directMessageEmailNotifications,
+        tradeEmailNotifications: signupPreferences.tradeEmailNotifications,
+        weeklyPerformanceEmailNotifications:
+          signupPreferences.weeklyPerformanceEmailNotifications,
+        weeklyReturnToAppEmailNotifications:
+          signupPreferences.weeklyReturnToAppEmailNotifications,
         allowProfanityInDirectMessages: false,
         termsAcceptedVersion: TERMS_VERSION,
         termsAcceptedAt: new Date(),
@@ -263,6 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { logger } = await import("./logger");
         logger.info("ensureUserDocument: Welcome bonus award created");
       }
+      clearPendingSignupPreferences();
     } catch (error) {
       const isServer = typeof window === "undefined";
       if (isServer) {
@@ -457,7 +545,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await account.createEmailPasswordSession(email, password);
         await fetchUser();
       },
-      signUp: async (name, email, password) => {
+      signUp: async (name, email, password, preferences) => {
+        savePendingSignupPreferences(preferences);
         const newUserId = ID.unique();
         await account.create({
           userId: newUserId,
@@ -633,10 +722,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle: async ({
         successUrl,
         failureUrl,
+        notificationPreferences,
       }: {
         successUrl?: string;
         failureUrl?: string;
+        notificationPreferences?: SignupNotificationPreferences;
       } = {}) => {
+        if (notificationPreferences) {
+          savePendingSignupPreferences(notificationPreferences);
+        }
         // Ensure Appwrite client is initialized before OAuth call
         const { ensureAppwriteInitialized } = await import(
           "./appwrite/appwrite"

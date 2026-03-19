@@ -94,13 +94,31 @@ const collections: CollectionPlan[] = [
         kind: "boolean",
         key: "emailNotificationsEnabled",
         required: false,
-        default: false,
+        default: true,
       },
       {
         kind: "boolean",
         key: "directMessageEmailNotifications",
         required: false,
         default: false,
+      },
+      {
+        kind: "boolean",
+        key: "tradeEmailNotifications",
+        required: false,
+        default: true,
+      },
+      {
+        kind: "boolean",
+        key: "weeklyPerformanceEmailNotifications",
+        required: false,
+        default: true,
+      },
+      {
+        kind: "boolean",
+        key: "weeklyReturnToAppEmailNotifications",
+        required: false,
+        default: true,
       },
       {
         kind: "boolean",

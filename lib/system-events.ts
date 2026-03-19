@@ -9,6 +9,7 @@ export type SystemEventType =
   | "support_ticket_followup"
   | "premium_status_changed"
   | "notification_email"
+  | "trade_confirmation_email"
   | "market_drift_completed"
   | "client_error"
   | "error_report";
@@ -91,6 +92,20 @@ export type NotificationEmailEvent = {
   };
 };
 
+export type TradeConfirmationEmailEvent = {
+  type: "trade_confirmation_email";
+  userId: string;
+  metadata: {
+    tradeType: "buy" | "sell";
+    stockId: string;
+    stockName: string;
+    shares: number;
+    pricePerShare: number;
+    totalAmount: number;
+    happenedAt: string;
+  };
+};
+
 export type MarketDriftCompletedEvent = {
   type: "market_drift_completed";
   userId?: string; // Optional - system-wide event
@@ -137,6 +152,7 @@ export type SystemEventRequest =
   | SupportTicketFollowUpEvent
   | PremiumStatusChangedEvent
   | NotificationEmailEvent
+  | TradeConfirmationEmailEvent
   | MarketDriftCompletedEvent
   | ClientErrorEvent
   | ErrorReportEvent;

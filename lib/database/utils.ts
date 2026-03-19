@@ -216,6 +216,18 @@ export const mapUser = (doc: AppwriteDocument): User => ({
     docValue(doc, "directMessageEmailNotifications"),
     false
   ),
+  tradeEmailNotifications: toBooleanOr(
+    docValue(doc, "tradeEmailNotifications"),
+    false
+  ),
+  weeklyPerformanceEmailNotifications: toBooleanOr(
+    docValue(doc, "weeklyPerformanceEmailNotifications"),
+    false
+  ),
+  weeklyReturnToAppEmailNotifications: toBooleanOr(
+    docValue(doc, "weeklyReturnToAppEmailNotifications"),
+    false
+  ),
   allowProfanityInDirectMessages: toBooleanOr(
     docValue(doc, "allowProfanityInDirectMessages"),
     false

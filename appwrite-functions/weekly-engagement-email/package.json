@@ -1,0 +1,8 @@
+{
+  "name": "weekly-engagement-email",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "node-appwrite": "^21.1.0"
+  }
+}

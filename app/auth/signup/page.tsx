@@ -106,6 +106,9 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tradeEmailNotifications, setTradeEmailNotifications] = useState(true);
+  const [weeklyPerformanceEmailNotifications, setWeeklyPerformanceEmailNotifications] =
+    useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
@@ -118,7 +121,15 @@ export default function SignUpPage() {
     }
     setError(null);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle({
+        notificationPreferences: {
+          emailNotificationsEnabled: true,
+          tradeEmailNotifications,
+          weeklyPerformanceEmailNotifications,
+          weeklyReturnToAppEmailNotifications:
+            weeklyPerformanceEmailNotifications,
+        },
+      });
     } catch (err) {
       console.error("Google OAuth start failed", err);
       setError(
@@ -142,7 +153,18 @@ export default function SignUpPage() {
     }
     setLoading(true);
     try {
-      await signUp(name.trim() || email.split("@")[0], email.trim(), password);
+      await signUp(
+        name.trim() || email.split("@")[0],
+        email.trim(),
+        password,
+        {
+          emailNotificationsEnabled: true,
+          tradeEmailNotifications,
+          weeklyPerformanceEmailNotifications,
+          weeklyReturnToAppEmailNotifications:
+            weeklyPerformanceEmailNotifications,
+        }
+      );
       router.push("/market");
     } catch (err: any) {
       console.error("Sign up failed", err);
@@ -281,6 +303,38 @@ export default function SignUpPage() {
                 {error}
               </p>
             )}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Notification preferences
+              </p>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="signup-trade-email"
+                  type="checkbox"
+                  checked={tradeEmailNotifications}
+                  onChange={(e) => setTradeEmailNotifications(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="signup-trade-email">
+                  Email me trade confirmations (buy/sell)
+                </label>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  id="signup-weekly-email"
+                  type="checkbox"
+                  checked={weeklyPerformanceEmailNotifications}
+                  onChange={(e) =>
+                    setWeeklyPerformanceEmailNotifications(e.target.checked)
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label htmlFor="signup-weekly-email">
+                  Email me weekly performance + return reminders
+                </label>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-start gap-2 text-sm text-muted-foreground">
                 <input
