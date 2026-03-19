@@ -14,6 +14,7 @@
     "appwritepush:drift": "cd appwrite-functions/market-drift && pnpm dlx appwrite-cli push functions --function-id market-drift-function",
     "appwritepush:sitemap": "cd appwrite-functions/sitemap-refresh && pnpm dlx appwrite-cli push functions --function-id sitemap-refresh-function",
     "appwritepush:weekly-engagement": "cd appwrite-functions/weekly-engagement-email && pnpm dlx appwrite-cli push functions --function-id weekly-engagement-email-function",
+    "appwritepush:daily-trade-digest": "cd appwrite-functions/daily-trade-digest-email && pnpm dlx appwrite-cli push functions --function-id daily-trade-digest-email-function",
     "typecheck": "tsc --noEmit",
     "appwrite:setup": "tsx lib/appwrite/appwrite-setup.ts",
     "seed": "tsx lib/seed.ts",

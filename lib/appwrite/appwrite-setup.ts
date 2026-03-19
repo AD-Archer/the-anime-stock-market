@@ -110,6 +110,12 @@ const collections: CollectionPlan[] = [
       },
       {
         kind: "boolean",
+        key: "dailyTradeDigestEmailNotifications",
+        required: false,
+        default: true,
+      },
+      {
+        kind: "boolean",
         key: "weeklyPerformanceEmailNotifications",
         required: false,
         default: true,

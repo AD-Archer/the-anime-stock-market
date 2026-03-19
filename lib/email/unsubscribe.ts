@@ -3,6 +3,7 @@ import crypto from "crypto";
 export type UnsubscribePreference =
   | "general"
   | "trade"
+  | "daily_trade_digest"
   | "weekly_performance"
   | "weekly_return"
   | "all";
@@ -103,6 +104,8 @@ export function preferenceToUserFields(
       return { emailNotificationsEnabled: false };
     case "trade":
       return { tradeEmailNotifications: false };
+    case "daily_trade_digest":
+      return { dailyTradeDigestEmailNotifications: false };
     case "weekly_performance":
       return { weeklyPerformanceEmailNotifications: false };
     case "weekly_return":
@@ -111,6 +114,7 @@ export function preferenceToUserFields(
       return {
         emailNotificationsEnabled: false,
         tradeEmailNotifications: false,
+        dailyTradeDigestEmailNotifications: false,
         weeklyPerformanceEmailNotifications: false,
         weeklyReturnToAppEmailNotifications: false,
         directMessageEmailNotifications: false,

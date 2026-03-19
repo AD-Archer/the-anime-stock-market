@@ -1,0 +1,31 @@
+{
+  "projectId": "6949aea600261e0eed1d",
+  "projectName": "animestockexchange",
+  "functions": [
+    {
+      "$id": "daily-trade-digest-email-function",
+      "execute": ["any"],
+      "name": "Daily Trade Digest Email",
+      "enabled": true,
+      "logging": true,
+      "runtime": "node-16.0",
+      "scopes": [
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "documents.read",
+        "documents.write",
+        "messages.write",
+        "users.read",
+        "targets.read"
+      ],
+      "events": [],
+      "schedule": "0 * * * *",
+      "timeout": 900,
+      "entrypoint": "src/index.js",
+      "commands": "npm install",
+      "specification": "s-1vcpu-512mb",
+      "path": "."
+    }
+  ]
+}

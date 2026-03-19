@@ -112,6 +112,9 @@ export function EmailManagement() {
   const [sending, setSending] = useState(false);
   const [updatingPrefs, setUpdatingPrefs] = useState(false);
   const [lastPreviewHtml, setLastPreviewHtml] = useState<string>("");
+  const [preferenceScope, setPreferenceScope] = useState<"single" | "all">(
+    "single"
+  );
 
   const selectedUser = useMemo(
     () => users.find((u) => u.id === targetUserId) || null,
@@ -186,7 +189,17 @@ export function EmailManagement() {
   };
 
   const updatePreferences = async (action: "unsubscribe_all" | "enable_defaults") => {
-    if (!currentUser?.id || !targetUserId) return;
+    if (!currentUser?.id) return;
+    if (preferenceScope === "single" && !targetUserId) return;
+
+    if (preferenceScope === "all") {
+      const confirmed = window.confirm(
+        action === "unsubscribe_all"
+          ? "Unsubscribe ALL users from all emails?"
+          : "Restore default email settings for ALL users?"
+      );
+      if (!confirmed) return;
+    }
 
     setUpdatingPrefs(true);
     try {
@@ -195,8 +208,10 @@ export function EmailManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           adminUserId: currentUser.id,
-          targetUserId,
           action,
+          ...(preferenceScope === "all"
+            ? { applyToAll: true }
+            : { targetUserId }),
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -204,12 +219,18 @@ export function EmailManagement() {
         throw new Error(payload?.error || "Failed to update user email preferences");
       }
 
+      const updatedCount = Number(payload?.updatedCount ?? 0);
       toast({
         title:
           action === "unsubscribe_all"
-            ? "User unsubscribed"
+            ? preferenceScope === "all"
+              ? "Users unsubscribed"
+              : "User unsubscribed"
             : "Email defaults restored",
-        description: selectedUser?.email || targetUserId,
+        description:
+          preferenceScope === "all"
+            ? `${updatedCount} user${updatedCount === 1 ? "" : "s"} updated`
+            : selectedUser?.email || targetUserId,
       });
     } catch (error: any) {
       toast({
@@ -359,25 +380,52 @@ export function EmailManagement() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Target user</Label>
-                <Select value={targetUserId} onValueChange={setTargetUserId}>
+                <Label>Scope</Label>
+                <Select
+                  value={preferenceScope}
+                  onValueChange={(value) =>
+                    setPreferenceScope(value as "single" | "all")
+                  }
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select user" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.username} ({user.email})
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="single">Single user</SelectItem>
+                    <SelectItem value="all">All users</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {preferenceScope === "single" ? (
+                <div>
+                  <Label>Target user</Label>
+                  <Select value={targetUserId} onValueChange={setTargetUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.username} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Actions below will apply to every user account.
+                </p>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="destructive"
-                  disabled={!targetUserId || updatingPrefs}
+                  disabled={
+                    updatingPrefs ||
+                    (preferenceScope === "single" && !targetUserId)
+                  }
                   onClick={() => updatePreferences("unsubscribe_all")}
                 >
                   {updatingPrefs ? (
@@ -385,16 +433,23 @@ export function EmailManagement() {
                   ) : (
                     <UserX className="h-4 w-4 mr-2" />
                   )}
-                  Unsubscribe User From All Emails
+                  {preferenceScope === "all"
+                    ? "Unsubscribe All Users From All Emails"
+                    : "Unsubscribe User From All Emails"}
                 </Button>
 
                 <Button
                   variant="outline"
-                  disabled={!targetUserId || updatingPrefs}
+                  disabled={
+                    updatingPrefs ||
+                    (preferenceScope === "single" && !targetUserId)
+                  }
                   onClick={() => updatePreferences("enable_defaults")}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
-                  Restore Default Email Settings
+                  {preferenceScope === "all"
+                    ? "Restore Default Email Settings For All Users"
+                    : "Restore Default Email Settings"}
                 </Button>
               </div>
             </CardContent>

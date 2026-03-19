@@ -220,6 +220,10 @@ export const mapUser = (doc: AppwriteDocument): User => ({
     docValue(doc, "tradeEmailNotifications"),
     false
   ),
+  dailyTradeDigestEmailNotifications: toBooleanOr(
+    docValue(doc, "dailyTradeDigestEmailNotifications"),
+    true
+  ),
   weeklyPerformanceEmailNotifications: toBooleanOr(
     docValue(doc, "weeklyPerformanceEmailNotifications"),
     false

@@ -125,6 +125,7 @@ export default function SignUpPage() {
         notificationPreferences: {
           emailNotificationsEnabled: true,
           tradeEmailNotifications,
+          dailyTradeDigestEmailNotifications: tradeEmailNotifications,
           weeklyPerformanceEmailNotifications,
           weeklyReturnToAppEmailNotifications:
             weeklyPerformanceEmailNotifications,
@@ -160,6 +161,7 @@ export default function SignUpPage() {
         {
           emailNotificationsEnabled: true,
           tradeEmailNotifications,
+          dailyTradeDigestEmailNotifications: tradeEmailNotifications,
           weeklyPerformanceEmailNotifications,
           weeklyReturnToAppEmailNotifications:
             weeklyPerformanceEmailNotifications,

@@ -64,6 +64,7 @@ type ProfileSettingsProps = {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
     tradeEmailNotifications?: boolean;
+    dailyTradeDigestEmailNotifications?: boolean;
     weeklyPerformanceEmailNotifications?: boolean;
     weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;
@@ -115,6 +116,8 @@ export function ProfileSettings({
   const [directMessageEmailNotifications, setDirectMessageEmailNotifications] =
     useState(false);
   const [tradeEmailNotifications, setTradeEmailNotifications] = useState(false);
+  const [dailyTradeDigestEmailNotifications, setDailyTradeDigestEmailNotifications] =
+    useState(false);
   const [weeklyPerformanceEmailNotifications, setWeeklyPerformanceEmailNotifications] =
     useState(false);
   const [weeklyReturnToAppEmailNotifications, setWeeklyReturnToAppEmailNotifications] =
@@ -130,7 +133,13 @@ export function ProfileSettings({
   >(null);
   const [notificationPreferenceLoading, setNotificationPreferenceLoading] =
     useState<
-      null | "email" | "direct" | "trade" | "performance" | "return"
+      null
+      | "email"
+      | "direct"
+      | "trade"
+      | "daily_digest"
+      | "performance"
+      | "return"
     >(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const {
@@ -232,6 +241,9 @@ export function ProfileSettings({
         !!storeUser.directMessageEmailNotifications
       );
       setTradeEmailNotifications(!!storeUser.tradeEmailNotifications);
+      setDailyTradeDigestEmailNotifications(
+        !!storeUser.dailyTradeDigestEmailNotifications
+      );
       setWeeklyPerformanceEmailNotifications(
         !!storeUser.weeklyPerformanceEmailNotifications
       );
@@ -556,6 +568,23 @@ export function ProfileSettings({
     } catch (error) {
       console.error("Failed to update trade email notifications", error);
       setTradeEmailNotifications(!value);
+    } finally {
+      setNotificationPreferenceLoading(null);
+    }
+  };
+
+  const handleDailyTradeDigestEmailToggle = async (value: boolean) => {
+    if (!isOwnProfile) return;
+    if (!emailNotificationsEnabled) return;
+    setDailyTradeDigestEmailNotifications(value);
+    setNotificationPreferenceLoading("daily_digest");
+    try {
+      await onUpdateNotificationPreferences({
+        dailyTradeDigestEmailNotifications: value,
+      });
+    } catch (error) {
+      console.error("Failed to update daily trade digest emails", error);
+      setDailyTradeDigestEmailNotifications(!value);
     } finally {
       setNotificationPreferenceLoading(null);
     }
@@ -1343,7 +1372,7 @@ export function ProfileSettings({
                         Trade Confirmation Emails
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Get an email when you buy or sell shares.
+                        Get an immediate email when you sell shares.
                       </p>
                     </div>
                     <input
@@ -1352,6 +1381,28 @@ export function ProfileSettings({
                       onChange={(e) => handleTradeEmailToggle(e.target.checked)}
                       disabled={
                         notificationPreferenceLoading === "trade" ||
+                        !emailNotificationsEnabled
+                      }
+                      className="h-5 w-5 accent-primary rounded"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Daily Trade Digest
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Get one daily 5:00 PM ET email with stocks you purchased yesterday.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={dailyTradeDigestEmailNotifications}
+                      onChange={(e) =>
+                        handleDailyTradeDigestEmailToggle(e.target.checked)
+                      }
+                      disabled={
+                        notificationPreferenceLoading === "daily_digest" ||
                         !emailNotificationsEnabled
                       }
                       className="h-5 w-5 accent-primary rounded"

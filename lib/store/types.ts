@@ -152,6 +152,7 @@ export interface StoreContextType {
     emailNotificationsEnabled?: boolean;
     directMessageEmailNotifications?: boolean;
     tradeEmailNotifications?: boolean;
+    dailyTradeDigestEmailNotifications?: boolean;
     weeklyPerformanceEmailNotifications?: boolean;
     weeklyReturnToAppEmailNotifications?: boolean;
     allowProfanityInDirectMessages?: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStore } from "@/lib/store";
@@ -21,14 +21,17 @@ export function Header() {
     <header className="border-b border-border bg-card">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-8 w-8 text-primary" />
-            <Link href="/market">
-              <h1 className="text-2xl font-bold text-foreground">
-                Anime Stock Market
-              </h1>
-            </Link>
-          </div>
+          <Link href="/market" className="flex items-center gap-2">
+            <img
+              src="/logo.webp"
+              alt="Anime Stock Market"
+              width={40}
+              height={40}
+            />
+            <span className="text-2xl font-bold text-foreground">
+              Anime Stock Market
+            </span>
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-4">
