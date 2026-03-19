@@ -1,9 +1,8 @@
 # Anime Stock Market
 
 Lightweight Next.js app that simulates anime-themed stock trading with real-time price updates, player portfolios, messaging, and community features.
-<img width="1430" height="884" alt="Screenshot 2025-12-24 at 9 27 08 PM" src="https://github.com/user-attachments/assets/9a46a2df-91f8-4662-b905-9cc18e1fab4a" />
-<img width="1428" height="876" alt="Screenshot 2025-12-24 at 9 26 58 PM" src="https://github.com/user-attachments/assets/46059dbe-3853-44a7-b327-cc7fb20eb055" />
-<img width="1390" height="884" alt="Screenshot 2025-12-24 at 9 28 30 PM" src="https://github.com/user-attachments/assets/a19870a8-b4e8-4e6a-9eca-2958d105a9ef" />
+<img src="https://www.antonioarcher.com/images/projects/animestockmarket/banner.webp" />
+<img  src="https://github.com/user-attachments/assets/a19870a8-b4e8-4e6a-9eca-2958d105a9ef" />
 ---
 
 ## Key features ✨
