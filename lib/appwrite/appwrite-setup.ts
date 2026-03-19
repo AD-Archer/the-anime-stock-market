@@ -215,6 +215,15 @@ const collections: CollectionPlan[] = [
     ],
   },
   {
+    id: "transaction_activity",
+    name: "Transaction Activity",
+    attributes: [
+      { kind: "string", key: "anime", size: 256, required: true },
+      { kind: "string", key: "slug", size: 256, required: true },
+      { kind: "integer", key: "count", required: true, default: 0 },
+    ],
+  },
+  {
     id: "comments",
     name: "Comments",
     attributes: [
@@ -678,6 +687,19 @@ async function setup() {
       ]);
       await ensureIndex(databases, collection.id, "message", "fulltext", [
         "message",
+      ]);
+    }
+    if (collection.id === "transaction_activity") {
+      await ensureIndex(databases, collection.id, "slug", "key", ["slug"]);
+      await ensureIndex(databases, collection.id, "count", "key", ["count"]);
+    }
+    if (collection.id === "reports") {
+      await ensureIndex(databases, collection.id, "status", "key", ["status"]);
+      await ensureIndex(databases, collection.id, "createdAt", "key", [
+        "createdAt",
+      ]);
+      await ensureIndex(databases, collection.id, "contentType", "key", [
+        "contentType",
       ]);
     }
     if (collection.id === "directional_bets") {

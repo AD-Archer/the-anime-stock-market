@@ -23,7 +23,11 @@ import {
   directionalBetService,
 } from "../database";
 import { toast } from "@/hooks/use-toast";
-import type { StoreState } from "./types";
+import type {
+  SellStockErrorCode,
+  SellStockResult,
+  StoreState,
+} from "./types";
 import { generateShortId } from "../utils";
 import { canAddPremiumCharacter, DEFAULT_PREMIUM_META } from "../premium";
 
@@ -69,6 +73,16 @@ const applyPriceImpact = (stock: Stock, sharesDelta: number): number => {
   const newPrice = stock.currentPrice * (1 + impact);
   return Math.max(0.01, Number(newPrice.toFixed(2)));
 };
+
+const replaceUserStockPortfolioRows = (
+  portfolios: Portfolio[],
+  userId: string,
+  stockId: string,
+  replacements: Portfolio[]
+) => [
+  ...portfolios.filter((p) => !(p.userId === userId && p.stockId === stockId)),
+  ...replacements,
+];
 
 const DEBUG_PRICE_HISTORY =
   process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
@@ -544,29 +558,47 @@ export function createMarketActions({
     };
     setState({ transactions: [...transactions, newTransaction] });
 
-    const existingPortfolio = portfolios.find(
+    const localPortfoliosForStock = portfolios.filter(
       (p) => p.userId === currentUser.id && p.stockId === stockId
     );
+    const localOwnedShares = localPortfoliosForStock.reduce(
+      (sum, portfolio) => sum + portfolio.shares,
+      0
+    );
+    const localCostBasis = localPortfoliosForStock.reduce(
+      (sum, portfolio) => sum + portfolio.averageBuyPrice * portfolio.shares,
+      0
+    );
+    const nextOwnedShares = localOwnedShares + shares;
+    const nextAverageBuyPrice =
+      nextOwnedShares > 0
+        ? (localCostBasis + executionPrice * shares) / nextOwnedShares
+        : executionPrice;
+    let optimisticPortfolioId: string | null =
+      localPortfoliosForStock[0]?.id ?? null;
 
-    if (existingPortfolio) {
-      const totalShares = existingPortfolio.shares + shares;
-      const newAverageBuyPrice =
-        (existingPortfolio.averageBuyPrice * existingPortfolio.shares +
-          executionPrice * shares) /
-        totalShares;
-
-      const updatedPortfolios = portfolios.map((p) =>
-        p.userId === currentUser.id && p.stockId === stockId
-          ? { ...p, shares: totalShares, averageBuyPrice: newAverageBuyPrice }
-          : p
-      );
-      setState({ portfolios: updatedPortfolios });
+    if (localPortfoliosForStock.length > 0) {
+      const primaryPortfolio = localPortfoliosForStock[0];
+      const consolidated = {
+        ...primaryPortfolio,
+        shares: nextOwnedShares,
+        averageBuyPrice: nextAverageBuyPrice,
+      };
+      setState({
+        portfolios: replaceUserStockPortfolioRows(
+          portfolios,
+          currentUser.id,
+          stockId,
+          [consolidated]
+        ),
+      });
     } else {
+      optimisticPortfolioId = generateShortId();
       setState({
         portfolios: [
           ...portfolios,
           {
-            id: generateShortId(),
+            id: optimisticPortfolioId,
             userId: currentUser.id,
             stockId,
             shares,
@@ -577,35 +609,49 @@ export function createMarketActions({
     }
 
     try {
-      // For existing portfolio, query DB to get the actual document ID
-      let portfolioPromise: Promise<any>;
-      if (existingPortfolio) {
-        const dbPortfolio = await portfolioService.getByUserAndStock(
-          currentUser.id,
-          stockId
+      const dbPortfolios = await portfolioService.getAllByUserAndStock(
+        currentUser.id,
+        stockId
+      );
+      const dbOwnedShares = dbPortfolios.reduce(
+        (sum, portfolio) => sum + portfolio.shares,
+        0
+      );
+      const dbCostBasis = dbPortfolios.reduce(
+        (sum, portfolio) => sum + portfolio.averageBuyPrice * portfolio.shares,
+        0
+      );
+      const dbNextShares = dbOwnedShares + shares;
+      const dbNextAverageBuyPrice =
+        dbNextShares > 0
+          ? (dbCostBasis + executionPrice * shares) / dbNextShares
+          : executionPrice;
+
+      const portfolioOps: Promise<any>[] = [];
+      if (dbPortfolios.length > 0) {
+        const [primaryPortfolio, ...duplicatePortfolios] = dbPortfolios;
+        portfolioOps.push(
+          portfolioService.update(primaryPortfolio.id, {
+            userId: primaryPortfolio.userId,
+            stockId: primaryPortfolio.stockId,
+            shares: dbNextShares,
+            averageBuyPrice: dbNextAverageBuyPrice,
+          })
         );
-        if (dbPortfolio) {
-          portfolioPromise = portfolioService.update(dbPortfolio.id, {
-            userId: dbPortfolio.userId,
-            stockId: dbPortfolio.stockId,
-            shares: (dbPortfolio?.shares ?? 0) + shares,
-            averageBuyPrice:
-              ((dbPortfolio?.averageBuyPrice ?? 0) *
-                (dbPortfolio?.shares ?? 0) +
-                executionPrice * shares) /
-              ((dbPortfolio?.shares ?? 0) + shares),
-          });
-        } else {
-          portfolioPromise = Promise.resolve(existingPortfolio as any);
-        }
-      } else {
-        portfolioPromise = portfolioService.create({
-          id: generateShortId(),
-          userId: currentUser.id,
-          stockId,
-          shares,
-          averageBuyPrice: executionPrice,
+        duplicatePortfolios.forEach((portfolio) => {
+          portfolioOps.push(portfolioService.delete(portfolio.id));
         });
+      } else {
+        const newPortfolioId = optimisticPortfolioId || generateShortId();
+        portfolioOps.push(
+          portfolioService.create({
+            id: newPortfolioId,
+            userId: currentUser.id,
+            stockId,
+            shares,
+            averageBuyPrice: executionPrice,
+          })
+        );
       }
 
       await Promise.all([
@@ -616,13 +662,39 @@ export function createMarketActions({
         userService.update(currentUser.id, {
           balance: currentUser.balance - totalCost,
         }),
-        portfolioPromise,
+        ...portfolioOps,
         transactionService.create(newTransaction),
         ...historyEntries.map((entry) => priceHistoryService.create(entry)),
       ]);
+
+      const canonicalPortfoliosForStock =
+        dbPortfolios.length > 0
+          ? [
+              {
+                ...dbPortfolios[0],
+                shares: dbNextShares,
+                averageBuyPrice: dbNextAverageBuyPrice,
+              },
+            ]
+          : [
+              {
+                id: optimisticPortfolioId || generateShortId(),
+                userId: currentUser.id,
+                stockId,
+                shares: dbNextShares,
+                averageBuyPrice: dbNextAverageBuyPrice,
+              },
+            ];
+
       setState((state) => ({
         stocks: state.stocks.map((s) =>
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
+        ),
+        portfolios: replaceUserStockPortfolioRows(
+          state.portfolios,
+          currentUser.id,
+          stockId,
+          canonicalPortfoliosForStock
         ),
       }));
     } catch (error) {
@@ -671,26 +743,127 @@ export function createMarketActions({
   const sellStock = async (
     stockId: string,
     shares: number
-  ): Promise<boolean> => {
+  ): Promise<SellStockResult> => {
     const currentUser = getState().currentUser;
-    if (!currentUser) return false;
+    if (!currentUser) {
+      return {
+        success: false,
+        errorCode: "NOT_AUTHENTICATED",
+        errorMessage: "You must be signed in to sell shares.",
+      };
+    }
     if (currentUser.bannedUntil && currentUser.bannedUntil > new Date())
-      return false;
+      return {
+        success: false,
+        errorCode: "USER_BANNED",
+        errorMessage: "Your account is currently restricted from trading.",
+      };
 
-    const { portfolios, stocks, users, transactions, priceHistory } =
-      getState();
-    const portfolio = portfolios.find(
+    const stateSnapshot = getState();
+    const userStockPortfolios = stateSnapshot.portfolios.filter(
       (p) => p.userId === currentUser.id && p.stockId === stockId
     );
-    if (!portfolio || portfolio.shares < shares) return false;
+    const localOwnedShares = userStockPortfolios.reduce(
+      (sum, portfolio) => sum + portfolio.shares,
+      0
+    );
+    if (localOwnedShares < shares) {
+      return {
+        success: false,
+        errorCode: "INSUFFICIENT_LOCAL_SHARES",
+        errorMessage: `You only own ${localOwnedShares} shares.`,
+        requestedShares: shares,
+        ownedShares: localOwnedShares,
+      };
+    }
+
+    const initialStock = stateSnapshot.stocks.find((s) => s.id === stockId);
+    if (!initialStock) {
+      return {
+        success: false,
+        errorCode: "INVALID_STOCK",
+        errorMessage: "This stock could not be found.",
+      };
+    }
+
+    const dbPortfolios = await portfolioService.getAllByUserAndStock(
+      currentUser.id,
+      stockId
+    );
+    const dbOwnedShares = dbPortfolios.reduce(
+      (sum, portfolio) => sum + portfolio.shares,
+      0
+    );
+
+    if (dbPortfolios.length === 0) {
+      return {
+        success: false,
+        errorCode: "DATABASE_PORTFOLIO_MISSING",
+        errorMessage:
+          "Could not find matching portfolio records in the database.",
+        requestedShares: shares,
+        ownedShares: localOwnedShares,
+        databaseShares: dbOwnedShares,
+      };
+    }
+
+    if (dbOwnedShares < shares) {
+      setState((state) => ({
+        portfolios: replaceUserStockPortfolioRows(
+          state.portfolios,
+          currentUser.id,
+          stockId,
+          dbPortfolios
+        ),
+      }));
+      return {
+        success: false,
+        errorCode: "INSUFFICIENT_DATABASE_SHARES",
+        errorMessage: `You only own ${dbOwnedShares} shares in saved records.`,
+        requestedShares: shares,
+        ownedShares: localOwnedShares,
+        databaseShares: dbOwnedShares,
+      };
+    }
+
+    if (
+      dbOwnedShares !== localOwnedShares ||
+      dbPortfolios.length !== userStockPortfolios.length
+    ) {
+      setState((state) => ({
+        portfolios: replaceUserStockPortfolioRows(
+          state.portfolios,
+          currentUser.id,
+          stockId,
+          dbPortfolios
+        ),
+      }));
+    }
+
+    const syncedState = getState();
+    const { portfolios, stocks, users, transactions, priceHistory } = syncedState;
+    const syncedCurrentUser = syncedState.currentUser;
+    if (!syncedCurrentUser) {
+      return {
+        success: false,
+        errorCode: "NOT_AUTHENTICATED",
+        errorMessage: "You must be signed in to sell shares.",
+      };
+    }
 
     const stock = stocks.find((s) => s.id === stockId);
-    if (!stock) return false;
+    if (!stock) {
+      return {
+        success: false,
+        errorCode: "INVALID_STOCK",
+        errorMessage: "This stock could not be found.",
+      };
+    }
 
     // Snapshot for rollback in case persistence fails
     const prevState = {
       users,
-      currentUser,
+      currentUser: syncedCurrentUser,
       stocks,
       portfolios,
       transactions,
@@ -714,13 +887,15 @@ export function createMarketActions({
     const totalRevenue = executionPrice * shares;
 
     const updatedUsers = users.map((u) =>
-      u.id === currentUser.id ? { ...u, balance: u.balance + totalRevenue } : u
+      u.id === syncedCurrentUser.id
+        ? { ...u, balance: u.balance + totalRevenue }
+        : u
     );
     setState({
       users: updatedUsers,
       currentUser: {
-        ...currentUser,
-        balance: currentUser.balance + totalRevenue,
+        ...syncedCurrentUser,
+        balance: syncedCurrentUser.balance + totalRevenue,
       },
     });
 
@@ -743,7 +918,7 @@ export function createMarketActions({
 
     const newTransaction: Transaction = {
       id: generateShortId(),
-      userId: currentUser.id,
+      userId: syncedCurrentUser.id,
       stockId,
       type: "sell",
       shares,
@@ -753,54 +928,65 @@ export function createMarketActions({
     };
     setState({ transactions: [...transactions, newTransaction] });
 
-    if (portfolio.shares === shares) {
-      setState({
-        portfolios: portfolios.filter(
-          (p) => !(p.userId === currentUser.id && p.stockId === stockId)
-        ),
-      });
-    } else {
-      const updatedPortfolios = portfolios.map((p) =>
-        p.userId === currentUser.id && p.stockId === stockId
-          ? { ...p, shares: p.shares - shares }
-          : p
-      );
-      setState({ portfolios: updatedPortfolios });
-    }
+    let remainingSharesToSell = shares;
+    const updatedPortfolios = portfolios.flatMap((portfolio) => {
+      if (
+        portfolio.userId !== syncedCurrentUser.id ||
+        portfolio.stockId !== stockId
+      ) {
+        return [portfolio];
+      }
+      if (remainingSharesToSell <= 0) {
+        return [portfolio];
+      }
+      if (portfolio.shares <= remainingSharesToSell) {
+        remainingSharesToSell -= portfolio.shares;
+        return [];
+      }
+      const updatedPortfolio = {
+        ...portfolio,
+        shares: portfolio.shares - remainingSharesToSell,
+      };
+      remainingSharesToSell = 0;
+      return [updatedPortfolio];
+    });
+    setState({ portfolios: updatedPortfolios });
 
     try {
-      const newShareCount = portfolio.shares - shares;
-
-      // Query for the actual portfolio document from DB to get its real ID
-      const dbPortfolio = await portfolioService.getByUserAndStock(
-        currentUser.id,
-        stockId
-      );
-
-      const portfolioPromise =
-        newShareCount > 0
-          ? dbPortfolio
-            ? portfolioService.update(dbPortfolio.id, {
-                id: dbPortfolio.id,
-                userId: dbPortfolio.userId,
-                stockId: dbPortfolio.stockId,
-                shares: newShareCount,
-                averageBuyPrice: dbPortfolio.averageBuyPrice,
-              })
-            : Promise.resolve(portfolio as any)
-          : dbPortfolio
-          ? portfolioService.delete(dbPortfolio.id)
-          : Promise.resolve();
+      let remainingDbShares = shares;
+      const portfolioOps: Promise<any>[] = [];
+      for (const dbPortfolio of dbPortfolios) {
+        if (remainingDbShares <= 0) break;
+        if (dbPortfolio.shares <= remainingDbShares) {
+          remainingDbShares -= dbPortfolio.shares;
+          portfolioOps.push(portfolioService.delete(dbPortfolio.id));
+        } else {
+          const updatedShareCount = dbPortfolio.shares - remainingDbShares;
+          remainingDbShares = 0;
+          portfolioOps.push(
+            portfolioService.update(dbPortfolio.id, {
+              id: dbPortfolio.id,
+              userId: dbPortfolio.userId,
+              stockId: dbPortfolio.stockId,
+              shares: updatedShareCount,
+              averageBuyPrice: dbPortfolio.averageBuyPrice,
+            })
+          );
+        }
+      }
+      if (remainingDbShares > 0) {
+        throw new Error(`INSUFFICIENT_DATABASE_SHARES:${remainingDbShares}`);
+      }
 
       await Promise.all([
         stockService.update(stockId, {
           availableShares: stock.availableShares + shares,
           currentPrice: newPrice,
         }),
-        userService.update(currentUser.id, {
-          balance: currentUser.balance + totalRevenue,
+        userService.update(syncedCurrentUser.id, {
+          balance: syncedCurrentUser.balance + totalRevenue,
         }),
-        portfolioPromise,
+        ...portfolioOps,
         transactionService.create(newTransaction),
         ...historyEntries.map((entry) => priceHistoryService.create(entry)),
       ]);
@@ -810,7 +996,26 @@ export function createMarketActions({
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
         ),
       }));
+      return { success: true };
     } catch (error) {
+      let errorCode: SellStockErrorCode = "PERSISTENCE_FAILED";
+      let errorMessage =
+        "Your sell could not be saved to the server. Your changes were reverted.";
+      if (error instanceof Error) {
+        if (error.message.startsWith("INSUFFICIENT_DATABASE_SHARES:")) {
+          const unresolved = Number(error.message.split(":")[1] || "0");
+          const resolved = shares - unresolved;
+          const available = Math.max(0, resolved);
+          errorCode = "INSUFFICIENT_DATABASE_SHARES";
+          errorMessage = `You tried to sell ${shares} shares, but only ${available} shares are available in saved records.`;
+        } else if (
+          error.message.includes("matching portfolio records in database")
+        ) {
+          errorCode = "DATABASE_PORTFOLIO_MISSING";
+          errorMessage =
+            "Could not find matching portfolio records in the database.";
+        }
+      }
       console.error(
         "Failed to persist sell transaction, reverting state:",
         error
@@ -827,17 +1032,21 @@ export function createMarketActions({
       try {
         toast({
           title: "Transaction Failed",
-          description:
-            "Your sell could not be saved to the server. Your changes have been reverted.",
+          description: errorMessage,
           variant: "destructive",
         });
       } catch (err) {
         console.warn("Failed to show toast for failed sell transaction:", err);
       }
-      return false;
+      return {
+        success: false,
+        errorCode: errorCode ?? "PERSISTENCE_FAILED",
+        errorMessage,
+        requestedShares: shares,
+        ownedShares: localOwnedShares,
+        databaseShares: dbOwnedShares,
+      };
     }
-
-    return true;
   };
 
   const placeDirectionalBet = async (

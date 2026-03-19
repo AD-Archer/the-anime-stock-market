@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,34 +36,62 @@ const TAG_DESCRIPTIONS: Record<SupportTicketTag, string> = {
   other: "Something else",
 };
 
+const isSupportTicketTag = (value: string): value is SupportTicketTag =>
+  SUPPORT_TAGS.includes(value as SupportTicketTag);
+
 export function SupportForm() {
+  const searchParams = useSearchParams();
   const { currentUser, submitSupportTicket } = useStore();
+  const isHydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
+  const prefilledSubject = isHydrated ? searchParams.get("subject") ?? "" : "";
+  const prefilledMessage = isHydrated
+    ? searchParams.get("body") ?? searchParams.get("message") ?? ""
+    : "";
+  const prefilledReference = isHydrated
+    ? searchParams.get("referenceId") ?? searchParams.get("reference") ?? ""
+    : "";
+  const prefilledTagValue = isHydrated ? searchParams.get("tag") : null;
+  const prefilledTag =
+    prefilledTagValue && isSupportTicketTag(prefilledTagValue)
+      ? prefilledTagValue
+      : undefined;
+
   const [subject, setSubject] = useState("");
+  const [subjectDirty, setSubjectDirty] = useState(false);
   const [message, setMessage] = useState("");
-  const [contactEmail, setContactEmail] = useState(currentUser?.email ?? "");
+  const [messageDirty, setMessageDirty] = useState(false);
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactEmailDirty, setContactEmailDirty] = useState(false);
   const [tag, setTag] = useState<SupportTicketTag | undefined>(undefined);
+  const [tagDirty, setTagDirty] = useState(false);
   const [referenceId, setReferenceId] = useState("");
+  const [referenceDirty, setReferenceDirty] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const messageLength = message.trim().length;
-  const isMessageValid = messageLength >= MIN_MESSAGE_LENGTH;
-  const isSubjectValid = subject.trim().length > 0;
-  const isTagValid = !!tag;
-  const canSubmit = isSubjectValid && isMessageValid && isTagValid && status !== "submitting";
+  const resolvedSubject = subjectDirty ? subject : prefilledSubject;
+  const resolvedMessage = messageDirty ? message : prefilledMessage;
+  const resolvedTag = tagDirty ? tag : prefilledTag;
+  const resolvedReferenceId = referenceDirty ? referenceId : prefilledReference;
+  const resolvedContactEmail = contactEmailDirty
+    ? contactEmail
+    : contactEmail || currentUser?.email || "";
 
-  // Initialize contact email from current user only once
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (currentUser?.email && !contactEmail) {
-      setContactEmail(currentUser.email);
-    }
-  }, [currentUser?.email]);
+  const messageLength = resolvedMessage.trim().length;
+  const isMessageValid = messageLength >= MIN_MESSAGE_LENGTH;
+  const isSubjectValid = resolvedSubject.trim().length > 0;
+  const isTagValid = !!resolvedTag;
+  const canSubmit = isSubjectValid && isMessageValid && isTagValid && status !== "submitting";
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!tag) {
+    if (!resolvedTag) {
       newErrors.tag = "Please select a category";
     }
 
@@ -74,7 +103,7 @@ export function SupportForm() {
       newErrors.message = `Please provide at least ${MIN_MESSAGE_LENGTH} characters (${messageLength}/${MIN_MESSAGE_LENGTH})`;
     }
 
-    if (contactEmail && !isValidEmail(contactEmail)) {
+    if (resolvedContactEmail && !isValidEmail(resolvedContactEmail)) {
       newErrors.email = "Please enter a valid email address";
     }
 
@@ -93,18 +122,23 @@ export function SupportForm() {
     setStatus("submitting");
     try {
       await submitSupportTicket({
-        subject: subject.trim(),
-        message: message.trim(),
-        contactEmail: contactEmail || undefined,
-        tag,
-        referenceId: referenceId || undefined,
+        subject: resolvedSubject.trim(),
+        message: resolvedMessage.trim(),
+        contactEmail: resolvedContactEmail || undefined,
+        tag: resolvedTag,
+        referenceId: resolvedReferenceId || undefined,
       });
 
       setSubject("");
+      setSubjectDirty(true);
       setMessage("");
-      setContactEmail(currentUser?.email ?? "");
+      setMessageDirty(true);
+      setContactEmail("");
+      setContactEmailDirty(true);
       setTag(undefined);
+      setTagDirty(true);
       setReferenceId("");
+      setReferenceDirty(true);
       setErrors({});
       setStatus("success");
 
@@ -133,7 +167,8 @@ export function SupportForm() {
             <label htmlFor="tag" className="text-sm font-medium flex items-center gap-2">
               Category <span className="text-red-500">*</span>
             </label>
-            <Select value={tag} onValueChange={(value) => {
+            <Select value={resolvedTag} onValueChange={(value) => {
+              setTagDirty(true);
               setTag(value as SupportTicketTag);
               if (errors.tag) {
                 const newErrors = { ...errors };
@@ -158,9 +193,9 @@ export function SupportForm() {
                 {errors.tag}
               </p>
             )}
-            {tag && !errors.tag && (
+            {resolvedTag && !errors.tag && (
               <p className="text-xs text-muted-foreground">
-                {TAG_DESCRIPTIONS[tag]}
+                {TAG_DESCRIPTIONS[resolvedTag]}
               </p>
             )}
           </div>
@@ -172,8 +207,9 @@ export function SupportForm() {
             <Input
               id="subject"
               placeholder="e.g., Can't sell my stocks"
-              value={subject}
+              value={resolvedSubject}
               onChange={(e) => {
+                setSubjectDirty(true);
                 setSubject(e.target.value);
                 if (errors.subject) {
                   const newErrors = { ...errors };
@@ -204,8 +240,9 @@ export function SupportForm() {
               id="message"
               className={`min-h-[120px] resize-none ${errors.message ? "border-red-500" : ""}`}
               placeholder="What were you doing? What happened?"
-              value={message}
+              value={resolvedMessage}
               onChange={(e) => {
+                setMessageDirty(true);
                 setMessage(e.target.value);
                 if (errors.message) {
                   const newErrors = { ...errors };
@@ -238,8 +275,9 @@ export function SupportForm() {
               id="email"
               type="email"
               placeholder="your@email.com"
-              value={contactEmail}
+              value={resolvedContactEmail}
               onChange={(e) => {
+                setContactEmailDirty(true);
                 setContactEmail(e.target.value);
                 if (errors.email) {
                   const newErrors = { ...errors };
@@ -266,8 +304,11 @@ export function SupportForm() {
             <Input
               id="reference"
               placeholder="e.g., message ID"
-              value={referenceId}
-              onChange={(e) => setReferenceId(e.target.value)}
+              value={resolvedReferenceId}
+              onChange={(e) => {
+                setReferenceDirty(true);
+                setReferenceId(e.target.value);
+              }}
             />
           </div>
 

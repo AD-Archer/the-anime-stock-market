@@ -59,9 +59,42 @@ export const portfolioService = {
     }
   },
 
+  async getAllByUserAndStock(
+    userId: string,
+    stockId: string
+  ): Promise<Portfolio[]> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const limit = 100;
+      let offset = 0;
+      const documents: any[] = [];
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          PORTFOLIOS_COLLECTION,
+          [
+            Query.equal("userId", userId),
+            Query.equal("stockId", stockId),
+            Query.limit(limit),
+            Query.offset(offset),
+          ]
+        );
+        documents.push(...response.documents);
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return documents.map(mapPortfolio);
+    } catch (error) {
+      console.warn("Failed to fetch portfolios by user and stock:", error);
+      return [];
+    }
+  },
+
   async create(portfolio: Portfolio): Promise<Portfolio> {
     try {
-      const documentId = generateShortId();
+      const documentId = portfolio.id || generateShortId();
       const dbId = ensureDatabaseIdAvailable();
       const response = await databases.createDocument(
         dbId,
