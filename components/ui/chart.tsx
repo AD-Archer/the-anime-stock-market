@@ -75,8 +75,11 @@ export function ChartTooltipContent({
       <p className="mb-2 font-medium text-foreground">{label}</p>
       <div className="space-y-1">
         {payload.map((entry) => {
-          const key = entry.dataKey ?? "";
-          const labelText = config[key]?.label ?? String(key);
+          const key =
+            typeof entry.dataKey === "string" || typeof entry.dataKey === "number"
+              ? String(entry.dataKey)
+              : "";
+          const labelText = config[key]?.label ?? String(entry.dataKey ?? "");
           const color = config[key]?.color ?? entry.color ?? "currentColor";
           return (
             <div key={String(key)} className="flex items-center gap-2">

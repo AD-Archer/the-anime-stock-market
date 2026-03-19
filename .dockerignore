@@ -14,6 +14,7 @@ yarn-error.log
 .pnpm-debug.log
 lerna-debug.log
 .next
+node_modules
 .vercel
 *.md
 .github
