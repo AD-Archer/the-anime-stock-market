@@ -1,0 +1,31 @@
+{
+  "projectId": "6949aea600261e0eed1d",
+  "projectName": "animestockexchange",
+  "functions": [
+    {
+      "$id": "weekly-engagement-email-function",
+      "execute": [
+        "any"
+      ],
+      "name": "Weekly Engagement Email",
+      "enabled": true,
+      "logging": true,
+      "runtime": "node-16.0",
+      "scopes": [
+        "databases.read",
+        "collections.read",
+        "documents.read",
+        "messages.write",
+        "users.read",
+        "targets.read"
+      ],
+      "events": [],
+      "schedule": "0 14 * * 1",
+      "timeout": 900,
+      "entrypoint": "src/index.js",
+      "commands": "npm install",
+      "specification": "s-1vcpu-512mb",
+      "path": "."
+    }
+  ]
+}

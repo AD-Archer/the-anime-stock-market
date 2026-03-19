@@ -23,6 +23,7 @@ import {
   directionalBetService,
 } from "../database";
 import { toast } from "@/hooks/use-toast";
+import { sendSystemEvent } from "../system-events-client";
 import type {
   SellStockErrorCode,
   SellStockResult,
@@ -737,6 +738,26 @@ export function createMarketActions({
       unlockAward(currentUser.id, "early_bird_investor").catch(() => {});
     }
 
+    const updatedCurrentUser = getState().currentUser;
+    if (
+      updatedCurrentUser?.emailNotificationsEnabled &&
+      updatedCurrentUser?.tradeEmailNotifications
+    ) {
+      sendSystemEvent({
+        type: "trade_confirmation_email",
+        userId: updatedCurrentUser.id,
+        metadata: {
+          tradeType: "buy",
+          stockId,
+          stockName: stock.characterName,
+          shares,
+          pricePerShare: executionPrice,
+          totalAmount: totalCost,
+          happenedAt: new Date().toISOString(),
+        },
+      });
+    }
+
     return true;
   };
 
@@ -996,6 +1017,26 @@ export function createMarketActions({
           s.id === stockId ? { ...s, currentPrice: newPrice } : s
         ),
       }));
+
+      const updatedCurrentUser = getState().currentUser;
+      if (
+        updatedCurrentUser?.emailNotificationsEnabled &&
+        updatedCurrentUser?.tradeEmailNotifications
+      ) {
+        sendSystemEvent({
+          type: "trade_confirmation_email",
+          userId: updatedCurrentUser.id,
+          metadata: {
+            tradeType: "sell",
+            stockId,
+            stockName: stock.characterName,
+            shares,
+            pricePerShare: executionPrice,
+            totalAmount: totalRevenue,
+            happenedAt: new Date().toISOString(),
+          },
+        });
+      }
       return { success: true };
     } catch (error) {
       let errorCode: SellStockErrorCode = "PERSISTENCE_FAILED";

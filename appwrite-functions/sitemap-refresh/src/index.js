@@ -30,9 +30,42 @@ function resolveBaseUrl(req) {
   );
 }
 
-module.exports = async (req, res, context) => {
-  const log = context?.log || console.log;
-  const logError = context?.error || console.error;
+function resolveInvocation(arg1, arg2, arg3) {
+  // New Appwrite runtimes pass a single object: { req, res, log, error }.
+  if (
+    arg1 &&
+    typeof arg1 === "object" &&
+    ("req" in arg1 || "res" in arg1 || "log" in arg1 || "error" in arg1)
+  ) {
+    return {
+      req: arg1.req,
+      res: arg1.res,
+      log: typeof arg1.log === "function" ? arg1.log.bind(arg1) : null,
+      error: typeof arg1.error === "function" ? arg1.error.bind(arg1) : null,
+    };
+  }
+
+  // Legacy shape: (req, res, context)
+  return {
+    req: arg1,
+    res: arg2,
+    log:
+      arg3 && typeof arg3.log === "function" ? arg3.log.bind(arg3) : null,
+    error:
+      arg3 && typeof arg3.error === "function"
+        ? arg3.error.bind(arg3)
+        : null,
+  };
+}
+
+module.exports = async (arg1, arg2, arg3) => {
+  const { req, log: runtimeLog, error: runtimeError } = resolveInvocation(
+    arg1,
+    arg2,
+    arg3
+  );
+  const log = runtimeLog || console.log;
+  const logError = runtimeError || console.error;
 
   try {
     const baseUrl = resolveBaseUrl(req);

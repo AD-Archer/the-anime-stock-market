@@ -40,6 +40,9 @@ export interface User {
   theme?: "light" | "dark" | "system";
   emailNotificationsEnabled?: boolean;
   directMessageEmailNotifications?: boolean;
+  tradeEmailNotifications?: boolean;
+  weeklyPerformanceEmailNotifications?: boolean;
+  weeklyReturnToAppEmailNotifications?: boolean;
   allowProfanityInDirectMessages?: boolean;
   premiumMeta?: PremiumMeta;
   termsAcceptedVersion?: string | null;

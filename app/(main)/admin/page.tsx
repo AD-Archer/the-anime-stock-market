@@ -20,6 +20,7 @@ import { BuybackManagement } from "@/app/(main)/admin/components/buyback-managem
 import { MarketManagement } from "@/app/(main)/admin/components/market-management";
 import { ReportManagement } from "@/app/(main)/admin/components/report-management";
 import { NotificationManagement } from "@/app/(main)/admin/components/notification-management";
+import { EmailManagement } from "@/app/(main)/admin/components/email-management";
 import { SupportManagement } from "@/app/(main)/admin/components/support-management";
 import { AppealManagement } from "@/app/(main)/admin/components/appeal-management";
 import { AdminActionLogPanel } from "@/app/(main)/admin/components/admin-action-log";
@@ -45,6 +46,7 @@ const TAB_OPTIONS = [
   { value: "support", label: "Support" },
   { value: "suggestions", label: "Suggestions" },
   { value: "notifications", label: "Notifications" },
+  { value: "emails", label: "Emails" },
   { value: "appeals", label: "Appeals" },
   { value: "logs", label: "Logs" },
   { value: "danger", label: "Danger" },
@@ -129,7 +131,7 @@ export default function AdminPage() {
           onValueChange={(value) => router.push(`/admin?tab=${value}`)}
           className="w-full hidden md:block"
         >
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-11">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-12">
             {TAB_OPTIONS.map((option) => (
               <TabsTrigger key={option.value} value={option.value}>
                 {option.label}
@@ -159,6 +161,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="notifications" className="mt-6">
             <NotificationManagement />
+          </TabsContent>
+          <TabsContent value="emails" className="mt-6">
+            <EmailManagement />
           </TabsContent>
           <TabsContent value="appeals" className="mt-6">
             <AppealManagement />
@@ -195,6 +200,7 @@ export default function AdminPage() {
           {tab === "support" && <SupportManagement />}
           {tab === "suggestions" && <CharacterSuggestions />}
           {tab === "notifications" && <NotificationManagement />}
+          {tab === "emails" && <EmailManagement />}
           {tab === "appeals" && <AppealManagement />}
           {tab === "logs" && <AdminActionLogPanel />}
           {tab === "danger" && (

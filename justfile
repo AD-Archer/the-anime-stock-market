@@ -31,6 +31,9 @@ appwrite-push-drift:
 appwrite-push-sitemap:
   infisical run -- pnpm appwritepush:sitemap
 
+appwrite-push-weekly-engagement:
+  infisical run -- pnpm appwritepush:weekly-engagement
+
 docker-build:
   infisical run -- pnpm docker:build
 
