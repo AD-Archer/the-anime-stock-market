@@ -1042,6 +1042,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   ),
                 };
               }
+
+              // Realtime creates can arrive for DB rows that correspond to
+              // an optimistic local row with a temporary id.
+              const optimisticTwinIndex = state.portfolios.findIndex(
+                (p) =>
+                  p.userId === incoming.userId &&
+                  p.stockId === incoming.stockId &&
+                  p.shares === incoming.shares &&
+                  Math.abs(p.averageBuyPrice - incoming.averageBuyPrice) < 1e-8
+              );
+              if (optimisticTwinIndex !== -1) {
+                return {
+                  portfolios: state.portfolios.map((p, index) =>
+                    index === optimisticTwinIndex ? incoming : p
+                  ),
+                };
+              }
+
               return { portfolios: [...state.portfolios, incoming] };
             });
           } else if (event.includes("delete")) {

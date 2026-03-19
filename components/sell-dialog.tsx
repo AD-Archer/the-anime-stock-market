@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 
 interface SellDialogProps {
   stockId: string
@@ -22,11 +23,11 @@ interface SellDialogProps {
   onClose: () => void
 }
 
-export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
-  const { stocks, currentUser, sellStock } = useStore()
+export function SellDialog({ stockId, onClose }: SellDialogProps) {
+  const { stocks, currentUser, sellStock, getUserPortfolio } = useStore()
   const { toast } = useToast()
   const router = useRouter()
-  const [shares, setShares] = useState(1)
+  const [sharesInput, setSharesInput] = useState("1")
   const [resolvedStock, setResolvedStock] = useState<any | null>(null)
   const [isResolvingStock, setIsResolvingStock] = useState(false)
 
@@ -84,6 +85,14 @@ export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
     return null
   }
 
+  const parsedShares = Number.parseInt(sharesInput, 10)
+  const shares = Number.isFinite(parsedShares) ? parsedShares : 0
+  const ownedShares =
+    currentUser
+      ? getUserPortfolio(currentUser.id).find((p) => p.stockId === stockId)?.shares ?? 0
+      : 0
+  const isValidShares = shares >= 1 && shares <= ownedShares
+
   // Check if user is authenticated
   if (!currentUser) {
     return (
@@ -113,28 +122,109 @@ export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
 
   const totalRevenue = stock.currentPrice * shares
 
+  const buildSupportHref = (
+    message: string,
+    errorCode?: string,
+    details?: {
+      requestedShares?: number
+      ownedShares?: number
+      databaseShares?: number
+    },
+  ) => {
+    const params = new URLSearchParams({
+      tag: "error",
+      subject: `Sell issue: ${stock.characterName}`,
+      body: [
+        `I ran into a sell issue while trading ${stock.characterName}.`,
+        "",
+        `Stock ID: ${stockId}`,
+        `Character: ${stock.characterName}`,
+        `Anime: ${stock.anime}`,
+        `Requested shares: ${details?.requestedShares ?? shares}`,
+        `Owned shares shown in app: ${details?.ownedShares ?? ownedShares}`,
+        typeof details?.databaseShares === "number"
+          ? `Owned shares in DB records: ${details.databaseShares}`
+          : "",
+        errorCode ? `Error code: ${errorCode}` : "",
+        `Error details: ${message}`,
+        `Timestamp: ${new Date().toISOString()}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      referenceId: stockId,
+    })
+    return `/support?${params.toString()}`
+  }
+
   const handleSell = async () => {
-    if (shares > maxShares) {
+    if (!sharesInput.trim() || Number.isNaN(parsedShares) || parsedShares < 1) {
       toast({
         title: "Invalid Amount",
-        description: `You only own ${maxShares} shares.`,
+        description: "Please enter at least 1 share.",
         variant: "destructive",
       })
       return
     }
 
-    const success = await sellStock(stockId, shares)
-    if (success) {
+    if (shares > ownedShares) {
+      toast({
+        title: "Invalid Amount",
+        description: `You only own ${ownedShares} shares.`,
+        variant: "destructive",
+        action: (
+          <ToastAction
+            altText="Report issue"
+            onClick={() =>
+              router.push(
+                buildSupportHref(
+                  `Tried to sell ${shares} shares but only had ${ownedShares}.`,
+                  "INSUFFICIENT_LOCAL_SHARES",
+                  { requestedShares: shares, ownedShares }
+                )
+              )
+            }
+          >
+            Report Issue
+          </ToastAction>
+        ),
+      })
+      return
+    }
+
+    const result = await sellStock(stockId, shares)
+    if (result.success) {
       toast({
         title: "Sale Successful",
         description: `You sold ${shares} shares of ${stock.characterName} for $${totalRevenue.toFixed(2)}`,
       })
       onClose()
     } else {
+      const description =
+        result.errorCode === "INSUFFICIENT_DATABASE_SHARES"
+          ? `You tried to sell ${shares} shares, but saved records only show ${result.databaseShares ?? 0} shares. Please refresh and try again.`
+          : result.errorCode === "INSUFFICIENT_LOCAL_SHARES"
+            ? `You only own ${result.ownedShares ?? ownedShares} shares.`
+            : result.errorMessage || "Something went wrong while processing this sell."
       toast({
         title: "Sale Failed",
-        description: "Something went wrong. Please try again.",
+        description,
         variant: "destructive",
+        action: (
+          <ToastAction
+            altText="Contact support"
+            onClick={() =>
+              router.push(
+                buildSupportHref(description, result.errorCode, {
+                  requestedShares: result.requestedShares ?? shares,
+                  ownedShares: result.ownedShares ?? ownedShares,
+                  databaseShares: result.databaseShares,
+                })
+              )
+            }
+          >
+            Contact Support
+          </ToastAction>
+        ),
       })
     }
   }
@@ -153,11 +243,16 @@ export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
               id="shares"
               type="number"
               min={1}
-              max={maxShares}
-              value={shares}
-              onChange={(e) => setShares(Math.max(1, Math.min(maxShares, Number.parseInt(e.target.value) || 1)))}
+              max={Math.max(ownedShares, 1)}
+              value={sharesInput}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value === "" || /^[0-9]+$/.test(value)) {
+                  setSharesInput(value)
+                }
+              }}
             />
-            <p className="text-sm text-muted-foreground">You own: {maxShares.toLocaleString()} shares</p>
+            <p className="text-sm text-muted-foreground">You own: {ownedShares.toLocaleString()} shares</p>
           </div>
           <div className="space-y-2 rounded-lg bg-muted p-4">
             <div className="flex justify-between text-sm">
@@ -180,7 +275,7 @@ export function SellDialog({ stockId, maxShares, onClose }: SellDialogProps) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSell} disabled={shares > maxShares || shares < 1}>
+          <Button onClick={handleSell} disabled={!isValidShares || shares > ownedShares}>
             Confirm Sale
           </Button>
         </DialogFooter>

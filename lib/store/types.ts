@@ -35,6 +35,28 @@ export type AddCommentInput = {
   location?: string;
 };
 
+export type SellStockErrorCode =
+  | "NOT_AUTHENTICATED"
+  | "USER_BANNED"
+  | "INVALID_STOCK"
+  | "INSUFFICIENT_LOCAL_SHARES"
+  | "INSUFFICIENT_DATABASE_SHARES"
+  | "DATABASE_PORTFOLIO_MISSING"
+  | "PERSISTENCE_FAILED";
+
+export type SellStockResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      errorCode: SellStockErrorCode;
+      errorMessage: string;
+      requestedShares?: number;
+      ownedShares?: number;
+      databaseShares?: number;
+    };
+
 export interface StoreContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
@@ -67,7 +89,7 @@ export interface StoreContextType {
   characterSuggestions: CharacterSuggestion[];
 
   buyStock: (stockId: string, shares: number) => Promise<boolean>;
-  sellStock: (stockId: string, shares: number) => Promise<boolean>;
+  sellStock: (stockId: string, shares: number) => Promise<SellStockResult>;
   placeDirectionalBet: (
     stockId: string,
     type: DirectionalBet["type"],

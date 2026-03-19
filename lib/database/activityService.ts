@@ -1,9 +1,30 @@
-import { Query } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import { ensureDatabaseIdAvailable } from "./utils";
 import { TRANSACTION_ACTIVITY_COLLECTION } from "./utils";
 import { stockService } from "./stockService";
 import { generateAnimeSlug } from "@/lib/utils";
+
+let activityCollectionUnavailable = false;
+let hasLoggedCollectionUnavailable = false;
+
+function isMissingCollectionError(error: unknown): boolean {
+  const code = (error as any)?.code;
+  const message = String((error as any)?.message ?? "").toLowerCase();
+  return code === 404 && message.includes("collection");
+}
+
+function markCollectionUnavailable(error: unknown): boolean {
+  if (!isMissingCollectionError(error)) return false;
+  activityCollectionUnavailable = true;
+  if (!hasLoggedCollectionUnavailable) {
+    hasLoggedCollectionUnavailable = true;
+    console.warn(
+      "Transaction activity collection is missing. Activity tracking is disabled until setup is run."
+    );
+  }
+  return true;
+}
 
 export const activityService = {
   /**
@@ -11,6 +32,7 @@ export const activityService = {
    * delta may be positive or negative
    */
   async adjustCountForStock(stockId: string, delta = 1) {
+    if (activityCollectionUnavailable) return;
     try {
       const stock = await stockService.getById(stockId);
       if (!stock || !stock.anime) return;
@@ -44,7 +66,7 @@ export const activityService = {
         await databases.createDocument(
           dbId,
           TRANSACTION_ACTIVITY_COLLECTION,
-          "unique::" + slug,
+          ID.unique(),
           {
             anime: stock.anime,
             slug,
@@ -54,6 +76,7 @@ export const activityService = {
       }
     } catch (error) {
       // non-fatal - activity counts are best-effort
+      if (markCollectionUnavailable(error)) return;
       console.warn("Failed to adjust activity count:", error);
     }
   },
@@ -62,6 +85,7 @@ export const activityService = {
    * Get top anime activity ordered by count (desc)
    */
   async getTopAnimeActivity(limit = 50) {
+    if (activityCollectionUnavailable) return [];
     try {
       const dbId = ensureDatabaseIdAvailable();
       const res = await databases.listDocuments(
@@ -76,6 +100,7 @@ export const activityService = {
         count: d.count ?? 0,
       }));
     } catch (error) {
+      if (markCollectionUnavailable(error)) return [];
       console.warn("Failed to load top anime activity:", error);
       return [];
     }

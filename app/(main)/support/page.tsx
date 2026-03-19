@@ -4,10 +4,25 @@ import { SupportForm } from "@/components/support/support-form";
 import { SupportList } from "@/components/support/support-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
+import { useSearchParams } from "next/navigation";
+import { useSyncExternalStore } from "react";
 
 export default function SupportPage() {
+  const searchParams = useSearchParams();
+  const isHydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const { currentUser } = useStore();
   const isAdmin = currentUser?.isAdmin;
+  const showAdminCompose =
+    isHydrated &&
+    (Boolean(searchParams.get("subject")) ||
+      Boolean(searchParams.get("body")) ||
+      Boolean(searchParams.get("message")) ||
+      Boolean(searchParams.get("tag")) ||
+      Boolean(searchParams.get("referenceId")));
 
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">
@@ -25,14 +40,22 @@ export default function SupportPage() {
       </section>
 
       {isAdmin ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">All Support Tickets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SupportList />
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">All Support Tickets</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SupportList />
+            </CardContent>
+          </Card>
+
+          {showAdminCompose && (
+            <div className="max-w-2xl">
+              <SupportForm />
+            </div>
+          )}
+        </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3 items-start">
           <div className="lg:col-span-2">

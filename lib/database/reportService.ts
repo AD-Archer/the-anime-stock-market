@@ -1,4 +1,4 @@
-import { ID } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { Report } from "../types";
 import {
@@ -46,8 +46,22 @@ export const reportService = {
   async getAll(): Promise<Report[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(dbId, REPORTS_COLLECTION);
-      return response.documents.map(mapReport);
+      const limit = 100;
+      let offset = 0;
+      const allReports: Report[] = [];
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          REPORTS_COLLECTION,
+          [Query.orderDesc("createdAt"), Query.limit(limit), Query.offset(offset)]
+        );
+        allReports.push(...response.documents.map(mapReport));
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return allReports;
     } catch (error) {
       console.warn("Failed to fetch reports from database:", error);
       return [];
