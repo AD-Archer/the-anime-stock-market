@@ -260,7 +260,7 @@ export function ComparisonChart({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
-                  formatter={(value: any, name?: string) => [
+                  formatter={(value, name) => [
                     formatCurrencyCompact(Number(value)),
                     name ?? "Value",
                   ]}

@@ -120,7 +120,7 @@ export default function PriceCharts({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
-                  formatter={(value: any, name?: string) => [
+                  formatter={(value, name) => [
                     formatCurrencyCompact(Number(value)),
                     name === "price" ? "Price" : name ?? "Value",
                   ]}
@@ -191,7 +191,7 @@ export default function PriceCharts({
                     fontSize: isMobile ? "12px" : "14px",
                   }}
                   labelStyle={{ color: "var(--foreground)" }}
-                  formatter={(value: any, name?: string) => [
+                  formatter={(value, name) => [
                     formatCurrencyCompact(Number(value)),
                     name === "marketCap" ? "Market Cap" : name ?? "Value",
                   ]}
