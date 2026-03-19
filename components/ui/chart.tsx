@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { TooltipContentProps, TooltipProps } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ export function ChartContainer({
   );
 }
 
-export function ChartTooltip({ ...props }: TooltipProps<number, string>) {
+export function ChartTooltip({ ...props }: React.ComponentProps<typeof Tooltip>) {
   return <Tooltip {...props} />;
 }
 
