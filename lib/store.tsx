@@ -300,13 +300,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               };
             });
 
-            if (typeof window !== "undefined") {
-              try {
-                console.log(
-                  `[store.loadData][background] hydrated stocks length: ${allStocks.length}`
-                );
-              } catch {}
-            }
           })
           .catch((error) => {
             console.warn("Failed background stock hydration:", error);
@@ -336,23 +329,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        // Client-side debug logging to help diagnose missing stocks
-        if (typeof window !== "undefined") {
-          try {
-            console.log(
-              `[store.loadData] bootstrap stocks length: ${bootstrapStocksData.length}`
-            );
-            const sampleIds = bootstrapStocksData.slice(0, 10).map((s) => s.id);
-            console.log("[store.loadData] sample stock IDs:", sampleIds);
-            // Expose sample on window for quick debugging
-            (window as any).__LATEST_STOCKS_SAMPLE = sampleIds;
-          } catch (err) {
-            console.warn(
-              "[store.loadData] Failed to log stocksData summary:",
-              err
-            );
-          }
-        }
 
         await useStore.getState().processPendingDeletions();
 

@@ -1,4 +1,4 @@
-import { ID } from "appwrite";
+import { ID, Query } from "appwrite";
 import { databases } from "../appwrite/appwrite";
 import type { Award } from "../types";
 import {
@@ -15,8 +15,21 @@ export const awardService = {
   async getAll(): Promise<Award[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(dbId, AWARDS_COLLECTION);
-      return response.documents.map(mapAward);
+      const limit = 100;
+      let offset = 0;
+      const documents: any[] = [];
+
+      while (true) {
+        const response = await databases.listDocuments(dbId, AWARDS_COLLECTION, [
+          Query.limit(limit),
+          Query.offset(offset),
+        ]);
+        documents.push(...response.documents);
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return documents.map(mapAward);
     } catch (error) {
       console.warn("Failed to fetch awards from database:", error);
       return [];
@@ -26,13 +39,44 @@ export const awardService = {
   async getByUserId(userId: string): Promise<Award[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(dbId, AWARDS_COLLECTION, [
-        `userId=${userId}`,
-      ]);
-      return response.documents.map(mapAward);
+      const limit = 100;
+      let offset = 0;
+      const documents: any[] = [];
+
+      while (true) {
+        const response = await databases.listDocuments(
+          dbId,
+          AWARDS_COLLECTION,
+          [Query.equal("userId", userId), Query.limit(limit), Query.offset(offset)]
+        );
+        documents.push(...response.documents);
+        if (response.documents.length < limit) break;
+        offset += limit;
+      }
+
+      return documents.map(mapAward);
     } catch (error) {
       console.warn("Failed to fetch awards for user from database:", error);
       return [];
+    }
+  },
+
+  async getByUserAndType(
+    userId: string,
+    type: Award["type"]
+  ): Promise<Award | null> {
+    try {
+      const dbId = ensureDatabaseIdAvailable();
+      const response = await databases.listDocuments(dbId, AWARDS_COLLECTION, [
+        Query.equal("userId", userId),
+        Query.equal("type", type),
+        Query.limit(1),
+      ]);
+      if (response.documents.length === 0) return null;
+      return mapAward(response.documents[0]);
+    } catch (error) {
+      console.warn("Failed to fetch award by user and type from database:", error);
+      return null;
     }
   },
 
