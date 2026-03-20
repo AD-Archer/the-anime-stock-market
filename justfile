@@ -47,5 +47,5 @@ docker-stop:
   infisical run -- pnpm docker:stop
 
 merge:
-  infis run --env=prod  pnpm appwrite:setup
+  infisical run --env=prod  pnpm appwrite:setup
   git push && git checkout prod && git merge dev && git push && git checkout dev
