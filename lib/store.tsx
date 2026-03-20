@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { create } from "zustand";
 import { useAuth } from "./auth";
-import { databases, ensureAppwriteInitialized } from "./appwrite/appwrite";
+import { ensureAppwriteInitialized } from "./appwrite/appwrite";
+import { subscribeToRealtime } from "./appwrite/realtime";
 import {
   buybackOfferService,
   commentService,
@@ -647,7 +648,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const unsubscribe = databases.client.subscribe(
+    const unsubscribe = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${COMMENTS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -711,7 +712,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const messagesUnsub = databases.client.subscribe(
+    const messagesUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION}.documents`,
       (response) => {
         try {
@@ -876,7 +877,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const notificationsUnsub = databases.client.subscribe(
+    const notificationsUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${NOTIFICATIONS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -913,7 +914,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    const friendsUnsub = databases.client.subscribe(
+    const friendsUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${FRIENDS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -959,7 +960,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const usersUnsub = databases.client.subscribe(
+    const usersUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${USERS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1002,7 +1003,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    const portfoliosUnsub = databases.client.subscribe(
+    const portfoliosUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${PORTFOLIOS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1070,7 +1071,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const sortTransactions = (txs: Transaction[]) =>
       [...txs].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    const transactionsUnsub = databases.client.subscribe(
+    const transactionsUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${TRANSACTIONS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1117,7 +1118,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const stockUnsub = databases.client.subscribe(
+    const stockUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${STOCKS_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1209,7 +1210,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    const priceUnsub = databases.client.subscribe(
+    const priceUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${PRICE_HISTORY_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1237,7 +1238,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
 
     // Keep track of metadata updates (e.g., last market drift timestamp)
-    const metadataUnsub = databases.client.subscribe(
+    const metadataUnsub = subscribeToRealtime(
       `databases.${DATABASE_ID}.collections.${METADATA_COLLECTION}.documents`,
       (response) => {
         try {
@@ -1343,14 +1344,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }, 100);
     };
 
-    if (!databases?.client?.subscribe) {
-      console.warn("Realtime client is unavailable for directional bets");
-      return;
-    }
-
     let directionalBetsUnsub: (() => void) | undefined;
     try {
-      directionalBetsUnsub = databases.client.subscribe(
+      directionalBetsUnsub = subscribeToRealtime(
         `databases.${runtimeDatabaseId}.collections.${DIRECTIONAL_BETS_COLLECTION}.documents`,
         (response) => {
           try {

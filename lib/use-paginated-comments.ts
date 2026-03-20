@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { databases, ensureAppwriteInitialized } from "./appwrite/appwrite";
+import { ensureAppwriteInitialized } from "./appwrite/appwrite";
+import { subscribeToRealtime } from "./appwrite/realtime";
 import {
   commentService,
   type CommentListScope,
@@ -193,7 +194,7 @@ export function usePaginatedComments(scope: CommentListScope) {
       const databaseId = getRuntimeDatabaseId();
       if (!databaseId || isCancelled) return;
 
-      unsubscribe = databases.client.subscribe(
+      unsubscribe = subscribeToRealtime(
         `databases.${databaseId}.collections.${COMMENTS_COLLECTION}.documents`,
         (response) => {
           try {
