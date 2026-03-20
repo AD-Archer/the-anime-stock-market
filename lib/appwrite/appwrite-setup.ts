@@ -717,6 +717,14 @@ async function setup() {
       await ensureIndex(databases, collection.id, "slug", "key", ["slug"]);
       await ensureIndex(databases, collection.id, "count", "key", ["count"]);
     }
+    if (collection.id === "portfolios") {
+      await ensureIndex(databases, collection.id, "userId", "key", ["userId"]);
+      await ensureIndex(databases, collection.id, "stockId", "key", ["stockId"]);
+      await ensureIndex(databases, collection.id, "userId_stockId", "key", [
+        "userId",
+        "stockId",
+      ]);
+    }
     if (collection.id === "reports") {
       await ensureIndex(databases, collection.id, "status", "key", ["status"]);
       await ensureIndex(databases, collection.id, "createdAt", "key", [

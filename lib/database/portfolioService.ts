@@ -1,7 +1,6 @@
 import { databases } from "../appwrite/appwrite";
 import type { Portfolio } from "../types";
 import {
-  DATABASE_ID,
   PORTFOLIOS_COLLECTION,
   mapPortfolio,
   normalizePayload,
@@ -10,15 +9,35 @@ import {
 import { generateShortId } from "../utils";
 import { Query } from "appwrite";
 
+const PAGE_SIZE = 100;
+
+const listPortfoliosPage = async (
+  dbId: string,
+  queries: any[] = []
+): Promise<any[]> => {
+  const documents: any[] = [];
+  let offset = 0;
+
+  while (true) {
+    const response = await databases.listDocuments(dbId, PORTFOLIOS_COLLECTION, [
+      ...queries,
+      Query.limit(PAGE_SIZE),
+      Query.offset(offset),
+    ]);
+    documents.push(...response.documents);
+    if (response.documents.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return documents;
+};
+
 export const portfolioService = {
   async getAll(): Promise<Portfolio[]> {
     try {
       const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(
-        dbId,
-        PORTFOLIOS_COLLECTION
-      );
-      return response.documents.map(mapPortfolio);
+      const documents = await listPortfoliosPage(dbId);
+      return documents.map(mapPortfolio);
     } catch (error) {
       console.warn("Failed to fetch portfolios from database:", error);
       return [];
@@ -45,14 +64,9 @@ export const portfolioService = {
     stockId: string
   ): Promise<Portfolio | null> {
     try {
-      const dbId = ensureDatabaseIdAvailable();
-      const response = await databases.listDocuments(
-        dbId,
-        PORTFOLIOS_COLLECTION,
-        [Query.equal("userId", userId), Query.equal("stockId", stockId)]
-      );
-      if (response.documents.length === 0) return null;
-      return mapPortfolio(response.documents[0]);
+      const matches = await this.getAllByUserAndStock(userId, stockId);
+      if (matches.length === 0) return null;
+      return matches[0];
     } catch (error) {
       console.warn("Failed to fetch portfolio from database:", error);
       return null;
@@ -63,29 +77,32 @@ export const portfolioService = {
     userId: string,
     stockId: string
   ): Promise<Portfolio[]> {
+    const dbId = ensureDatabaseIdAvailable();
+
     try {
-      const dbId = ensureDatabaseIdAvailable();
-      const limit = 100;
-      let offset = 0;
-      const documents: any[] = [];
-
-      while (true) {
-        const response = await databases.listDocuments(
-          dbId,
-          PORTFOLIOS_COLLECTION,
-          [
-            Query.equal("userId", userId),
-            Query.equal("stockId", stockId),
-            Query.limit(limit),
-            Query.offset(offset),
-          ]
-        );
-        documents.push(...response.documents);
-        if (response.documents.length < limit) break;
-        offset += limit;
-      }
-
+      const documents = await listPortfoliosPage(dbId, [
+        Query.equal("userId", userId),
+        Query.equal("stockId", stockId),
+      ]);
       return documents.map(mapPortfolio);
+    } catch (error) {
+      // Some Appwrite environments reject attribute queries when indexes are missing.
+      // Fallback to a bounded full scan so trading can still reconcile holdings.
+      console.warn(
+        "Indexed portfolio lookup failed, falling back to scan:",
+        error
+      );
+    }
+
+    try {
+      const documents = await listPortfoliosPage(dbId);
+      return documents
+        .filter(
+          (doc) =>
+            String((doc as any).userId ?? "") === userId &&
+            String((doc as any).stockId ?? "") === stockId
+        )
+        .map(mapPortfolio);
     } catch (error) {
       console.warn("Failed to fetch portfolios by user and stock:", error);
       return [];
