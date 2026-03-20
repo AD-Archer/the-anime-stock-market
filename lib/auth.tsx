@@ -343,12 +343,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // New accounts can claim a one-time welcome bonus.
-      await awardService.create({
-        userId: accountUser.$id,
-        type: "welcome_bonus",
-        unlockedAt: new Date(),
-        redeemed: false,
-      });
+      const existingWelcomeBonus = await awardService.getByUserAndType(
+        accountUser.$id,
+        "welcome_bonus"
+      );
+      if (!existingWelcomeBonus) {
+        await awardService.create({
+          userId: accountUser.$id,
+          type: "welcome_bonus",
+          unlockedAt: new Date(),
+          redeemed: false,
+        });
+      }
 
       if (isServer) {
         const { logger } = await import("./logger");

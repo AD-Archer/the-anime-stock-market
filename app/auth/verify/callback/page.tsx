@@ -29,9 +29,9 @@ export default function EmailVerificationCallbackPage() {
 
       const grantVerifiedAward = async () => {
         try {
-          const existingAwards = await awardService.getByUserId(userId);
-          const existingAward = existingAwards.find(
-            (award) => award.type === "verified_account"
+          const existingAward = await awardService.getByUserAndType(
+            userId,
+            "verified_account"
           );
           const award =
             existingAward ??
@@ -42,7 +42,11 @@ export default function EmailVerificationCallbackPage() {
               redeemed: false,
             }));
           useStore.setState((state) => {
-            if (state.awards.some((a) => a.id === award.id)) {
+            if (
+              state.awards.some(
+                (a) => a.userId === award.userId && a.type === award.type
+              )
+            ) {
               return state;
             }
             return { awards: [...state.awards, award] };
