@@ -91,7 +91,8 @@ export function SellDialog({ stockId, onClose }: SellDialogProps) {
     currentUser
       ? getUserPortfolio(currentUser.id).find((p) => p.stockId === stockId)?.shares ?? 0
       : 0
-  const isValidShares = shares >= 1 && shares <= ownedShares
+  const exceedsKnownShares = ownedShares > 0 && shares > ownedShares
+  const isValidShares = shares >= 1
 
   // Check if user is authenticated
   if (!currentUser) {
@@ -166,7 +167,9 @@ export function SellDialog({ stockId, onClose }: SellDialogProps) {
       return
     }
 
-    if (shares > ownedShares) {
+    // If local holdings are stale (often 0 while DB still has shares),
+    // allow the request through so sellStock can verify against saved records.
+    if (exceedsKnownShares) {
       toast({
         title: "Invalid Amount",
         description: `You only own ${ownedShares} shares.`,
@@ -275,7 +278,7 @@ export function SellDialog({ stockId, onClose }: SellDialogProps) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSell} disabled={!isValidShares || shares > ownedShares}>
+          <Button onClick={handleSell} disabled={!isValidShares || exceedsKnownShares}>
             Confirm Sale
           </Button>
         </DialogFooter>

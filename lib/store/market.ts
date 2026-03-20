@@ -85,6 +85,57 @@ const replaceUserStockPortfolioRows = (
   ...replacements,
 ];
 
+const deriveUserHoldingsFromTransactions = (
+  transactions: Transaction[],
+  userId: string
+): Map<string, { shares: number; averageBuyPrice: number }> => {
+  const sortedUserTransactions = transactions
+    .filter((tx) => tx.userId === userId && tx.stockId)
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+  const byStock = new Map<string, { shares: number; costBasis: number }>();
+
+  for (const tx of sortedUserTransactions) {
+    const stockId = tx.stockId;
+    const shares = Number.isFinite(tx.shares) ? tx.shares : 0;
+    if (!stockId || shares <= 0) continue;
+
+    const current = byStock.get(stockId) || { shares: 0, costBasis: 0 };
+
+    if (tx.type === "buy") {
+      const pricePerShare = Number.isFinite(tx.pricePerShare)
+        ? tx.pricePerShare
+        : 0;
+      current.costBasis += Math.max(0, pricePerShare) * shares;
+      current.shares += shares;
+      byStock.set(stockId, current);
+      continue;
+    }
+
+    if (current.shares <= 0) continue;
+
+    const sharesToSell = Math.min(current.shares, shares);
+    const averageCost = current.shares > 0 ? current.costBasis / current.shares : 0;
+    current.shares -= sharesToSell;
+    current.costBasis = Math.max(0, current.costBasis - averageCost * sharesToSell);
+    if (current.shares <= 0) {
+      current.shares = 0;
+      current.costBasis = 0;
+    }
+    byStock.set(stockId, current);
+  }
+
+  const holdings = new Map<string, { shares: number; averageBuyPrice: number }>();
+  byStock.forEach((value, stockId) => {
+    if (value.shares <= 0) return;
+    holdings.set(stockId, {
+      shares: value.shares,
+      averageBuyPrice: Number((value.costBasis / value.shares).toFixed(6)),
+    });
+  });
+  return holdings;
+};
+
 const DEBUG_PRICE_HISTORY =
   process.env.NEXT_PUBLIC_DEBUG_PRICE_HISTORY === "1";
 
@@ -768,15 +819,6 @@ export function createMarketActions({
       (sum, portfolio) => sum + portfolio.shares,
       0
     );
-    if (localOwnedShares < shares) {
-      return {
-        success: false,
-        errorCode: "INSUFFICIENT_LOCAL_SHARES",
-        errorMessage: `You only own ${localOwnedShares} shares.`,
-        requestedShares: shares,
-        ownedShares: localOwnedShares,
-      };
-    }
 
     const initialStock = stateSnapshot.stocks.find((s) => s.id === stockId);
     if (!initialStock) {
@@ -787,11 +829,57 @@ export function createMarketActions({
       };
     }
 
-    const dbPortfolios = await portfolioService.getAllByUserAndStock(
-      currentUser.id,
-      stockId
-    );
-    const dbOwnedShares = dbPortfolios.reduce(
+    let dbPortfolios: Portfolio[] = [];
+    try {
+      dbPortfolios = await portfolioService.getAllByUserAndStock(
+        currentUser.id,
+        stockId
+      );
+    } catch (error) {
+      console.error("Failed to load portfolios before sell:", error);
+      return {
+        success: false,
+        errorCode: "PERSISTENCE_FAILED",
+        errorMessage:
+          "Unable to verify your holdings right now. Please refresh and try again.",
+        requestedShares: shares,
+        ownedShares: localOwnedShares,
+      };
+    }
+    if (dbPortfolios.length === 0) {
+      const derivedHolding = deriveUserHoldingsFromTransactions(
+        stateSnapshot.transactions,
+        currentUser.id
+      ).get(stockId);
+
+      if (derivedHolding && derivedHolding.shares > 0) {
+        try {
+          const repairedPortfolio = await portfolioService.create({
+            id: generateShortId(),
+            userId: currentUser.id,
+            stockId,
+            shares: derivedHolding.shares,
+            averageBuyPrice: derivedHolding.averageBuyPrice,
+          });
+          dbPortfolios = [repairedPortfolio];
+          setState((state) => ({
+            portfolios: replaceUserStockPortfolioRows(
+              state.portfolios,
+              currentUser.id,
+              stockId,
+              [repairedPortfolio]
+            ),
+          }));
+        } catch (repairError) {
+          console.error(
+            "Failed to repair missing portfolio from transactions:",
+            repairError
+          );
+        }
+      }
+    }
+
+    const resolvedDbOwnedShares = dbPortfolios.reduce(
       (sum, portfolio) => sum + portfolio.shares,
       0
     );
@@ -804,11 +892,11 @@ export function createMarketActions({
           "Could not find matching portfolio records in the database.",
         requestedShares: shares,
         ownedShares: localOwnedShares,
-        databaseShares: dbOwnedShares,
+        databaseShares: resolvedDbOwnedShares,
       };
     }
 
-    if (dbOwnedShares < shares) {
+    if (resolvedDbOwnedShares < shares) {
       setState((state) => ({
         portfolios: replaceUserStockPortfolioRows(
           state.portfolios,
@@ -820,15 +908,15 @@ export function createMarketActions({
       return {
         success: false,
         errorCode: "INSUFFICIENT_DATABASE_SHARES",
-        errorMessage: `You only own ${dbOwnedShares} shares in saved records.`,
+        errorMessage: `You only own ${resolvedDbOwnedShares} shares in saved records.`,
         requestedShares: shares,
         ownedShares: localOwnedShares,
-        databaseShares: dbOwnedShares,
+        databaseShares: resolvedDbOwnedShares,
       };
     }
 
     if (
-      dbOwnedShares !== localOwnedShares ||
+      resolvedDbOwnedShares !== localOwnedShares ||
       dbPortfolios.length !== userStockPortfolios.length
     ) {
       setState((state) => ({
@@ -1065,7 +1153,7 @@ export function createMarketActions({
         errorMessage,
         requestedShares: shares,
         ownedShares: localOwnedShares,
-        databaseShares: dbOwnedShares,
+        databaseShares: resolvedDbOwnedShares,
       };
     }
   };
@@ -1913,8 +2001,9 @@ export function createMarketActions({
 
   const getUserPortfolio = (userId: string): Portfolio[] => {
     const aggregated = new Map<string, Portfolio>();
-    getState()
-      .portfolios.filter((p) => p.userId === userId)
+    const state = getState();
+    state.portfolios
+      .filter((p) => p.userId === userId)
       .forEach((portfolio) => {
         const existing = aggregated.get(portfolio.stockId);
         if (!existing) {
@@ -1936,6 +2025,22 @@ export function createMarketActions({
           averageBuyPrice: combinedAverage,
         });
       });
+
+    // Backfill gaps from transactions if portfolio rows are missing for a stock.
+    const derivedHoldings = deriveUserHoldingsFromTransactions(
+      state.transactions,
+      userId
+    );
+    derivedHoldings.forEach((holding, stockId) => {
+      if (aggregated.has(stockId)) return;
+      aggregated.set(stockId, {
+        id: `derived-${userId}-${stockId}`,
+        userId,
+        stockId,
+        shares: holding.shares,
+        averageBuyPrice: holding.averageBuyPrice,
+      });
+    });
 
     return Array.from(aggregated.values());
   };
